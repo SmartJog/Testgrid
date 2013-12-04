@@ -4,6 +4,7 @@ import sys
 import json
 import ansible.runner
 import paramiko
+from paramiko import DSSKey
 import socket
 sys.path.append('../database/')
 import initDatabase
@@ -32,6 +33,11 @@ class Command:
           print "add instance %s" % comArray[2]
           if len(comArray) >= 5:
                try:
+                    prv = DSSKey.generate()
+                    prv.write_private_key_file("test_grid", password="test_grid")
+                    pub = DSSKey(filename="test_grid", password="test_grid")
+                    with open("%s.pub" % "test_grid", 'w') as f:
+                         f.write("%s %s" % (pub.get_name(), pub.get_base64()))
                     ssh = paramiko.SSHClient()
                     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                     #ssh.connect(comArray[2], username=comArray[3], password=comArray[4])
