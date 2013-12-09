@@ -38,10 +38,14 @@ class Command:
      def AddInstance(self,comArray):
           print "add instance %s" % comArray[2]
           if len(comArray) >= 5:
+               if self.data.CheckIfPhysicalInstanceExist(comArray[2])==False:
+                    print "%s already exist in testGid database" % comArray[2]
+                    return
+
                try:
                  sshInit.checkNewClient(comArray[2], comArray[3], comArray[4], "../generate_key/testGridkey.pub")
                  
-                 """   agent_keys = agent.get_keys()
+                 """ agent_keys = agent.get_keys()
                     print "agent key %s" % len(agent_keys)
                     if len(agent_keys) == 0:
                          return

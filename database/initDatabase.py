@@ -36,6 +36,14 @@ class ManageDatabase(object):
                self.conn.rollback()
                print "sqlite3 Error AddPhysicalInstance: %s" % e
 
+     def CheckIfPhysicalInstanceExist(self, Ip):
+          try:
+               self.db.execute("SELECT IpAddress FROM  PhysicalInstance Where IpAddress ='%s'" % Ip)
+               if len(self.db.fetchall())==0:
+                    return False
+               return True
+          except sqlite3.Error, e:
+               print "sqlite3 Error CheckIfPhysicalInstanceExist: %s" % e
 #if __name__ == '__main__':
 #    test = ManageDatabase()
 #   test.CreateDb("TestGrid1")

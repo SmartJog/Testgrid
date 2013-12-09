@@ -26,45 +26,58 @@ class sshInit:
 
     @staticmethod         
     def checkNewClient(Ip, userName, passw, serverkey):
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(Ip, username=userName, password=passw)
-        print "test"
-        stdin, stdout, stderr = ssh.exec_command('uname')
-        #print "OS %s" % stdout
-        sshInit.createSshKey(Ip, "../generate_key")
-        home = os.path.expanduser("~/")
-        kh = open("%s.ssh/known_hosts" % home, "a+")
-        print "open %s" % home
-        key = open("../generate_key/%s.pub" % Ip, "r")
-        keyval = key.read();
-        kh.write(keyval);
-        kh.close()
-        key.close()
         try:
-
-            sftp = ssh.open_sftp();
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(Ip, username=userName, password=passw)
+            #print "cannot connect to this node"
+            print "test"
+            ssh.load_system_host_keys()
+            agent = paramiko.Agent()
+            agent_keys = agent.get_keys()
+        #print "agent key %s" % len(agent_keys)
+      
+            
+            stdin, stdout, stderr = ssh.exec_command('uname')
+            print "OS %s" % stdout.read()
+            sshInit.createSshKey(Ip, "../generate_key")
+            home = os.path.expanduser("~/")
+            kh = open("%s.ssh/known_hosts" % home, "a+")
+            print "open %s" % home
+            key = open("../generate_key/%s.pub" % Ip, "r")
+            keyval = key.read();
+        #print "keyval %s" % keyval
+            kh.write(keyval);
+            kh.close()
+            key.close()
+            sftp = ssh.open_sftp()
+            try:
+                sftp.mkdir(".ssh/")
+            except IOError:
+                print '(assuming demo_sftp_folder/ already exists)'
+            sftp.put("../generate_key/%s.pub" % Ip, ".ssh/%s.pub" % Ip)
             print "sftp avan"
-        #sftp.mkdir(".ssh")
-            print "sftp avan"
-            sftp.put("../generate_key/%s.pub" % Ip, ".ssh/")
-            print "sftp avan"
-            sftp.put("../generate_key/%s" % Ip, ".ssh/")
+            sftp.put("../generate_key/%s" % Ip, ".ssh/%s" % Ip)
             print "sftp apres"
-        except SFTPError as e:
+        except paramiko.SFTPError as e:
             print e
         try:
-            sftp.stat("~/.ssh/authorirized_keys")
-            sftp.get("~/.ssh/authorirized_keys", "../tmp/authorirized_keys")
-            f = open("../tmp/authorirized_keys", "a+")
+            print "stat"
+            sftp.stat(".ssh/authorized_keys")
+            sftp.get(".ssh/authorized_keys", "../generate_key/authorized_keys")
+            f = open("../generate_key/authorized_keys", "a+")
             fServer = open(serverkey, "r")
             ks = fServer.read()
             f.write(ks)
             f.close()
             fServer.close()
-            sftp.put("../tmp/authorirized_keys", "~/.ssh/authorirized_keys")
-        except SFTPError:
-            print "sftp error"
-            sftp.put(serverkey, "~/.ssh/authorirized_keys")
+            sftp.put("../generate_key/authorized_keys", ".ssh/authorized_keys")
+        except IOError:
+            print "creating ~/.ssh/authorized_keys"
+            sftp.put(serverkey,".ssh/authorized_keys")
+        except(paramiko.AuthenticationException, paramiko.SSHException, 
+               paramiko.BadHostKeyException, socket.error, paramiko.SFTPError) as eMsg:
+            print eMsg
+            
         sftp.close()
         ssh.close()
