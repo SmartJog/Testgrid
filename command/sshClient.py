@@ -6,7 +6,7 @@ from paramiko import DSSKey
 import socket
 from binascii import hexlify
 import shutil
-
+from paramiko import Transport
 class sshInit:
     @staticmethod
     def createSshKey(name, path):
@@ -27,14 +27,18 @@ class sshInit:
     @staticmethod         
     def checkNewClient(Ip, userName, passw, serverkey):
         try:
+            #t = Transport(Ip)
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(Ip, username=userName, password=passw)
+            ssh.load_system_host_keys()
+            print "unlock private key??? wut"
+            #t.auth_password(userName, passw)
+            ssh.connect(Ip, username=userName, password=passw, look_for_keys=False, allow_agent=False)
             #print "cannot connect to this node"
             print "test"
             ssh.load_system_host_keys()
-            agent = paramiko.Agent()
-            agent_keys = agent.get_keys()
+          
+          #  agent_keys = agent.get_keys()
         #print "agent key %s" % len(agent_keys)
       
             
@@ -68,6 +72,7 @@ class sshInit:
             f = open("../generate_key/authorized_keys", "a+")
             fServer = open(serverkey, "r")
             ks = fServer.read()
+            f.write("\n")
             f.write(ks)
             f.close()
             fServer.close()

@@ -4,12 +4,13 @@ import json
 import paramiko
 from paramiko import DSSKey
 import socket
-
 sys.path.append('../database/')
 import initDatabase
 from initDatabase import *
 import sshClient
-from sshClient import *
+OBfrom sshClient import *
+import ansible.runner
+import ansible.playbook
 
 
 class State(object):
@@ -27,7 +28,7 @@ class Command:
                os.mkdir("../generate_key")
           if not os.path.exists("../generate_key/testGridkey"):
                sshInit.createSshKey("testGridkey", "../generate_key");
-
+               
 
      def ManageArg(self, comArray):
           if comArray[1] in self.func_map:
@@ -38,31 +39,39 @@ class Command:
      def AddInstance(self,comArray):
           print "add instance %s" % comArray[2]
           if len(comArray) >= 5:
-               if self.data.CheckIfPhysicalInstanceExist(comArray[2])==False:
-                    print "%s already exist in testGid database" % comArray[2]
-                    return
+          #if self.data.CheckIfPhysicalInstanceExist(comArray[2])==False:
+           #    print "%s already exist in testGid database" % comArray[2]
+            #   return
 
                try:
-                 sshInit.checkNewClient(comArray[2], comArray[3], comArray[4], "../generate_key/testGridkey.pub")
-                 
-                 """ agent_keys = agent.get_keys()
+                    print "wtf"
+                    #if self.data.CheckIfPhysicalInstanceExist(comArray[2])==False:
+                    sshInit.checkNewClient(comArray[2], comArray[3], comArray[4], "../generate_key/testGridkey.pub")
+                    print "wtf2"
+                    agent = paramiko.Agent()
+                    agent_keys = agent.get_keys()
                     print "agent key %s" % len(agent_keys)
                     if len(agent_keys) == 0:
                          return
-                    for key in agent_keys:
-                         print 'Trying ssh-agent key %s' % hexlify(key.get_fingerprint()),
-                         try:
-                              ssh.connect(comArray[2], username=comArray[3], pkey=key)
-                              #ssh.auth_publickey(comArray[3], key)
+                    try:
+                         for key in agent_keys:
+                              print 'Trying ssh-agent key %s' % hexlify(key.get_fingerprint()),
+                              ssh = paramiko.SSHClient()
+                              ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                              ssh.load_system_host_keys()
+                              ssh.connect(comArray[2], username=comArray[3], pkey=key, allow_agent=True, look_for_keys=True)
+                           #ssh.auth_publickey(comArray[3], key)
                               print '... success!'
                               return
-                         except paramiko.SSHException:
-                              print '... nope.'  """
-                   
-                   
-                    
-                 print "data"
-                 self.data.AddPhysicalInstance(comArray[2], comArray[3], comArray[4])
+                      #except paramiko.PasswordRequiredException:
+                       #    print "need pass"
+                    except paramiko.SSHException:
+                         print '... nope.'
+                         print "agent close"
+                    agent.close();
+                                   
+                    print "data"
+                    self.data.AddPhysicalInstance(comArray[2], comArray[3], comArray[4])
                except Exception as e:
                     print e
                     
