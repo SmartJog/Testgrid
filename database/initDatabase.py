@@ -3,6 +3,7 @@ import sqlite3
 import sys
 import os
 import json
+import base64
 #import ansible.runner
 
 class ManageDatabase(object):
@@ -23,14 +24,17 @@ class ManageDatabase(object):
           try:
                self.db = self.conn.cursor()
                self.db.execute("CREATE TABLE PhysicalInstance(Id INTEGER PRIMARY KEY AUTOINCREMENT, OperatingSystem VARCHAR(25), IpAddress VARCHAR(25), state SMALLINT UNSIGNED NOT NULL, userName VARCHAR(25),  pass VARCHAR(25), deliverable VARCHAR(25), version VARCHAR(25))")
-               self.db.execute("CREATE TABLE VirtualInstance(Id INTEGER PRIMARY KEY AUTOINCREMENT, OperatingSystem VARCHAR(25),  userName VARCHAR(25),  pass VARCHAR(25),  IpAddress VARCHAR(25), deliverable VARCHAR(25), version VARCHAR(25),  imageType VARCHAR(25), Id_Parent INT)")
+               self.db.execute("CREATE TABLE VirtualInstance(Id INTEGER PRIMARY KEY AUTOINCREMENT, OperatingSystem VARCHAR(25),  userName VARCHAR(25),  pass VARCHAR(25), rootpass VARCHAR(25),  publicKey VARCHAR(2000),privateKey VARCHAR(2000), IpAddress VARCHAR(25), deliverable VARCHAR(25), version VARCHAR(25),  imageType VARCHAR(25), Id_Parent INT)")
                self.conn.commit()
           except sqlite3.Error, e:
                print "sqlite3 Error CreateDb: %s" % e
 
-     def AddPhysicalInstance(self, Ip, userName, password):
+     def AddPhysicalInstance(self, Ip, userName, password, publicKey, privateKey, rootpwd):
           try:
-               self.db.execute("INSERT INTO PhysicalInstance(IpAddress, userName, pass, state) VALUES('{0}', '{1}','{2}','0')".format(Ip, userName, password))
+               encryptedPass = base64.b64encode(password)
+               encryptedRootPass = base64.b64encode(rootpwd)
+               #base64.b64decode(test)
+               self.db.execute("INSERT INTO PhysicalInstance(IpAddress, userName, pass, rootpass, publicKey, privateKey,state) VALUES('{0}', '{1}','{2}', '{3}', '{4}', '{5}','0')".format(Ip, userName,encryptedPass, enryptedRootPass, publicKey, privateKey))
                self.conn.commit()
           except sqlite3.Error, e:
                self.conn.rollback()
