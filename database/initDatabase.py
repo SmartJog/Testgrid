@@ -10,7 +10,6 @@ class ManageDatabase(object):
 
      def __init__(self, pName = "TestGrid1"):
           try:
-               print "db init"
                if os.path.exists("../database/%s.db" % pName):
                     self.conn = sqlite3.connect("../database/%s.db" % pName)
                else:
@@ -39,6 +38,23 @@ class ManageDatabase(object):
           except sqlite3.Error, e:
                self.conn.rollback()
                print "sqlite3 Error AddPhysicalInstance: %s" % e
+
+     def DeletePhysicalInstance(self, Ip):
+          try:
+               self.db.execute("DELETE FROM PhysicalInstance WHERE IpAddress = '{0}'".format(Ip))
+               self.conn.commit()
+               #print "%s has been removed" % Ip
+          except sqlite3.Error, e:
+               self.conn.rollback()
+               print "sqlite3 Error DeletePhysicalInstance: %s" % e
+
+     def listInstance(self):
+          try:
+               result = self.db.execute("SELECT IpAddress FROM  PhysicalInstance")
+               for row in result:
+                    print "%s" % row
+          except sqlite3.Error, e:
+               print "sqlite3 Error listInstance: %s" % e
 
      def CheckIfPhysicalInstanceExist(self, Ip):
           try:

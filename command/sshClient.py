@@ -57,14 +57,11 @@ class sshInit:
         except IOError:
             print '(assuming .ssh/ already exists)'
             sftp.put("../generate_key/%s.pub" % Ip, ".ssh/%s.pub" % Ip)
-            print "sftp avan"
             sftp.put("../generate_key/%s" % Ip, ".ssh/%s" % Ip)
-            print "sftp apres"
         except paramiko.SFTPError as e:
             print e
             return
         try:
-            print "stat"
             sftp.stat(".ssh/authorized_keys")
             sftp.get(".ssh/authorized_keys", "../generate_key/authorized_keys")
             f = open("../generate_key/authorized_keys", "a+")
@@ -104,35 +101,35 @@ class sshInit:
             #ssh.close()
         except(paramiko.AuthenticationException, paramiko.SSHException, 
                paramiko.BadHostKeyException, socket.error, paramiko.SFTPError) as eMsg:
-            print eMsg
+            print "error connection"
+            sys.exit(1)
 
         
     @staticmethod         
     def newClientInitInfo(Ip, rootPass):
         characters = string.ascii_letters + string.digits
         password =  "".join(choice(characters) for x in range(randint(5, 8)))
-        print password
-        print Ip
         ssh = paramiko.SSHClient()
+        defPass = password
         password ="toto"
-        encPass = crypt.crypt(password,"22")
-        print "encPass %s" % encPass
+        encPass = crypt.crypt(defPass,"22")
         home = os.path.expanduser("~/")
         stringArg = "name=testUser  password={0} shell=/bin/bash update_password=always".format(encPass)    
         print "stringArg %s" % stringArg
         results = ansible.runner.Runner(
             pattern=Ip, forks=10,
             module_name='user', module_args=stringArg ,timeout=10, remote_user='root').run()
-        print "ici"
         if results is None:
             print "No hosts found"
             sys.exit(1)
             
         for (hostname, result) in results['contacted'].items():
             if not 'failed' in result:
-                print "sucess ??????????????" #%s >>> %s" % (hostname, result['stdout'])
+                print "testUser has been created pass = %s" % defPass #%s >>> %s" % (hostname, result['stdout'])
+            else:
+                print "%s >>> %s" % (hostname, result['msg'])
 
                 for (hostname, result) in results['dark'].items():
                     print "%s >>> %s" % (hostname, result)
-        
+                return None
         return  userInfo(Ip, "testUser", password, " ", " ", rootPass)
