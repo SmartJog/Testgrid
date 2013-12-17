@@ -23,7 +23,7 @@ class ManageDatabase(object):
      def CreateDb(self):
           try:
                self.db = self.conn.cursor()
-               self.db.execute("CREATE TABLE PhysicalInstance(Id INTEGER PRIMARY KEY AUTOINCREMENT, OperatingSystem VARCHAR(25), IpAddress VARCHAR(25), state SMALLINT UNSIGNED NOT NULL, userName VARCHAR(25),  pass VARCHAR(25), deliverable VARCHAR(25), version VARCHAR(25))")
+               self.db.execute("CREATE TABLE PhysicalInstance(Id INTEGER PRIMARY KEY AUTOINCREMENT, OperatingSystem VARCHAR(25),  userName VARCHAR(25),  pass VARCHAR(25), rootpass VARCHAR(25),  publicKey VARCHAR(2000),privateKey VARCHAR(2000), IpAddress VARCHAR(25), deliverable VARCHAR(25), version VARCHAR(25), state SMALLINT UNSIGNED NOT NULL)")
                self.db.execute("CREATE TABLE VirtualInstance(Id INTEGER PRIMARY KEY AUTOINCREMENT, OperatingSystem VARCHAR(25),  userName VARCHAR(25),  pass VARCHAR(25), rootpass VARCHAR(25),  publicKey VARCHAR(2000),privateKey VARCHAR(2000), IpAddress VARCHAR(25), deliverable VARCHAR(25), version VARCHAR(25),  imageType VARCHAR(25), Id_Parent INT)")
                self.conn.commit()
           except sqlite3.Error, e:
@@ -34,7 +34,7 @@ class ManageDatabase(object):
                encryptedPass = base64.b64encode(password)
                encryptedRootPass = base64.b64encode(rootpwd)
                #base64.b64decode(test)
-               self.db.execute("INSERT INTO PhysicalInstance(IpAddress, userName, pass, rootpass, publicKey, privateKey,state) VALUES('{0}', '{1}','{2}', '{3}', '{4}', '{5}','0')".format(Ip, userName,encryptedPass, enryptedRootPass, publicKey, privateKey))
+               self.db.execute("INSERT INTO PhysicalInstance(IpAddress, userName, pass, rootpass, publicKey, privateKey,state) VALUES('{0}', '{1}','{2}', '{3}', '{4}', '{5}','0')".format(Ip, userName,encryptedPass, encryptedRootPass, publicKey, privateKey))
                self.conn.commit()
           except sqlite3.Error, e:
                self.conn.rollback()

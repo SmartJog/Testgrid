@@ -10,12 +10,24 @@ import shutil
 from paramiko import Transport
 import string
 from random import *
+import crypt
+import subprocess
 
-#import ansible.runner
+
+import ansible.runner
+
+class userInfo:
+    def __init__(self, Ip, userName, password, publicKey, privateKey, rootpwd):
+        self.IpAdd = Ip
+        self.UserName = userName
+        self.pwd = password
+        self.pubKey = publicKey
+        self.privKey = privateKey
+        self.pwdRoot = rootpwd
 
 class sshInit:
     @staticmethod
-    def createSshKey(name, path):
+    def createSshKey(name, path, isKnownHost):
         try:
             if not os.path.exists("../generate_key/%s" % name):
                 prv = DSSKey.generate()
@@ -23,8 +35,15 @@ class sshInit:
                 pub = DSSKey(filename="%s" % name)
                 with open("%s.pub" % name, 'w') as f:
                     f.write("%s %s" % (pub.get_name(), pub.get_base64()))
+                    f.close()
                 shutil.move('%s.pub' % name , path)
                 shutil.move('%s' % name , path)
+                """if isKnownHost == True:
+                    print "TRUE"
+                    hk = HostKeys()
+                    hk.add(name,"ssh-dss", pub)
+                    home = os.path.expanduser("~/")
+                    hk.save("%s.ssh/known_hosts" % home)"""
             else:
                 return 
         except(paramiko.AuthenticationException, paramiko.SSHException, paramiko.BadHostKeyException, socket.error) as eMsg:
@@ -64,18 +83,7 @@ class sshInit:
 
     @staticmethod         
     def newClientKeyInit(Ip,ssh, serverkey):
-        """try:
-            sshInit.createSshKey(Ip, "../generate_key")
-            home = os.path.expanduser("~/")
-            kh = open("%s.ssh/known_hosts" % home, "a+")
-            print "open %s" % home
-            key = open("../generate_key/%s.pub" % Ip, "r")
-            keyval = key.read();
-            kh.write(keyval)
-            kh.close()
-            key.close()
-        except IOError:
-            print "IOError"""
+        sshInit.createSshKey(Ip, "../generate_key", True)
         sshInit.sendKeyssh(Ip, ssh, serverkey)
             
     @staticmethod         
@@ -83,42 +91,38 @@ class sshInit:
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            #ssh.load_system_host_keys()
-            print "bissss"
             ssh.connect(Ip, username=userName, password=passw, look_for_keys=False, allow_agent=False)
-            #uname
-            print "bissss"
             sshInit.newClientKeyInit(Ip, ssh, serverkey)
             ssh.close()
-            print "bissss3"
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            #ssh = paramiko.SSHClient()
+            #ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             #ssh.load_system_host_keys()
-            ssh.connect(Ip, username=userName, look_for_keys=True, allow_agent=True)
+            #ssh.connect(Ip, username=userName, look_for_keys=True, allow_agent=True)
             
-            stdin, stdout, stderr = ssh.exec_command('uname')
-            print "OS %s" % stdout.read()
-            hk = HostKeys()
-            home = os.path.expanduser("~/")
-            
-            hk.save("%s.ssh/known_hosts" % home)
-            ssh.close()
-
-            print "wtf????"
+            #stdin, stdout, stderr = ssh.exec_command('uname')
+            #print "OS %s" % stdout.read()
+            #ssh.close()
         except(paramiko.AuthenticationException, paramiko.SSHException, 
                paramiko.BadHostKeyException, socket.error, paramiko.SFTPError) as eMsg:
             print eMsg
 
+        
     @staticmethod         
-    def newClientInitInfo(Ip):
+    def newClientInitInfo(Ip, rootPass):
         characters = string.ascii_letters + string.digits
         password =  "".join(choice(characters) for x in range(randint(5, 8)))
         print password
         print Ip
-        stringArg = "name=test update_password=always password=test"#.format(password) 
-        """results = ansible.runner.Runner(
-        pattern=Ip, forks=10,
-        module_name='user', module_args=stringArg ,timeout=10, remote_user='root').run()
+        ssh = paramiko.SSHClient()
+        password ="toto"
+        encPass = crypt.crypt(password,"22")
+        print "encPass %s" % encPass
+        home = os.path.expanduser("~/")
+        stringArg = "name=testUser  password={0} shell=/bin/bash update_password=always".format(encPass)    
+        print "stringArg %s" % stringArg
+        results = ansible.runner.Runner(
+            pattern=Ip, forks=10,
+            module_name='user', module_args=stringArg ,timeout=10, remote_user='root').run()
         print "ici"
         if results is None:
             print "No hosts found"
@@ -129,13 +133,6 @@ class sshInit:
                 print "sucess ??????????????" #%s >>> %s" % (hostname, result['stdout'])
 
                 for (hostname, result) in results['dark'].items():
-                    print "%s >>> %s" % (hostname, result)"""
-
-        """ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.load_system_host_keys()
-        key = open("../generate_key/%s.pub" % Ip, "r")
-        keyval = key.read();
-        key.close """
+                    print "%s >>> %s" % (hostname, result)
         
-        
+        return  userInfo(Ip, "testUser", password, " ", " ", rootPass)

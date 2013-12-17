@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import sys
+import os
 import json
 import paramiko
 from paramiko import DSSKey
@@ -28,12 +29,18 @@ class Command:
           if not os.path.exists("../generate_key"):
                os.mkdir("../generate_key")
           if not os.path.exists("../generate_key/testGridkey"):
-               sshInit.createSshKey("testGridkey", "../generate_key");
-               if not os.path.exists("%s.ssh/" % home):
-                    os.mkdir("%s.ssh/" % home)
-               
-          shutil.copy("../generate_key/testGridkey", "%s.ssh/testGridkey" % home)
-          shutil.copy("../generate_key/testGridkey.pub", "%s.ssh/testGridkey.pub" % home)
+               sshInit.createSshKey("testGridkey", "../generate_key", False);
+          if not os.path.exists("%s.ssh/" % home):
+               os.mkdir("%s.ssh/" % home)
+          #shutil.copy("../generate_key/testGridkey", "%s.ssh/testGridkey" % home)
+          #shutil.copy("../generate_key/testGridkey.pub", "%s.ssh/testGridkey.pub" % home)
+          #os.chmod("%s.ssh/testGridkey.pub" % home, 600)
+          #os.chmod("%s.ssh/testGridkey" % home, 600)
+          p = subprocess.Popen(["ssh-add","../generate_key/testGridkey"], stdout=subprocess.PIPE)
+          output, err = p.communicate()
+          if p.returncode or err:
+               print 'couldn''t add testgridkey to agent...'
+         # print "output %s" % output
 
      def ManageArg(self, comArray):
           if comArray[1] in self.func_map:
@@ -46,48 +53,22 @@ class Command:
           return pwd
  
      def AddInstance(self,comArray):
-          print "add instance %s" % comArray[2]
+          #print "add instance %s" % comArray[2]
           if len(comArray) < 3:
                sys.stderr.write('Usage Testgrid: add')
                return 
           if self.data.CheckIfPhysicalInstanceExist(comArray[2])==True:
-               sys.stderr.write("%s already exist in testGid database" % comArray[2])
+               sys.stderr.write("%s already exist in testGrid database\n" % comArray[2])
                return
 
           try:
-               print "root"
                pwd = self.getRootPwd()
                sshInit.checkNewClient(comArray[2], "root" ,pwd, "../generate_key/testGridkey.pub")
                print "after check"
-               sshInit.newClientInitInfo(comArray[2])
+               UserData = sshInit.newClientInitInfo(comArray[2], pwd)
+               self.data.AddPhysicalInstance(UserData.IpAdd , UserData.UserName, UserData.pwd, UserData.pubKey, UserData.privKey, UserData.pwdRoot)
           except Exception as e:
                print e
-               """ agent = paramiko.Agent()
-               agent_keys = agent.get_keys()
-               print "agent key %s" % len(agent_keys)
-               if len(agent_keys) == 0:
-               return
-               try:
-               for key in agent_keys:
-               print 'Trying ssh-agent key %s' % hexlify(key.get_fingerprint()),
-               ssh = paramiko.SSHClient()
-               ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-               ssh.load_system_host_keys()
-               ssh.connect(comArray[2], username=comArray[3], pkey=key, allow_agent=True, look_for_keys=True)
-               #ssh.auth_publickey(comArray[3], key)
-               print '... success!'
-               return
-               #except paramiko.PasswordRequiredException:
-               #    print "need pass"
-               except paramiko.SSHException:
-               print '... nope.'
-               print "agent close"
-               agent.close();
-               
-               print "data"
-               self.data.AddPhysicalInstance(comArray[2], comArray[3], comArray[4])
-               except Exception as e:
-               print e"""
                     
 #     def listInstance(self, comArray):
 #    def deployPackage(self, comArray):
