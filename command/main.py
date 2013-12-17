@@ -9,8 +9,8 @@ import initDatabase
 from initDatabase import *
 import sshClient
 from sshClient import *
-import ansible.runner
-import ansible.playbook
+#import ansible.runner
+#import ansible.playbook
 import getpass
 
 class State(object):
@@ -24,15 +24,16 @@ class Command:
      def __init__(self):
           self.data = ManageDatabase()
           self.func_map = {"add" : self.AddInstance} #, "list" : self.listInstance, "deploy" : self.deployPackage, "rm" : self.deleteInstance}
+          home = os.path.expanduser("~/")
           if not os.path.exists("../generate_key"):
                os.mkdir("../generate_key")
           if not os.path.exists("../generate_key/testGridkey"):
                sshInit.createSshKey("testGridkey", "../generate_key");
-               home = os.path.expanduser("~/")
                if not os.path.exists("%s.ssh/" % home):
                     os.mkdir("%s.ssh/" % home)
-                    shutil.copy("../generate_key/testGridkey", "%s.ssh/testGridkey" % home)
-                    shutil.copy("../generate_key/testGridkey.pub", "%s.ssh/testGridkey.pub" % home)
+               
+          shutil.copy("../generate_key/testGridkey", "%s.ssh/testGridkey" % home)
+          shutil.copy("../generate_key/testGridkey.pub", "%s.ssh/testGridkey.pub" % home)
 
      def ManageArg(self, comArray):
           if comArray[1] in self.func_map:
@@ -57,6 +58,7 @@ class Command:
                print "root"
                pwd = self.getRootPwd()
                sshInit.checkNewClient(comArray[2], "root" ,pwd, "../generate_key/testGridkey.pub")
+               print "after check"
                sshInit.newClientInitInfo(comArray[2])
           except Exception as e:
                print e

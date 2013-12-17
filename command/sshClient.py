@@ -3,13 +3,15 @@ import os
 import json
 import paramiko
 from paramiko import DSSKey
+from paramiko import HostKeys
 import socket
 from binascii import hexlify
 import shutil
 from paramiko import Transport
 import string
 from random import *
-import ansible.runner
+
+#import ansible.runner
 
 class sshInit:
     @staticmethod
@@ -62,7 +64,7 @@ class sshInit:
 
     @staticmethod         
     def newClientKeyInit(Ip,ssh, serverkey):
-        try:
+        """try:
             sshInit.createSshKey(Ip, "../generate_key")
             home = os.path.expanduser("~/")
             kh = open("%s.ssh/known_hosts" % home, "a+")
@@ -73,7 +75,7 @@ class sshInit:
             kh.close()
             key.close()
         except IOError:
-            print "IOError"
+            print "IOError"""
         sshInit.sendKeyssh(Ip, ssh, serverkey)
             
     @staticmethod         
@@ -81,13 +83,27 @@ class sshInit:
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.load_system_host_keys()
+            #ssh.load_system_host_keys()
+            print "bissss"
             ssh.connect(Ip, username=userName, password=passw, look_for_keys=False, allow_agent=False)
             #uname
-            stdin, stdout, stderr = ssh.exec_command('uname')
-            print "OS %s" % stdout.read()
+            print "bissss"
             sshInit.newClientKeyInit(Ip, ssh, serverkey)
             ssh.close()
+            print "bissss3"
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            #ssh.load_system_host_keys()
+            ssh.connect(Ip, username=userName, look_for_keys=True, allow_agent=True)
+            
+            stdin, stdout, stderr = ssh.exec_command('uname')
+            print "OS %s" % stdout.read()
+            hk = HostKeys()
+            home = os.path.expanduser("~/")
+            
+            hk.save("%s.ssh/known_hosts" % home)
+            ssh.close()
+
             print "wtf????"
         except(paramiko.AuthenticationException, paramiko.SSHException, 
                paramiko.BadHostKeyException, socket.error, paramiko.SFTPError) as eMsg:
@@ -100,7 +116,7 @@ class sshInit:
         print password
         print Ip
         stringArg = "name=test update_password=always password=test"#.format(password) 
-        results = ansible.runner.Runner(
+        """results = ansible.runner.Runner(
         pattern=Ip, forks=10,
         module_name='user', module_args=stringArg ,timeout=10, remote_user='root').run()
         print "ici"
@@ -113,7 +129,7 @@ class sshInit:
                 print "sucess ??????????????" #%s >>> %s" % (hostname, result['stdout'])
 
                 for (hostname, result) in results['dark'].items():
-                    print "%s >>> %s" % (hostname, result)
+                    print "%s >>> %s" % (hostname, result)"""
 
         """ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
