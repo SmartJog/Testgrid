@@ -12,8 +12,9 @@ import string
 from random import *
 import crypt
 import subprocess
-
-
+sys.path.append('../database/')
+import initDatabase
+from initDatabase import *
 import ansible.runner
 
 class userInfo:
@@ -90,14 +91,16 @@ class sshInit:
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(Ip, username=userName, password=passw, look_for_keys=False, allow_agent=False)
             sshInit.newClientKeyInit(Ip, ssh, serverkey)
+            stdin, stdout, stderr = ssh.exec_command('uname')
+            print "%s" % Ip
+            print "operating system: %s" % stdout.read()
             ssh.close()
             #ssh = paramiko.SSHClient()
             #ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             #ssh.load_system_host_keys()
             #ssh.connect(Ip, username=userName, look_for_keys=True, allow_agent=True)
             
-            #stdin, stdout, stderr = ssh.exec_command('uname')
-            #print "OS %s" % stdout.read()
+            
             #ssh.close()
         except(paramiko.AuthenticationException, paramiko.SSHException, 
                paramiko.BadHostKeyException, socket.error, paramiko.SFTPError) as eMsg:
@@ -106,7 +109,7 @@ class sshInit:
 
         
     @staticmethod         
-    def newClientInitInfo(Ip, rootPass):
+    def newClientInitInfo(Ip, rootPass, data):
         characters = string.ascii_letters + string.digits
         password =  "".join(choice(characters) for x in range(randint(5, 8)))
         ssh = paramiko.SSHClient()
@@ -115,14 +118,18 @@ class sshInit:
         encPass = crypt.crypt(defPass,"22")
         home = os.path.expanduser("~/")
         stringArg = "name=testUser  password={0} shell=/bin/bash update_password=always".format(encPass)    
-        print "stringArg %s" % stringArg
-        results = ansible.runner.Runner(
-            pattern=Ip, forks=10,
-            module_name='user', module_args=stringArg ,timeout=10, remote_user='root').run()
+        encrootPass = crypt.crypt(rootPass,"22")
+        #print "stringArg %s" % stringArg
+        #inv = data.getInventory();
+        inv = [Ip]
+        results = ansible.runner.Runner(forks=10,
+                                        module_name='user', module_args=stringArg ,timeout=10, remote_user='root', pattern=Ip, host_list=inv).run()
         if results is None:
             print "No hosts found"
             sys.exit(1)
-            
+        if len(results['contacted']) == 0:
+            print "can't add newClientInitInfo"
+            sys.exit(1)
         for (hostname, result) in results['contacted'].items():
             if not 'failed' in result:
                 print "testUser has been created pass = %s" % defPass #%s >>> %s" % (hostname, result['stdout'])

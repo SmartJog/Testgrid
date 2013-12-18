@@ -42,8 +42,12 @@ class ManageDatabase(object):
      def DeletePhysicalInstance(self, Ip):
           try:
                self.db.execute("DELETE FROM PhysicalInstance WHERE IpAddress = '{0}'".format(Ip))
-               self.conn.commit()
-               #print "%s has been removed" % Ip
+               if self.db.rowcount == 0:
+                    print "no node %s" % Ip
+               else:
+                    print "%s has been removed" % Ip 
+                    self.conn.commit()
+               
           except sqlite3.Error, e:
                self.conn.rollback()
                print "sqlite3 Error DeletePhysicalInstance: %s" % e
@@ -51,10 +55,37 @@ class ManageDatabase(object):
      def listInstance(self):
           try:
                result = self.db.execute("SELECT IpAddress FROM  PhysicalInstance")
-               for row in result:
+               data= self.db.fetchall()
+               if len(data)==0:
+                    print "no instance nodes"
+                    return
+               for row in data:
                     print "%s" % row
+
           except sqlite3.Error, e:
                print "sqlite3 Error listInstance: %s" % e
+
+     def getInventory(self):
+               try:
+                    inventory ={}
+                    inventory['local'] = [ '127.0.0.1' ]
+                    result = self.db.execute("SELECT IpAddress FROM  PhysicalInstance")
+                    for row in result:
+                         group = None
+                         if group is None:
+                              group = 'ungrouped'
+
+                         if not group in inventory:
+                              inventory[group] = {
+                                   'hosts' : []
+                                   }
+                         inventory[group]['hosts'].append(row[0])
+                         print json.dumps(inventory, indent=4)
+                         return inventory
+     
+               except sqlite3.Error, e:
+                    print "sqlite3 Error listInstance: %s" % e
+                    return None
 
      def CheckIfPhysicalInstanceExist(self, Ip):
           try:

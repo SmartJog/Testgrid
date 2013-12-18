@@ -64,7 +64,7 @@ class Command:
           try:
                pwd = self.getRootPwd()
                sshInit.checkNewClient(comArray[2], "root" ,pwd, "../generate_key/testGridkey.pub")
-               UserData = sshInit.newClientInitInfo(comArray[2], pwd)
+               UserData = sshInit.newClientInitInfo(comArray[2], pwd, self.data)
                if UserData == None:
                     print "can't add %s" % comArray[2]
                self.data.AddPhysicalInstance(UserData.IpAdd , UserData.UserName, UserData.pwd, UserData.pubKey, UserData.privKey, UserData.pwdRoot)
