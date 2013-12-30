@@ -25,6 +25,7 @@ class userInfo:
         self.pwdRoot = rootpwd
         self.operatingSystem = ""
 
+
 class sshKey:
     def __init__(self, priv, pub):
         self.privateKey = priv
@@ -32,32 +33,29 @@ class sshKey:
 
 class sshConnection:
     @staticmethod
-    def createSshKey():
+    def createSSHKeyFile(name, path):
+        print "sshKeyTofile"
+        try:
+            key = DSSKey.generate()
+            key.write_private_key_file("{0}{1}".format(path, name))
+            with open("{0}{1}.pub".format(path, name), 'w') as f:
+                f.write( "{0} {1}".format(key.get_name(), key.get_base64()))
+                f.close()
+        except Exception as e:
+            print "sshKeyTofile %s" % e
+            
+    @staticmethod
+    def createSSHKeyPair():
         try:
             key = DSSKey.generate()
             privKey = cStringIO.StringIO()
             key.write_private_key(privKey)
-            print "{0} {1}".format(test.get_name(), test.get_base64())
-            keyPair = sshKey(privKey.getvalue(), "{0} {1}".format(test.get_name(), test.get_base64()))
+            keyPair = sshKey(privKey.getvalue(), "{0} {1}".format(key.get_name(), key.get_base64()))
             privKey.close()
             return keyPair
         except Exception as eMsg:
-            print "paramiko error create ssh key %s" % eMsg
-            return None
+            raise paramiko.SSHException("can't generate ssh key %s" % eMsg)
 
-    @staticmethod
-    def sshKeyTofile(keyPair, name, path):
-        print "sshKeyTofile"
-        try:
-            with open("{0}{1}".format(path, name), 'w') as f:
-                f.write(keyPair.privateKey)
-                f.close()
-            with open("{0}{1}.pub".format(path, name), 'w') as f:
-                f.write(keyPair.publicKey)
-                f.close()
-        except IOError as e:
-            print "sshKeyTofile %s" % e
-            
     @staticmethod
     def sendKeyssh(Ip, keyPair,serverkeyPath, ssh):
         try:
@@ -65,7 +63,6 @@ class sshConnection:
             sftp.mkdir(SSH_PATH_SFTP)
             sftp.close()
         except IOError:
-            print "test"
             pass
             f = sftp.open("{0}{1}.pub".format(SSH_PATH_SFTP, Ip), 'wb')
             f.write(keyPair.publicKey)
@@ -74,14 +71,14 @@ class sshConnection:
             f.write(keyPair.privateKey)
             f.close()
         except paramiko.SFTPError as e:
-            print e
+            print "sendkeyssh %s" % e
         sshConnection.setAuthorizedKey(serverkeyPath, ssh)
 
     @staticmethod
-    def setAuthorizedKey(self, serverkeyPath, ssh):
+    def setAuthorizedKey(serverkeyPath, ssh):
         try:
             sftp = ssh.open_sftp()
-            f = sftp.open_sftp("{0}{1}".format(SSH_PATH_SFTP, AUTHORIZED_KEYS), 'ab')
+            f = sftp.open("{0}{1}".format(SSH_PATH_SFTP, AUTHORIZED_KEYS), 'ab')
             fServer = open(serverkeyPath, "r")
             ks = fServer.read()
             f.write(ks)
@@ -93,8 +90,9 @@ class sshConnection:
             
     @staticmethod         
     def newClientKeyInit(Ip, serverkeyPath, ssh):
-        keyPair = sshConnection.createSshKey()
+        keyPair = sshConnection.createSSHKeyPair()
         sshConnection.sendKeyssh(Ip, keyPair, serverkeyPath, ssh)
+        print "out"
         return keyPair
             
     @staticmethod         
@@ -139,4 +137,4 @@ class sshConnection:
                 print "testUser has been created pass = %s" % password
             else:
                 print "%s >>> %s" % (hostname, result['msg'])
-        return  userInfo(Ip, NEW_USER, password, keyPair.pubKey , keyPair.privKey, rootPass)
+        return  userInfo(Ip, NEW_USER, password, keyPair.publicKey , keyPair.privateKey, rootPass)

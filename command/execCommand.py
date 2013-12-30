@@ -43,7 +43,7 @@ class execCommand:
           try:
                pwd = self.getRootPwd()
                home = os.path.expanduser("~/")
-               keyPair = sshConnection.checkNewClient(comArray[2], "root" ,pwd, os.path.exists("{0}{1}.pub".format(SSH_PATH.format(home), TESTGRID_KEY_NAME)))
+               keyPair = sshConnection.checkNewClient(comArray[2], "root" ,pwd,"{0}{1}.pub".format(SSH_PATH.format(home), TESTGRID_KEY_NAME))
                UserData = sshConnection.newClientInitInfo(comArray[2], pwd, keyPair)
                if UserData == None:
                     sys.stderr.write("can't add %s to testgrid" % comArray[2])

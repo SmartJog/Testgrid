@@ -4,44 +4,56 @@ import sys
 import os
 import json
 import base64
-#import ansible.runner
+import sqlString
+
 
 class ManageDatabase(object):
 
-     def __init__(self, pName = "TestGrid1"):
+     def __init__(self, databaseName = "TestGrid1"):
+          self.name = databaseName
+          self.databaseInit(databaseName)
+
+     def databaseInit(self, name):
           try:
-               if os.path.exists("../database/%s.db" % pName):
-                    self.conn = sqlite3.connect("../database/%s.db" % pName)
+               databasePath = sqlString.DATABASE_PATH.format(name)
+               if os.path.exists(databasePath):
+                    self.conn = sqlite3.connect(databasePath)
                else:
-                    self.conn = sqlite3.connect("../database/%s.db" % pName)
-                    self.CreateDb()
+                    self.conn = sqlite3.connect(databasePath)
+                    self.createDb()
                self.db = self.conn.cursor()
           except sqlite3.Error, e:
                print "sqlite3 Error don't create: %s" % e
 
-     def CreateDb(self):
+     def resetDatabase(self):
+          if os.path.exists(sqlString.DATABASE_PATH.format(self.name)):
+               os.remove(sqlString.DATABASE_PATH.format(self.name))
+          self.databaseInit(self.name)
+
+     def createDb(self):
           try:
                self.db = self.conn.cursor()
-               self.db.execute("CREATE TABLE PhysicalInstance(Id INTEGER PRIMARY KEY AUTOINCREMENT, OperatingSystem VARCHAR(25),  userName VARCHAR(25),  pass VARCHAR(25), rootpass VARCHAR(25),  publicKey VARCHAR(2000),privateKey VARCHAR(2000), IpAddress VARCHAR(25), deliverable VARCHAR(25), version VARCHAR(25), state SMALLINT UNSIGNED NOT NULL)")
-               self.db.execute("CREATE TABLE VirtualInstance(Id INTEGER PRIMARY KEY AUTOINCREMENT, OperatingSystem VARCHAR(25),  userName VARCHAR(25),  pass VARCHAR(25), rootpass VARCHAR(25),  publicKey VARCHAR(2000),privateKey VARCHAR(2000), IpAddress VARCHAR(25), deliverable VARCHAR(25), version VARCHAR(25),  imageType VARCHAR(25), Id_Parent INT)")
+               self.db.execute(sqlString.CREATE_TABLE_PHYSICAL_INSTANCE)
+               self.db.execute(sqlString.CREATE_TABLE_VIRTUAL_INSTANCE)
                self.conn.commit()
           except sqlite3.Error, e:
-               print "sqlite3 Error CreateDb: %s" % e
+               self.conn.rollback()
+               print "sqlite3 Error while creating database: %s" % e
 
-     def AddPhysicalInstance(self, Ip, userName, password, publicKey, privateKey, rootpwd):
+     def addPhysicalInstance(self, Ip, userName, password, publicKey, privateKey, rootpwd):
           try:
                encryptedPass = base64.b64encode(password)
                encryptedRootPass = base64.b64encode(rootpwd)
                #base64.b64decode(test)
-               self.db.execute("INSERT INTO PhysicalInstance(IpAddress, userName, pass, rootpass, publicKey, privateKey,state) VALUES('{0}', '{1}','{2}', '{3}', '{4}', '{5}','0')".format(Ip, userName,encryptedPass, encryptedRootPass, publicKey, privateKey))
+               self.db.execute(sqlString.ADD_PHYSICAL_INSTANCE.format(Ip, userName,encryptedPass, encryptedRootPass, publicKey, privateKey, "0"))
                self.conn.commit()
           except sqlite3.Error, e:
                self.conn.rollback()
                print "sqlite3 Error AddPhysicalInstance: %s" % e
 
-     def DeletePhysicalInstance(self, Ip):
+     def deletePhysicalInstance(self, Ip):
           try:
-               self.db.execute("DELETE FROM PhysicalInstance WHERE IpAddress = '{0}'".format(Ip))
+               self.db.execute(sqlString.DELETE_PHYSICAL_INSTANCE.format(Ip))
                if self.db.rowcount == 0:
                     print "no node %s" % Ip
                else:
@@ -54,7 +66,7 @@ class ManageDatabase(object):
 
      def listInstance(self):
           try:
-               result = self.db.execute("SELECT IpAddress FROM  PhysicalInstance")
+               result = self.db.execute(sqlString.LIST_INSTANCE)
                data= self.db.fetchall()
                if len(data)==0:
                     print "no instance nodes"
@@ -65,7 +77,18 @@ class ManageDatabase(object):
           except sqlite3.Error, e:
                print "sqlite3 Error listInstance: %s" % e
 
-     def getInventory(self):
+
+     def checkIfPhysicalInstanceExist(self, Ip):
+          try:
+               self.db.execute(sqlString.CHECK_PHYSICAL_INSTANCE.format(Ip))
+               if len(self.db.fetchall())==0:
+                    return False
+               return True
+          except sqlite3.Error, e:
+               print "sqlite3 Error CheckIfPhysicalInstanceExist: %s" % e
+
+
+     """def getInventory(self):
                try:
                     inventory ={}
                     inventory['local'] = [ '127.0.0.1' ]
@@ -85,16 +108,4 @@ class ManageDatabase(object):
      
                except sqlite3.Error, e:
                     print "sqlite3 Error listInstance: %s" % e
-                    return None
-
-     def CheckIfPhysicalInstanceExist(self, Ip):
-          try:
-               self.db.execute("SELECT IpAddress FROM  PhysicalInstance Where IpAddress ='%s'" % Ip)
-               if len(self.db.fetchall())==0:
-                    return False
-               return True
-          except sqlite3.Error, e:
-               print "sqlite3 Error CheckIfPhysicalInstanceExist: %s" % e
-#if __name__ == '__main__':
-#    test = ManageDatabase()
-#   test.CreateDb("TestGrid1")
+                    return None"""
