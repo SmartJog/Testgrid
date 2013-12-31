@@ -25,8 +25,6 @@ class execCommand:
           self.parser = parseCommand(self.func_map)
 
 
-
-
      def execCommand(self, comArray):
           self.parser.execParser(comArray)
 

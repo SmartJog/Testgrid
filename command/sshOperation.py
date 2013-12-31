@@ -92,7 +92,6 @@ class sshConnection:
     def newClientKeyInit(Ip, serverkeyPath, ssh):
         keyPair = sshConnection.createSSHKeyPair()
         sshConnection.sendKeyssh(Ip, keyPair, serverkeyPath, ssh)
-        print "out"
         return keyPair
             
     @staticmethod         
