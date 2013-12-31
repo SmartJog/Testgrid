@@ -35,13 +35,13 @@ class testGridController:
                print "couldn't init testGridController %s" % e
 
      def manageArg(self, comArray):
-          self.command.execArg(comArray)
+          self.command.execCommand(comArray)
 
 
 if __name__ == '__main__':
     testGrid = testGridController()
     if len(sys.argv) >= 2:
-         testGrid.manageArg(sys.argv)
+         testGrid.manageArg(sys.argv[1:])
     else:
          print "Usage: %s" % sys.argv[0]
     sys.exit(1)
