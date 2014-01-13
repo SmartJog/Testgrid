@@ -6,7 +6,6 @@ import json
 import base64
 import sqlString
 
-
 class ManageDatabase(object):
 
      def __init__(self, databaseName = "TestGrid1"):
@@ -47,6 +46,8 @@ class ManageDatabase(object):
                #base64.b64decode(test)
                self.db.execute(sqlString.ADD_PHYSICAL_INSTANCE.format(Ip, userName,encryptedPass, encryptedRootPass, publicKey, privateKey, "0"))
                self.conn.commit()
+               result = "%s have been added successfully" % Ip
+               return result
           except sqlite3.Error, e:
                self.conn.rollback()
                print "sqlite3 Error AddPhysicalInstance: %s" % e
@@ -55,10 +56,11 @@ class ManageDatabase(object):
           try:
                self.db.execute(sqlString.DELETE_PHYSICAL_INSTANCE.format(Ip))
                if self.db.rowcount == 0:
-                    print "no node %s" % Ip
+                    result = "no node %s" % Ip
                else:
-                    print "%s has been removed" % Ip 
+                    result = "%s has been removed" % Ip 
                     self.conn.commit()
+               return result
                
           except sqlite3.Error, e:
                self.conn.rollback()
@@ -69,11 +71,9 @@ class ManageDatabase(object):
                result = self.db.execute(sqlString.LIST_INSTANCE)
                data= self.db.fetchall()
                if len(data)==0:
-                    print "no instance nodes"
-                    return
-               for row in data:
-                    print "%s" % row
-
+                    result = "no instance nodes"
+               result = '\n'.join(str(d) for d in data)
+               return result
           except sqlite3.Error, e:
                print "sqlite3 Error listInstance: %s" % e
 

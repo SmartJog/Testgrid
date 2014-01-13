@@ -11,6 +11,8 @@ class helpDescription:
     LIST = 'List testgrid node'
     RM = 'delete specific node'
     COMMAND = 'commands'
+
+
 class helpArgDescription:
     ADD = 'hostname of the new node'
     RM = 'hostname of the node to delete'

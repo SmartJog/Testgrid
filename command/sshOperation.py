@@ -34,7 +34,6 @@ class sshKey:
 class sshConnection:
     @staticmethod
     def createSSHKeyFile(name, path):
-        print "sshKeyTofile"
         try:
             key = DSSKey.generate()
             key.write_private_key_file("{0}{1}".format(path, name))
@@ -43,6 +42,16 @@ class sshConnection:
                 f.close()
         except Exception as e:
             print "sshKeyTofile %s" % e
+
+    @staticmethod
+    def initSSHConfigFile(path, content):
+        try:
+            with open(path, 'w') as f:
+                f.write(content)
+                f.close()
+        except Exception as e:
+            print e
+    
             
     @staticmethod
     def createSSHKeyPair():
@@ -101,9 +110,8 @@ class sshConnection:
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(Ip, username=userName, password=passw, look_for_keys=False, allow_agent=False)
             keyPair = sshConnection.newClientKeyInit(Ip, serverkeyPath, ssh)
-            stdin, stdout, stderr = ssh.exec_command('uname')
-            print "%s" % Ip
-            print "operating system: %s" % stdout.read()
+            #stdin, stdout, stderr = ssh.exec_command('uname')
+            #print "operating system: %s" % stdout.read()
             ssh.close()
             return keyPair
         except(paramiko.AuthenticationException, paramiko.SSHException, 
@@ -132,8 +140,7 @@ class sshConnection:
         if len(results['contacted']) == 0:
             print "can't connect to %s" % Ip
         for (hostname, result) in results['contacted'].items():
-            if not 'failed' in result:
-                print "testUser has been created pass = %s" % password
-            else:
+            if 'failed' in result:
                 print "%s >>> %s" % (hostname, result['msg'])
+                return None
         return  userInfo(Ip, NEW_USER, password, keyPair.publicKey , keyPair.privateKey, rootPass)

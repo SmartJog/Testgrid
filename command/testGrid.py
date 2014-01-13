@@ -13,7 +13,7 @@ sys.path.append('../database/')
 import initDatabase
 import shutil
 import getpass
-import testGridString 
+import testGridString
 from testGridString import *
 
 class testGridController:
@@ -26,6 +26,7 @@ class testGridController:
                     os.mkdir(SSH_PATH.format(home))
                if not os.path.exists("{0}{1}".format(SSH_PATH.format(home), TESTGRID_KEY_NAME)) or not os.path.exists("{0}{1}.pub".format(SSH_PATH.format(home), TESTGRID_KEY_NAME)):
                  keyPair = sshConnection.createSSHKeyFile(TESTGRID_KEY_NAME, SSH_PATH.format(home))
+                 sshConnection.initSSHConfigFile("{0}{1}".format(SSH_PATH.format(home), SSH_CONFIG), SSH_CONFIG_CONTENT)
                  p = subprocess.Popen(["ssh-add","{0}{1}".format(SSH_PATH.format(home), TESTGRID_KEY_NAME)]
                                       , stdout=subprocess.PIPE)
                  output, err = p.communicate()
@@ -34,14 +35,14 @@ class testGridController:
           except Exception as e:
                print "couldn't init testGridController %s" % e
 
-     def manageArg(self, comArray):
-          self.command.execCommand(comArray)
+     def manageArg(self, httpArg):
+          result = self.command.execCommand(httpArg)
+          return result
 
 
-if __name__ == '__main__':
-    testGrid = testGridController()
-    if len(sys.argv) >= 2:
+"""if __name__ == '__main__':
+if len(sys.argv) >= 2:
          testGrid.manageArg(sys.argv[1:])
     else:
          print "Usage: %s" % sys.argv[0]
-    sys.exit(1)
+    sys.exit(1)"""
