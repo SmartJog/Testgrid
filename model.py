@@ -1,24 +1,28 @@
 # copyright 2014 smartjog, released under the GPL license.
+# testgrid minimalist abstract data model.
+# to implement a testgrid variant:
+#   * derive Package()
+#   * derive Node()
+#   * derive Session()
 
 import unittest
 
-###################
-# support objects #
-###################
-
-class Platform(object): pass
-
 class Package(object):
 
-	def __init__(self, name, version, platform):
+	def __init__(self, name, version):
 		self.name = name
 		self.version = version
-		self.platform = platform
 
 	__repr__ = lambda self: "%s(%s-%s)" % (
 		type(self).__name__,
 		self.name,
 		self.version)
+
+	__eq__ = lambda self, other:\
+		self.name == other.name\
+		and self.version == other.version
+
+	__ne__ = lambda self, other: not (self == other)
 
 class Deliverable(object):
 	"a deliverable is a set of one or more packages"
@@ -26,7 +30,7 @@ class Deliverable(object):
 	def __init__(self, name, version, package, *packages):
 		self.name = name
 		self.version = version
-		self.packages = [package] + packages
+		self.packages = set((package,) + packages)
 
 	__repr__ = lambda self: "%s(%s-%s)" % (
 		type(self).__name__,
@@ -44,101 +48,72 @@ class Deliverable(object):
 
 	__ne__ = lambda self, other: not (self == other)
 
-class Command(object): pass
-
-class Host(object):
-
-	def __init__(self, hostname, rootpass, platform):
-		self.hostname = hostname
-		self.rootpass = rootpass
-		self.platform = platform
-		self.package = None
-		self.failed = False
-
-	__repr__ = lambda self: "%s(%s)" % (type(self).__name__, self.hostname)
-
-	def run(self, command):
-		"execute command on host"
-		raise NotImplementedError()
-
-	def is_available(self):
-		"return true if this host is available for deployment"
-		return not self.package
+class Node(object):
 
 	def can_install(self, package):
-		return self.platform == package.platform
+		raise NotImplementedError()
 
 	def install(self, package):
-		self.run(self.platform.install(package))
-		self.package = package
+		"install package on node, return node"
+		raise NotImplementedError()
 
 	def uninstall(self, package):
-		self.run(self.platform.uninstall(package))
-		self.package = None
-
-	def is_transient(self):
-		"return true if this node was spawned to install a package"
-		return False
+		raise NotImplementedError()
 
 	def terminate(self):
-		"shutdown transient node, delete hkvm domain"
+		"destroy virtual node or shutdown physical node"
 		raise NotImplementedError()
 
-	def set_failed(self, package, exception):
-		"mark this host as unusable due to a failed uninstallation"
-		self.failed = (package, exception)
+class Session(object): pass
 
-class Session(object):
+class Deployment(object):
 
-	def __eq__(self, other):
-		raise NotImplementedError()
+	def __init__(self, session, deliverable, plan):
+		self.session = session
+		self.deliverable = deliverable
+		self.plan = set(plan) # set of (package, node)
+
+	__eq__ = lambda self, other:\
+		self.session == other.session\
+		and self.deliverable == other.deliverable\
+		and self.plan == other.plan
 
 	__ne__ = lambda self, other: not (self == other)
 
-#######################
-# exception hierarchy #
-#######################
+	@property
+	def nodes(self):
+		for package, node in self.plan:
+			yield node
 
 class NoAvailableHost(Exception): pass
 
 class NotDeployed(Exception): pass
 
-#############
-# test grid #
-#############
-
 class TestGrid(object):
 
-	@property
-	def hosts(self):
-		raise NotImplementedError()
+	def __init__(self, nodes = None, deployments = None):
+		self.nodes = nodes or []
+		self.deployments = deployments or []
 
-	def register_host(self, host):
-		raise NotImplementedError()
-
-	def unregister_host(self, host):
-		raise NotImplementedError()
-
-	@property
-	def deployments(self):
-		"return list of deployments"
-		raise NotImplementedError()
-
-	def register_deployment(self, session, deliverable, plan):
-		raise NotImplementedError()
-
-	def unregister_deployment(self, session, deliverable):
-		raise NotImplementedError()
+	def using(self, node):
+		"True if node is already used for a deployment, False otherwise"
+		for deployment in self.deployments:
+			if node in deployment.nodes:
+				return True
+		return False
 
 	def get_deployment_plan(self, deliverable):
 		"return pairs (package, host) to deploy deliverable or raise NoAvailableHost"
 		plan = []
+		used = []
 		for package in deliverable:
-			for host in self.hosts:
-				if host.is_available() and host.can_install(package):
-					plan.append((package, host))
+			for node in self.nodes:
+				if (not node in used) and (not self.using(node)) and node.can_install(package):
+					plan.append((package, node))
+					used.append(node)
+					break
 			else:
-				raise NoAvailableHost("%s: no available host" % package)
+				raise NoAvailableHost("%s: no available host for installation" % package)
 		return plan
 
 	def is_deployable(self, deliverable):
@@ -160,16 +135,21 @@ class TestGrid(object):
 		plan = self.get_deployment_plan(deliverable)
 		done = []
 		try:
-			for package, host in plan:
-				node = host.install(package)
-				if not node in self.hosts:
-					self.add_host(node)
-				done.append((package, node))
+			for package, src_node in plan:
+				tgt_node = src_node.install(package)
+				if tgt_node != src_node:
+					# register new node spawned only to install package
+					tgt_node.transient = True
+					self.nodes.append(tgt_node)
+				else:
+					tgt_node.transient = False
+				done.append((package, tgt_node))
 		except:
 			self.undo(done)
 			raise
-		self.register_deployment(session, deliverable, done)
-		return done
+		dpl = Deployment(session, deliverable, done)
+		self.deployments.append(dpl)
+		return dpl
 
 	def undo(self, plan):
 		"""
@@ -178,20 +158,20 @@ class TestGrid(object):
 		"""
 		for package, node in plan:
 			try:
-				if node.is_transient():
+				if node.transient:
 					node.terminate()
-					self.remove_host(node)
+					self.nodes.remove(node)
 				else:
 					node.uninstall(package)
 			except Exception as e:
-				node.set_failed(package, e)
+				node.failed = (package, e) # FIXME
 
 	def undeploy(self, session, deliverable):
 		"undo deployment plan for the specified deliverable or raise NotDeployed"
-		for ses, dlv, plan in self.deployments:
-			if ses == session and dlv == deliverable:
-				self.undo(plan)
-				self.unregister_deployment(session, deliverable)
+		for deployment in self.deployments:
+			if deployment.session == session and deployment.deliverable == deliverable:
+				self.undo(deployment.plan)
+				self.deployments.remove(deployment)
 				return
 		raise NotDeployed(deliverable)
 
@@ -199,29 +179,56 @@ class TestGrid(object):
 # selftest #
 ############
 
-class FakeHost(Host):
+class DummyNode(Node):
 
-class TransientTestGrid(TestGrid):
+	can_install = lambda self, package: True
 
-	def __init__(self, hosts, deployments):
-		self._hosts = hosts or []
-		self._deployments = deployments or []
+	def install(self, package):
+		self.installed = package
+		return self
 
-	hosts = property(lambda self: self._hosts)
+	def uninstall(self, package):
+		self.installed = None
 
-	deployments = property(lambda self: self._deployments)
+	def terminate(self):
+		raise Exception("shutting down non-transient node")
 
-	def register_host(self, host):
-		self._hosts.append(host)
+class SelfTest(unittest.TestCase):
 
-	def unregister_host(self, host):
-		self._hosts.remove(host)
+	def testCycle(self):
+		"deploy and undeploy a minimal deliverable"
+		n = DummyNode()
+		tg = TestGrid(nodes = (n,))
+		p = Package("foo", "1.0")
+		dlv = Deliverable("foo", "1.0", p)
+		s1 = Session()
+		dpl = tg.deploy(s1, dlv)
+		assert dpl
+		assert dpl in tg.deployments
+		assert dpl == Deployment(s1, dlv, ((p, n),))
+		assert n.installed == p
+		self.assertRaises(NoAvailableHost, tg.deploy, s1, dlv)
+		s2 = Session()
+		self.assertRaises(NotDeployed, tg.undeploy, s2, dlv)
+		tg.undeploy(s1, dlv)
+		assert not dpl in tg.deployments
+		assert not n.installed
 
-	def register_deployment(self, deployment):
-		self._deployments.append(deployment)
-
-	def unregister_deployment(self, deployment):
-		self._deployments.remove(deployment)
+	def testAllocation(self):
+		"deploy multi-packages deliverable"
+		n1 = DummyNode()
+		n2 = DummyNode()
+		n3 = DummyNode()
+		tg = TestGrid(nodes = (n1, n2, n3))
+		p1 = Package("foo", "1.0")
+		p2 = Package("bar", "1.0")
+		p3 = Package("baz", "1.0")
+		dlv = Deliverable("foobar", "1.0", p1, p2, p3)
+		s = Session()
+		dpl = tg.deploy(s, dlv)
+		assert dpl
+		assert set((p1, p2, p3)) == set((n1.installed, n2.installed, n3.installed))
+		self.assertRaises(NoAvailableHost, tg.deploy, s, dlv)
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
 
