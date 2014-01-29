@@ -69,7 +69,7 @@ class Command(object): pass
 
 class Deployment(object):
 
-	def __init__(self, session, deliverable, plan):
+	def __init__(self, session , deliverable, plan):
 		self.session = session
 		self.deliverable = deliverable
 		self.plan = set(plan) # set of (package, node)
@@ -95,7 +95,7 @@ class TestGrid(object):
 	def __init__(self, nodes = None, deployments = None):
 		self.nodes = nodes or []
 		self.deployments = deployments or []
-
+		self.session = Session or []
 	def using(self, node):
 		"True if node is already used for a deployment, False otherwise"
 		for deployment in self.deployments:

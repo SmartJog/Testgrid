@@ -12,6 +12,16 @@ class Deployment(model.Deployment): pass
 
 class IndexedDeployment(model.Deployment): pass
 
+class Session(model.Session):
+	def __init__(self, login):
+		self.login = login
+
+class IndexedSession(model.Session):
+
+	def __init__(self, hdl, index):
+		self.hdl = hdl
+		self.index = index
+
 class Node(model.Node):
 
 	def __init__(self, hostname, rootpass, username, userpass, publickey, privatekey, isvirtual=False):
@@ -57,6 +67,7 @@ class IndexedNode(model.Node):
 	def userpass(self):
 		return self.hdl.getUserpass(self.index)
 
+
 class NodeTable(object):
 
 	def __init__(self, hdl):
@@ -75,10 +86,51 @@ class NodeTable(object):
 		self.hdl.deleteNode(hostname)
 	
 	def exist(self, hostname):
-		return self.hdl.exist(hostname)
+		return self.hdl.nodeExist(hostname)
+
+	def getUnsuedNode():
+		return self.hdl.unusedNode()
+
+
 	def __iter__(self):
 		for index in self.hdl.listIndex():
 			yield IndexedNode(self.hdl, index)
+
+class SessionTable(object):
+
+	def __init__(self, hdl):
+		self.hdl = hdl
+	
+	def exist(self, login):
+		return self.hdl.sessionExist(login)
+
+	def append(self, session):
+		self.hdl.addSession(session.login)
+	
+	def remove(self, login):
+		self.hdl.deleteSession(login)
+
+	def maxId(self):
+		return self.hdl.maxSessionId()
+
+	def IndexedSession(self, login):
+		index = self.hdl.getSessionIndex(login)
+		if index is None:
+			return None
+		return IndexedSession(index)
+
+class DeploymentTable(object):
+
+	def __init__(self, hdl):
+		self.hdl = hdl
+
+	def append(self, deployment):
+		for package, src_node in deployment.plan:
+			self.hdl.addDeployment(deployment.session.index, src_node.index, package.name, package.version)
+	
+	def remove(self, login):
+		self.hdl.deleteDeployment()
+	
 
 class TestGrid(model.TestGrid):
 
@@ -86,7 +138,8 @@ class TestGrid(model.TestGrid):
 		hdl = database.Database(databasePath=pathDatabase)
 		self.nodes = NodeTable(hdl)
 		self.sshConfig(sshPath, sshKeyName)
-		#self.deployments = Deployment(hdl)
+		self.deployments = DeploymentTable(hdl)
+		self.session = SessionTable(hdl)
 
 	def sshConfig(self,sshPath, sshKeyName):
 		"initialize testgrid controller ssh configuration"

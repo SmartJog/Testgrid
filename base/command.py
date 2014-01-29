@@ -55,3 +55,8 @@ class Command(model.Command):
         return newNode
 
 
+    @staticmethod        
+    def installPackage(hostname):pass
+        
+
+

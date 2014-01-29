@@ -41,7 +41,7 @@ class Database(object):
 
      def getHostname(self, index):
           try:
-               self.db.execute(sqlrequest.HOSTNAME.format(index))
+               self.db.execute(sqlrequest.NODE_HOSTNAME.format(index))
                hostname = self.db.fetchone()
                return hostname[0]
           except sqlite3.Error, e:
@@ -49,7 +49,7 @@ class Database(object):
 
      def getRootPass(self, index):
           try:
-               self.db.execute(sqlrequest.ROOTPASS.format(index))
+               self.db.execute(sqlrequest.NODE_ROOTPASS.format(index))
                rootpass = self.db.fetchone()
                decoded = base64.b64decode(rootpass[0])
                return decoded
@@ -58,7 +58,7 @@ class Database(object):
 
      def getUsername(self, index):
           try:
-               self.db.execute(sqlrequest.USERNAME.format(index))
+               self.db.execute(sqlrequest.NODE_USERNAME.format(index))
                username = self.db.fetchone()
                return username[0]
           except sqlite3.Error, e:
@@ -66,7 +66,7 @@ class Database(object):
 
      def getUserpass(self, index):
           try:
-               self.db.execute(sqlrequest.USERPASS.format(index))
+               self.db.execute(sqlrequest.NODE_USERPASS.format(index))
                userpass = self.db.fetchone()
                decoded = base64.b64decode(userpass[0])
                return decoded
@@ -75,7 +75,7 @@ class Database(object):
 
      def exist(self, hostname):
           try:
-               self.db.execute(sqlrequest.EXIST.format(hostname))
+               self.db.execute(sqlrequest.NODE_EXIST.format(hostname))
                if len(self.db.fetchall())==0:
                     return False
                return True
@@ -116,12 +116,88 @@ class Database(object):
      
      def listIndex(self):
           try:
-               self.db.execute(sqlrequest.LIST_INDEX)
+               self.db.execute(sqlrequest.NODE_LIST_INDEX)
                ids = self.db.fetchall() 
                for index in ids:
                     yield index[0]
           except sqlite3.Error, e:
                print "sqlite3 Error listInstance: %s" % e
-
+               
+     def setUsedNode(self):
+          try:
+               self.db.execute(sqlrequest.SET_USED_NODE)
+          except sqlite3.Error, e:
+               self.conn.rollback()
+               raise Exception
 
   
+     def getUnusedNode(self):
+          try:
+               self.db.execute(sqlrequest.UNUSED_NODE)
+               ids = self.db.fetchall() 
+               for index in ids:
+                    yield index[0]
+          except sqlite3.Error, e:
+               raise Exception
+
+
+     def deleteDeployment():pass
+
+
+     def addDeployment(sessionIndex, nodeIndex, packageName, packageVersion):
+          try:
+               
+               self.db.execute(sqlrequest.ADD_DEPLOYMENT.format(sessionIndex, 
+                                                                nodeIndex, 
+                                                                packageName, 
+                                                                packageVersion))
+               self.conn.commit()
+          except sqlite3.Error, e:
+               self.conn.rollback()
+               raise Exception
+          
+     def deleteSession(self, login):
+          try:
+               self.db.execute(sqlrequest.DELETE_SESSION.format(login))
+               self.conn.commit()                  
+          except sqlite3.Error, e:
+               self.conn.rollback()
+
+     def maxSessionId(self):
+          try:
+               self.db.execute(sqlrequest.MAX_SESSION_ID)
+               index  = self.db.fetchone()
+               if index[0] is None:
+                    return 0
+               return index[0]
+          except sqlite3.Error, e:
+               print e
+               raise Exception
+
+     def addSession(self, login):
+          try:
+               self.db.execute(sqlrequest.ADD_SESSION.format(login))
+               self.conn.commit()
+          except sqlite3.Error, e:
+               self.conn.rollback()
+               raise Exception
+
+
+     def sessionExist(self, login):
+          try:
+               self.db.execute(sqlrequest.SESSION_EXIST.format(login))
+               if len(self.db.fetchall())==0:
+                    return False
+               return True
+          except sqlite3.Error, e:
+               raise Exception
+
+     def getSessionIndex(self, login):
+           try:
+               self.db.execute(sqlrequest.SESSION_EXIST.format(login))
+               index = self.db.fetchone()
+               if len(index)==0:
+                    return None
+               return index[0]
+          except sqlite3.Error, e:
+               raise Exception
