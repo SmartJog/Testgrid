@@ -1,6 +1,7 @@
 import bottle
 from bottle import route, request, Bottle, re, template 
 import impl
+import model
 import command
 
 SERVER_IP  = "192.168.0.8"
@@ -57,7 +58,9 @@ def delete(hostname):
 @bottle.auth_basic(checkSession)
 def deployPackage(packageName, version):
     login = bottle.request.auth[0]
-    print login
+    session = tg.session.indexedSession(login)
+    package =  model.Package(packageName, version)
+
  
 @app.route("/list")
 @bottle.auth_basic(checkSession)

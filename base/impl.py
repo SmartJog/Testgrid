@@ -113,7 +113,7 @@ class SessionTable(object):
 	def maxId(self):
 		return self.hdl.maxSessionId()
 
-	def IndexedSession(self, login):
+	def indexedSession(self, login):
 		index = self.hdl.getSessionIndex(login)
 		if index is None:
 			return None

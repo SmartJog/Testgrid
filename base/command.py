@@ -27,6 +27,7 @@ class Command(model.Command):
             raise model.NoAvailableHost()
         for (hostname, result) in results['contacted'].items():
             if 'failed' in result:
+                print result['msg']
                 return result['msg']
             #if not 'failed' in result:
              #   return result['stdout']
@@ -56,7 +57,13 @@ class Command(model.Command):
 
 
     @staticmethod        
-    def installPackage(hostname):pass
-        
+    def installPackage(hostname, packageName, packageVersion):
+        modulArg = "pkg={0}={1} state=present".format(packageName, packageVersion)
+        runCommand(hostname, "apt", moduleArg)
+
+    @staticmethod
+    def uninstallPackage(hostname, packageName, packageVersion):
+        modulArg = "pkg={0}={1} state=absent".format(packageName, packageVersion)
+        runCommand(hostname, "apt", moduleArg)
 
 

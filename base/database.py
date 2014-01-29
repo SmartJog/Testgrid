@@ -73,7 +73,7 @@ class Database(object):
           except sqlite3.Error, e:
                raise Exception()
 
-     def exist(self, hostname):
+     def nodeExist(self, hostname):
           try:
                self.db.execute(sqlrequest.NODE_EXIST.format(hostname))
                if len(self.db.fetchall())==0:
@@ -193,7 +193,7 @@ class Database(object):
                raise Exception
 
      def getSessionIndex(self, login):
-           try:
+          try:
                self.db.execute(sqlrequest.SESSION_EXIST.format(login))
                index = self.db.fetchone()
                if len(index)==0:
