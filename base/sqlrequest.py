@@ -29,4 +29,4 @@ DELETE_SESSION = "DELETE FROM Session where login = '{0}'"
 MAX_SESSION_ID = "SELECT MAX(id) from Session"
 NODE_LIST_INDEX = "SELECT id from Session"
 
-ADD_DEPLOYMENT = "INSERT INTO Deployment Deployment(session_id, node_id , namepackage, versionpackage) VALUES('{0}', '{1}','{2}', '{3}', '{4}')"
+ADD_DEPLOYMENT = "INSERT INTO Deployment(session_id, node_id , namepackage, versionpackage) VALUES('{0}', '{1}','{2}', '{3}')"

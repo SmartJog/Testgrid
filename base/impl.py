@@ -4,6 +4,7 @@ import os
 import unittest
 import sshOperation
 import subprocess
+import command
 
 SSH_CONFIG = "config"
 SSH_CONFIG_CONTENT = "StrictHostKeyChecking no\n"
@@ -67,6 +68,9 @@ class IndexedNode(model.Node):
 	def userpass(self):
 		return self.hdl.getUserpass(self.index)
 
+	def toUsed(self):
+		self.hdl.setUsedNode(self.index)
+
 
 class NodeTable(object):
 
@@ -88,8 +92,10 @@ class NodeTable(object):
 	def exist(self, hostname):
 		return self.hdl.nodeExist(hostname)
 
-	def getUnsuedNode():
-		return self.hdl.unusedNode()
+	def getUnsuedNode(self):
+		for index in self.hdl.getUnusedNode():
+			yield IndexedNode(self.hdl, index)
+		
 
 
 	def __iter__(self):
@@ -117,16 +123,15 @@ class SessionTable(object):
 		index = self.hdl.getSessionIndex(login)
 		if index is None:
 			return None
-		return IndexedSession(index)
+		return IndexedSession(self.hdl, index)
 
 class DeploymentTable(object):
 
 	def __init__(self, hdl):
 		self.hdl = hdl
 
-	def append(self, deployment):
-		for package, src_node in deployment.plan:
-			self.hdl.addDeployment(deployment.session.index, src_node.index, package.name, package.version)
+	def append(self, session, package, node):
+		self.hdl.addDeployment(session.index, node.index, package.name, package.version)
 	
 	def remove(self, login):
 		self.hdl.deleteDeployment()
@@ -159,6 +164,20 @@ class TestGrid(model.TestGrid):
 				
 		except Exception as e:
 			print "couldn't init testGridController %s" % e
+
+	def deploy(self, session, package):
+		unused = self.nodes.getUnsuedNode()
+		for node in unused:
+			success = command.Command.installPackage(node.hostname, package.name, package.version)
+			if success == True:
+				self.deployments.append(session, package, node)
+				node.toUsed()
+				return "package {0}{1} has been installed successfully on node {2}".format(package.name, package.version, node.hostname) 
+		return "couldn't install package {0}{1}".format(package.name, package.version)
+			
+			
+	
+
 ############
 # test     #
 ############

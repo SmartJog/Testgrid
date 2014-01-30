@@ -123,9 +123,9 @@ class Database(object):
           except sqlite3.Error, e:
                print "sqlite3 Error listInstance: %s" % e
                
-     def setUsedNode(self):
+     def setUsedNode(self, index):
           try:
-               self.db.execute(sqlrequest.SET_USED_NODE)
+               self.db.execute(sqlrequest.SET_USED_NODE.format(index))
           except sqlite3.Error, e:
                self.conn.rollback()
                raise Exception
@@ -134,7 +134,7 @@ class Database(object):
      def getUnusedNode(self):
           try:
                self.db.execute(sqlrequest.UNUSED_NODE)
-               ids = self.db.fetchall() 
+               ids = self.db.fetchall()
                for index in ids:
                     yield index[0]
           except sqlite3.Error, e:
@@ -144,7 +144,7 @@ class Database(object):
      def deleteDeployment():pass
 
 
-     def addDeployment(sessionIndex, nodeIndex, packageName, packageVersion):
+     def addDeployment(self, sessionIndex, nodeIndex, packageName, packageVersion):
           try:
                
                self.db.execute(sqlrequest.ADD_DEPLOYMENT.format(sessionIndex, 
@@ -153,6 +153,7 @@ class Database(object):
                                                                 packageVersion))
                self.conn.commit()
           except sqlite3.Error, e:
+               print e
                self.conn.rollback()
                raise Exception
           

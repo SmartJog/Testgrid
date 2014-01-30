@@ -60,8 +60,9 @@ def deployPackage(packageName, version):
     login = bottle.request.auth[0]
     session = tg.session.indexedSession(login)
     package =  model.Package(packageName, version)
-
- 
+    result = tg.deploy(session, package)
+    return result
+        
 @app.route("/list")
 @bottle.auth_basic(checkSession)
 def listSessiondeployment():pass

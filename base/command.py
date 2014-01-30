@@ -28,7 +28,8 @@ class Command(model.Command):
         for (hostname, result) in results['contacted'].items():
             if 'failed' in result:
                 print result['msg']
-                return result['msg']
+                return False
+            return True
             #if not 'failed' in result:
              #   return result['stdout']
 
@@ -58,12 +59,12 @@ class Command(model.Command):
 
     @staticmethod        
     def installPackage(hostname, packageName, packageVersion):
-        modulArg = "pkg={0}={1} state=present".format(packageName, packageVersion)
-        runCommand(hostname, "apt", moduleArg)
+        moduleArg = "pkg={0} state=present".format(packageName)
+        return (Command.runCommand(hostname, "apt", moduleArg))
 
     @staticmethod
     def uninstallPackage(hostname, packageName, packageVersion):
-        modulArg = "pkg={0}={1} state=absent".format(packageName, packageVersion)
+        moduleArg = "pkg={0}={1} state=absent".format(packageName, packageVersion)
         runCommand(hostname, "apt", moduleArg)
 
 
