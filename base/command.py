@@ -59,12 +59,15 @@ class Command(model.Command):
 
     @staticmethod        
     def installPackage(hostname, packageName, packageVersion):
-        moduleArg = "pkg={0} state=present".format(packageName)
+        if packageVersion is None:
+            moduleArg = "pkg={0} state=present".format(packageName)
+        else:
+            moduleArg = "pkg={0}={1} state=present".format(packageName, packageVersion)
         return (Command.runCommand(hostname, "apt", moduleArg))
 
     @staticmethod
     def uninstallPackage(hostname, packageName, packageVersion):
         moduleArg = "pkg={0}={1} state=absent".format(packageName, packageVersion)
-        runCommand(hostname, "apt", moduleArg)
+        return runCommand(hostname, "apt", moduleArg)
 
 

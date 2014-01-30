@@ -43,6 +43,8 @@ class Database(object):
           try:
                self.db.execute(sqlrequest.NODE_HOSTNAME.format(index))
                hostname = self.db.fetchone()
+               if hostname is None:
+                    return None
                return hostname[0]
           except sqlite3.Error, e:
                raise Exception()
@@ -114,18 +116,35 @@ class Database(object):
 
 
      
-     def listIndex(self):
+     def listIndexNode(self):
           try:
                self.db.execute(sqlrequest.NODE_LIST_INDEX)
                ids = self.db.fetchall() 
                for index in ids:
                     yield index[0]
           except sqlite3.Error, e:
+               raise Exception
+
+     def listNodeHostname(self):
+          try:
+               result = self.db.execute(sqlString.LIST_HOSTNAME)
+               hostnames = self.db.fetchall()
+               for host in hostnames:
+                    yield host[0]
+               
+               """if len(data)==0:
+                    result = "no instance nodes"
+                    return result
+               result = '\n'.join(str(d) for d in data)
+               return result"""
+          except sqlite3.Error, e:
                print "sqlite3 Error listInstance: %s" % e
+
                
      def setUsedNode(self, index):
           try:
                self.db.execute(sqlrequest.SET_USED_NODE.format(index))
+               self.conn.commit()
           except sqlite3.Error, e:
                self.conn.rollback()
                raise Exception
@@ -140,9 +159,41 @@ class Database(object):
           except sqlite3.Error, e:
                raise Exception
 
+     def setUnsedNode(self, index):
+           try:
+               self.db.execute(sqlrequest.SET_UNSED_NODE.format(index))
+               self.conn.commit()
+           except sqlite3.Error, e:
+               self.conn.rollback()
+               raise Exception
 
-     def deleteDeployment():pass
 
+     def deleteDeployment(self, index):
+          try:
+               self.db.execute(sqlrequest.DELETE_DEPLOYMENT.format(index))
+               self.conn.commit()
+               
+          except sqlite3.Error, e:
+               self.conn.rollback()
+
+
+     def getDeploymentNode(self, index):
+          try:
+               self.db.execute(sqlrequest.DEPLOYMENT_NODE.format(index))
+               row = self.db.fetchone()
+               return  row[2]
+               
+          except sqlite3.Error, e:
+               raise Exception
+
+     def getDeploymentPackage(self, index):
+          try:
+               self.db.execute(sqlrequest.DEPLOYMENT_NODE.format(index))
+               row = self.db.fetchone()
+               package = set(row[3], row[4])
+               return package
+          except sqlite3.Error, e:
+               raise Exception
 
      def addDeployment(self, sessionIndex, nodeIndex, packageName, packageVersion):
           try:
@@ -156,7 +207,21 @@ class Database(object):
                print e
                self.conn.rollback()
                raise Exception
-          
+
+     def listDeploymentSession(self, sessionIndex):
+          try:
+               self.db.execute(sqlrequest.DEPLOYMENT_SESSION.format(sessionIndex))
+               result = self.db.fetchall()
+               for row in result:
+                    print "node id %d" % row[1]
+                    hostname = self.getHostname(row[1])
+                    if hostname is None:
+                         raise Exception("couldn't find host")
+                    yield set([row[0], hostname, row[2], row[3]])
+          except sqlite3.Error, e:
+               print e
+               raise Exception
+
      def deleteSession(self, login):
           try:
                self.db.execute(sqlrequest.DELETE_SESSION.format(login))

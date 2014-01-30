@@ -9,7 +9,7 @@ import unittest
 
 class Package(object):
 
-	def __init__(self, name, version):
+	def __init__(self, name, version=None):
 		self.name = name
 		self.version = version
 

@@ -9,9 +9,22 @@ import command
 SSH_CONFIG = "config"
 SSH_CONFIG_CONTENT = "StrictHostKeyChecking no\n"
 
-class Deployment(model.Deployment): pass
+class Deployment(model.Deployment):pass
 
-class IndexedDeployment(model.Deployment): pass
+class IndexedDeployment(model.Deployment):
+
+	def __init__(self, hdl, index):
+		self.hdl = hdl
+		self.index = index
+
+	@property
+	def indexedNode(self):
+		indexNode = self.hdl.getDeploymentNode(self.index)
+		return (IndexedNode(hdl, index))
+	@property
+	def package(self):
+		return self.hdl.getPackage(self.index)
+
 
 class Session(model.Session):
 	def __init__(self, login):
@@ -22,6 +35,7 @@ class IndexedSession(model.Session):
 	def __init__(self, hdl, index):
 		self.hdl = hdl
 		self.index = index
+
 
 class Node(model.Node):
 
@@ -71,6 +85,8 @@ class IndexedNode(model.Node):
 	def toUsed(self):
 		self.hdl.setUsedNode(self.index)
 
+	def toUnsed(self):
+		self.hdl.setUnsedNode(self.index)
 
 class NodeTable(object):
 
@@ -133,13 +149,17 @@ class DeploymentTable(object):
 	def append(self, session, package, node):
 		self.hdl.addDeployment(session.index, node.index, package.name, package.version)
 	
-	def remove(self, login):
-		self.hdl.deleteDeployment()
+	def remove(self, index):
+		self.hdl.deleteDeployment(index)
+	
+	def listDeploymentSession(self, session):
+		return self.hdl.listDeploymentSession(session.index)
 	
 
 class TestGrid(model.TestGrid):
 
-	def __init__(self, pathDatabase ="TestGrid1.db", sshPath=".ssh/", sshKeyName="testGridkey"):
+	def __init__(self, hostname="127.0.0.1", pathDatabase ="TestGrid1.db", sshPath=".ssh/", sshKeyName="testGridkey"):
+		self.hostname = hostname
 		hdl = database.Database(databasePath=pathDatabase)
 		self.nodes = NodeTable(hdl)
 		self.sshConfig(sshPath, sshKeyName)
@@ -172,12 +192,19 @@ class TestGrid(model.TestGrid):
 			if success == True:
 				self.deployments.append(session, package, node)
 				node.toUsed()
-				return "package {0}{1} has been installed successfully on node {2}".format(package.name, package.version, node.hostname) 
-		return "couldn't install package {0}{1}".format(package.name, package.version)
+				return "package {0} has been installed successfully on node {1}".format(package.name, node.hostname) 
+			
+		return "couldn't install package {0}".format(package.name)
 			
 			
-	
-
+	def undeploy(self, index):
+		deployment = IndexedDeployment(index)
+		packageName, packageVersion = deployment.package
+		success = uninstallPackage(deployment.indexedNode.hostname, packageName, packageVersion)
+		if success == True:
+			node.toUnused()
+			return "success"
+		return "failure"
 ############
 # test     #
 ############
