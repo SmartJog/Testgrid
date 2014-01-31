@@ -18,12 +18,13 @@ class IndexedDeployment(model.Deployment):
 		self.index = index
 
 	@property
-	def indexedNode(self):
+	def indexedHost(self):
 		indexNode = self.hdl.getDeploymentNode(self.index)
-		return (IndexedNode(hdl, index))
+		return (IndexedNode(self.hdl, indexNode))
 	@property
 	def package(self):
-		return self.hdl.getPackage(self.index)
+		package = self.hdl.getDeploymentPackage(self.index)
+		return model.Package(package['name'], package['version'])
 
 
 class Session(model.Session):
@@ -85,8 +86,8 @@ class IndexedNode(model.Node):
 	def toUsed(self):
 		self.hdl.setUsedNode(self.index)
 
-	def toUnsed(self):
-		self.hdl.setUnsedNode(self.index)
+	def toUnused(self):
+		self.hdl.setUnusedNode(self.index)
 
 class NodeTable(object):
 
@@ -115,8 +116,14 @@ class NodeTable(object):
 
 
 	def __iter__(self):
-		for index in self.hdl.listIndex():
+		for index in self.hdl.listIndexNode():
 			yield IndexedNode(self.hdl, index)
+
+	def indexedNode(self, hostname):
+		index = self.hdl.getNodeIndex(hostname)
+		if index is None:
+			return None
+		return IndexedNode(self.hdl , index)
 
 class SessionTable(object):
 
@@ -155,7 +162,11 @@ class DeploymentTable(object):
 	def listDeploymentSession(self, session):
 		return self.hdl.listDeploymentSession(session.index)
 	
+	def indexedDeployment(self, index):
+		return (IndexedDeployment( self.hdl, index))
 
+	def exist(self, index):
+		return self.hdl.deploymentExist(index)
 class TestGrid(model.TestGrid):
 
 	def __init__(self, hostname="127.0.0.1", pathDatabase ="TestGrid1.db", sshPath=".ssh/", sshKeyName="testGridkey"):
@@ -198,13 +209,15 @@ class TestGrid(model.TestGrid):
 			
 			
 	def undeploy(self, index):
-		deployment = IndexedDeployment(index)
-		packageName, packageVersion = deployment.package
-		success = uninstallPackage(deployment.indexedNode.hostname, packageName, packageVersion)
-		if success == True:
-			node.toUnused()
-			return "success"
-		return "failure"
+			deployment =  self.deployments.indexedDeployment(index)
+			package = deployment.package
+			indexedHost = deployment.indexedHost
+			success = command.Command.uninstallPackage(indexedHost.hostname, package.name, package.version)
+			if success == True:
+				indexedHost.toUnused()
+				self.deployments.remove(index)
+				return "success"
+			return "failure"
 ############
 # test     #
 ############

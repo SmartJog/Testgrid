@@ -84,6 +84,15 @@ class Database(object):
           except sqlite3.Error, e:
                raise Exception()
 
+     def getNodeIndex(self, hostname):
+          try:
+               self.db.execute(sqlrequest.NODE_EXIST.format(hostname))
+               index = self.db.fetchone()
+               if index is None:
+                    return None
+               return index[0]
+          except sqlite3.Error, e:
+               raise Exception
 
      def addNode(self, hostname, username, userpass , publicKey, privateKey, rootpass, isvirtual):
           try:
@@ -119,7 +128,7 @@ class Database(object):
      def listIndexNode(self):
           try:
                self.db.execute(sqlrequest.NODE_LIST_INDEX)
-               ids = self.db.fetchall() 
+               ids = self.db.fetchall()
                for index in ids:
                     yield index[0]
           except sqlite3.Error, e:
@@ -131,7 +140,6 @@ class Database(object):
                hostnames = self.db.fetchall()
                for host in hostnames:
                     yield host[0]
-               
                """if len(data)==0:
                     result = "no instance nodes"
                     return result
@@ -159,7 +167,7 @@ class Database(object):
           except sqlite3.Error, e:
                raise Exception
 
-     def setUnsedNode(self, index):
+     def setUnusedNode(self, index):
            try:
                self.db.execute(sqlrequest.SET_UNSED_NODE.format(index))
                self.conn.commit()
@@ -167,6 +175,14 @@ class Database(object):
                self.conn.rollback()
                raise Exception
 
+     def deploymentExist(self, index):
+          try:
+               self.db.execute(sqlrequest.DEPLOYMENT_EXIST.format(index))
+               if len(self.db.fetchall())==0:
+                    return False
+               return True
+          except sqlite3.Error, e:
+               raise Exception()
 
      def deleteDeployment(self, index):
           try:
@@ -181,23 +197,25 @@ class Database(object):
           try:
                self.db.execute(sqlrequest.DEPLOYMENT_NODE.format(index))
                row = self.db.fetchone()
-               return  row[2]
+               return  row[0]
                
           except sqlite3.Error, e:
                raise Exception
 
      def getDeploymentPackage(self, index):
           try:
-               self.db.execute(sqlrequest.DEPLOYMENT_NODE.format(index))
+               package = {}
+               self.db.execute(sqlrequest.DEPLOYMENT_PACKAGE.format(index))
                row = self.db.fetchone()
-               package = set(row[3], row[4])
+               package['name'] = row[0]
+               package['version'] = row[1]
                return package
           except sqlite3.Error, e:
                raise Exception
 
      def addDeployment(self, sessionIndex, nodeIndex, packageName, packageVersion):
           try:
-               
+               print "session index %d" % sessionIndex
                self.db.execute(sqlrequest.ADD_DEPLOYMENT.format(sessionIndex, 
                                                                 nodeIndex, 
                                                                 packageName, 
@@ -210,14 +228,16 @@ class Database(object):
 
      def listDeploymentSession(self, sessionIndex):
           try:
+               result_list = list()
                self.db.execute(sqlrequest.DEPLOYMENT_SESSION.format(sessionIndex))
                result = self.db.fetchall()
+               print result
                for row in result:
-                    print "node id %d" % row[1]
                     hostname = self.getHostname(row[1])
                     if hostname is None:
                          raise Exception("couldn't find host")
-                    yield set([row[0], hostname, row[2], row[3]])
+                    result_list.append({'index':row[0], "host": hostname, 'packageName':row[2], 'version':row[3]})
+               return result_list
           except sqlite3.Error, e:
                print e
                raise Exception

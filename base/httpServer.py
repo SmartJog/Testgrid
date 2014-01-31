@@ -32,6 +32,8 @@ def checkSession(user, password):
     return False
 
 
+
+
 @app.route("/session")
 def createSession():
     newLogin = "testgridUser{0}".format(tg.session.maxId())
@@ -46,11 +48,19 @@ def add():
     for host in hosts:
         if tg.nodes.exist(host["hostname"]) == False:    
             node = command.Command.addNode(host["hostname"], host["rootpass"])
+            print "host to add %s" % host["hostname"]
             if node is  not None:
                 tg.nodes.append(node)
+                print "successfully added %s" % host["hostname"]
+            else:
+                print "fail to add %s" % host["hostname"]
 
-@app.post("/list")
-def listNode():pass
+@app.route("/list")
+def listNode():
+    if request.remote_addr != tg.hostname:
+        abort(401, "Sorry, access denied Sorry, access denied you must be admin to perform this task.")
+    for n in tg.nodes:
+            print n.hostname
 
 @app.route("/delete")
 def delete():
@@ -81,8 +91,11 @@ def deployPackage():
 @bottle.auth_basic(checkSession)
 def undeployPackage():
     index = request.GET.get("id")
-    result = tg.undeploy(index)
-    return result
+    if tg.deployments.exist(index) == True and index is not None:
+        result = tg.undeploy(index)
+        return result
+    else:
+        abort(400, "Bad request")
 
 @app.route("/deployment")
 @bottle.auth_basic(checkSession)
@@ -90,16 +103,20 @@ def listSessiondeployment():
     login = bottle.request.auth[0]
     session = tg.session.indexedSession(login)
     deploymentList = tg.deployments.listDeploymentSession(session)
-    if deploymentList is None:
-        return "no deployment for %s" % login
-    for index, node, namePackage, version  in deploymentList:
-        print "{0}\t{1}\t{2}\t{3}\t".format(index, node, namePackage, version)
-
+    print "deployment-id\tpackageName\tversion\t\tip\t"
+    for item  in deploymentList:
+        print "{0}\t\t{1}\t\t{2}\t\t{3}".format(item['index'], item['packageName'], item['version'], item['host'])
+    #print "no deployment for %s" % login
 
 @app.route("/user")
-def getUserInfo():pass
-
-
+def getUserNodeInfo():
+    hostname = request.GET.get("hostname")
+    if hostname is None:
+        abort(400, "Bad request")
+    node = tg.nodes.indexedNode(hostname)
+    if node is None:
+        abort(400, "Bad request host not found")
+    return "username: {0} password: {1} for host: {2}".format(node.username, node.userpass, hostname)
 
 if __name__ == '__main__':
     tg.hostname = SERVER_IP
