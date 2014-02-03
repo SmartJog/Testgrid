@@ -75,6 +75,26 @@ class Database(object):
           except sqlite3.Error, e:
                raise Exception()
 
+     def getOperatinsystem(self, index):
+          try:
+               self.db.execute(sqlrequest.NODE_OPERATING_SYSTEM.format(index))
+               os = self.db.fetchone()
+               return os[0]
+          except sqlite3.Error, e:
+               raise Exception()
+
+     def nodeIsavailable(self, index):
+          try:
+               self.db.execute(sqlrequest.NODE_ISAVAILABLE.format(index))
+               isavailable = self.db.fetchone()
+               return isavailable[0]
+          except sqlite3.Error, e:
+               raise Exception()
+
+
+     
+
+
      def nodeExist(self, hostname):
           try:
                self.db.execute(sqlrequest.NODE_EXIST.format(hostname))
@@ -94,7 +114,7 @@ class Database(object):
           except sqlite3.Error, e:
                raise Exception
 
-     def addNode(self, hostname, username, userpass , publicKey, privateKey, rootpass, isvirtual):
+     def addNode(self, hostname, username, userpass , publicKey, privateKey, rootpass, operatingsystem):
           try:
                encryptedPass = base64.b64encode(userpass)
                encryptedRootPass = base64.b64encode(rootpass)
@@ -104,7 +124,7 @@ class Database(object):
                                                           encryptedRootPass, 
                                                           publicKey, 
                                                           privateKey, 
-                                                          isvirtual))
+                                                          operatingsystem))
                self.conn.commit()
           except sqlite3.IntegrityError:
                self.conn.rollback()
@@ -134,19 +154,14 @@ class Database(object):
           except sqlite3.Error, e:
                raise Exception
 
-     def listNodeHostname(self):
+     """def listNodeHostname(self):
           try:
                result = self.db.execute(sqlString.LIST_HOSTNAME)
                hostnames = self.db.fetchall()
                for host in hostnames:
                     yield host[0]
-               """if len(data)==0:
-                    result = "no instance nodes"
-                    return result
-               result = '\n'.join(str(d) for d in data)
-               return result"""
           except sqlite3.Error, e:
-               print "sqlite3 Error listInstance: %s" % e
+               print "sqlite3 Error listInstance: %s" % e """
 
                
      def setUsedNode(self, index):

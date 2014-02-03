@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 #Node
-ADD_NODE = "INSERT INTO Node(hostname, username, userpass, rootpass, publicKey, privateKey, isvirtual, isAvailable) VALUES('{0}', '{1}','{2}', '{3}', '{4}', '{5}','{6}', '1')"
+ADD_NODE = "INSERT INTO Node(hostname, username, userpass, rootpass, publicKey, privateKey, operatingsystem) VALUES('{0}', '{1}','{2}', '{3}', '{4}', '{5}','{6}')"
 
 DELETE_NODE = "DELETE FROM Node where hostname = '{0}'"
 LIST_HOSTNAME = "SELECT hostname from Node"
@@ -20,10 +20,12 @@ NODE_EXIST = "SELECT id FROM  Node  Where hostname ='{0}'"
 
 UNUSED_NODE = "SELECT id FROM Node where isAvailable = 1"
 
+NODE_ISAVAILABLE = "SELECT isAvailable FROM Node where id = '{0}'"
+
 SET_UNSED_NODE = "UPDATE Node  SET isAvailable = 1 WHERE id = '{0}'"
 
 SET_USED_NODE = "UPDATE Node  SET isAvailable = 0 WHERE id = '{0}'"
-
+NODE_OPERATING_SYSTEM = "SELECT operatingsystem from Node  where id = '{0}'"
 
 #Session
 SESSION_EXIST = "SELECT id FROM Session Where login = '{0}'"

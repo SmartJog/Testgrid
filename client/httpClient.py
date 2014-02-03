@@ -59,6 +59,10 @@ class  Command(cmd.Cmd):
         self.intro = 'Welcome to testgrid client!'
         cmd.Cmd.__init__(self)
 
+    def emptyline(self):
+        return
+        
+
     def check_start_param(self, username):
         try:
             if username is not None:
@@ -86,7 +90,8 @@ class  Command(cmd.Cmd):
 
     @docopt_cmd
     def do_add(self, arg):
-        """Usage: add <host> <password>"""
+        """Usage: add    <host> <password>
+        add the host in Testgrid service"""
         try:
             url = 'http://{0}:{1}/add'.format(self.host, self.port)
             print arg['<host>']
@@ -99,7 +104,8 @@ class  Command(cmd.Cmd):
             raise requests.ConnectionError
     @docopt_cmd
     def do_rm(self,arg):
-        """Usage: rm <host>"""
+        """rm   <host>
+        remove the host from test grid service"""
         url = 'http://{0}:{1}/delete?{2}'.format(self.host, self.port, arg['<host>'])
         r = requests.get(url)
         data = r.json()
@@ -111,12 +117,19 @@ class  Command(cmd.Cmd):
     @docopt_cmd
     def do_list(self,arg):
         """Usage: list"""
+        available = {0: "No", 1: "Yes"}
         url = 'http://{0}:{1}/list'.format(self.host, self.port)
+        r = requests.get(url)
+        data = r.json()
+        print "ip\t\tusername\tuserpass\trootpass\toperatingsystem\tavailable"
+        if not data["failure"]:
+            for item in data["host"]:
+                print "{0}\t{1}\t{2}\t\t{3}\t\t{4}\t\t{5}".format(item["hostname"], item["username"], item["userpass"], item["rootpass"], item["operatingsystem"], available[item[ "available"]])
 
 
     @docopt_cmd
     def do_deploy(self,arg):
-        """Usage: deploy <packagename> [--version=<version>]"""
+        """Usage: deploy  <packagename> [--version=<version>]"""
 
         s = requests.Session()
         s.auth = (self.username, None)
@@ -130,7 +143,7 @@ class  Command(cmd.Cmd):
 
     @docopt_cmd
     def do_undeploy(self,arg):
-        """Usage: undeploy <deployment-id>"""
+        """Usage: undeploy      <deployment-id>"""
         s = requests.Session()
         s.auth = (self.username, None)
         url = 'http://{0}:{1}/undeploy?id={2}'.format(self.host, self.port, arg['<deployment-id>'])
@@ -143,7 +156,7 @@ class  Command(cmd.Cmd):
 
     @docopt_cmd
     def do_user(self,arg):
-        """Usage: user <host>"""
+        """Usage: user   <host>"""
         s = requests.Session()
         s.auth = (self.username, None)
         url = 'http://{0}:{1}/user?hostname={2}'.format(self.host, self.port, arg['<host>'])
@@ -155,8 +168,8 @@ class  Command(cmd.Cmd):
             print data['message']
 
     @docopt_cmd
-    def do_listsession(self,arg):
-        """Usage: listsession"""
+    def do_listdeployment(self,arg):
+        """Usage: listdeployment"""
         s = requests.Session()
         print self.username
         s.auth = (self.username, None)
@@ -166,16 +179,19 @@ class  Command(cmd.Cmd):
         print "deployment-id\tpackageName\tversion\t\tip\t"
         for item  in responseData["deployment"]:
             print "{0}\t\t{1}\t\t{2}\t\t{3}".format(item['index'], item['packageName'], item['version'], item['host'])
-
-    def do_quit(self, arg):
-        """Exit testgrid client"""
-        exit()
+    
+    
+    #def do_EOF(self, line):
+     #   return True
+     #print undocumented command
 
 
 
 if __name__ == '__main__':
-    opt = docopt(__doc__, sys.argv[1:])
-    if opt['start']:
-        signal.signal(signal.SIGINT, signal_handler)
-        Command(opt['<host>'], opt['<port>'], opt['--username']).cmdloop()
-
+    try:
+        opt = docopt(__doc__, sys.argv[1:])
+        if opt['start']:
+            signal.signal(signal.SIGINT, signal_handler)
+            Command(opt['<host>'], opt['<port>'], opt['--username']).cmdloop()
+    except Exception as e:
+        print e

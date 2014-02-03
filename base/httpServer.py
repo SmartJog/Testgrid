@@ -74,8 +74,17 @@ def add():
 def listNode():
     if request.remote_addr != tg.hostname:
         abort(401, "Sorry, access denied Sorry, access denied you must be admin to perform this task.")
+    listHost = list()
     for n in tg.nodes:
-            print n.hostname
+        listHost.append({"hostname": n.hostname, 
+                         "username" :n.username, 
+                         "userpass": n.userpass,
+                         "rootpass": n.rootpass,
+                         "operatingsystem": n.operatingsystem,
+                         "available": n.available})
+    data = json.dumps({"failure": 0, "host": listHost})
+    return data
+    
 
 @app.route("/delete")
 def delete():

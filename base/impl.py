@@ -40,14 +40,16 @@ class IndexedSession(model.Session):
 
 class Node(model.Node):
 
-	def __init__(self, hostname, rootpass, username, userpass, publickey, privatekey, isvirtual=False):
+	def __init__(self, hostname, rootpass, username, userpass, publickey, privatekey,  operatingsystem, isvirtual=False, isavailable=True):
 		self.hostname = hostname
 		self.rootpass = rootpass
 		self.username = username
 		self.userpass = userpass
 		self.publickey = publickey
 		self.privatekey = privatekey
+		self.operatingsystem = operatingsystem
 		self.isvirtual = isvirtual
+		self.isavailable = isavailable
 
 	def __eq__(self, other):
 		return self.hostname == other.hostname
@@ -83,6 +85,14 @@ class IndexedNode(model.Node):
 	def userpass(self):
 		return self.hdl.getUserpass(self.index)
 
+	@property
+	def operatingsystem(self):
+		return self.hdl.getOperatinsystem(self.index)
+
+	@property
+	def available(self):
+		return self.hdl.nodeIsavailable(self.index)
+
 	def toUsed(self):
 		self.hdl.setUsedNode(self.index)
 
@@ -101,7 +111,7 @@ class NodeTable(object):
 				 node.publickey,
 				 node.privatekey,
 				 node.rootpass,
-				 node.isvirtual)
+				 node.operatingsystem)
 
 	def remove(self, hostname):
 		self.hdl.deleteNode(hostname)
@@ -214,7 +224,6 @@ class TestGrid(model.TestGrid):
 			package = deployment.package
 			indexedHost = deployment.indexedHost
 			success = command.Command.uninstallPackage(indexedHost.hostname, package.name, package.version)
-			print "undeploy %s" % success
 			if success == True:
 				indexedHost.toUnused()
 				self.deployments.remove(index)
@@ -233,7 +242,7 @@ class testNode(unittest.TestCase):
 			    "test", 
 			    "publickey", 
 			    "privatekey", 
-			    False)
+			    "debian")
 		test.nodes.append(node)
 		test.nodes.append(node)
 		i = 0

@@ -18,16 +18,14 @@ class Command(model.Command):
     @staticmethod        
     def runCommand(hostname, moduleName, moduleArg):
         inv = [hostname]
-        results = ansible.runner.Runner(forks=10,module_name=moduleName, 
+        results = ansible.runner.Runner(module_name=moduleName, 
                                         module_args=moduleArg ,timeout=10, 
                                         remote_user='root', pattern=hostname, 
                                         host_list=inv).run()
-        print results
         if results is None:
             raise model.NoAvailableHost()
         for (hostname, result) in results['contacted'].items():
             if 'failed' in result:
-                print result['msg']
                 return False
             return True
             #if not 'failed' in result:
@@ -39,13 +37,16 @@ class Command(model.Command):
         userpass = Command.generateNewPassword()
         encPass = crypt.crypt(userpass,"22")
         comArg = "name={0}  password={1} shell=/bin/bash update_password=always".format(username ,encPass)
-        Command.runCommand(hostname, 'user',comArg) 
+        Command.runCommand(hostname, 'user',comArg)
+        os = Command.checkOS(hostname)
         newNode = impl.Node(hostname, 
                             rootpass, 
                             username, 
                             userpass, 
                             publickey, 
-                            privatekey)
+                            privatekey,
+                            os)
+       
         return newNode
 
     @staticmethod        
@@ -71,4 +72,22 @@ class Command(model.Command):
         moduleArg = "pkg={0} state=absent force=yes".format(packageName)
         return Command.runCommand(hostname, "apt", moduleArg)
 
+    @staticmethod
+    def checkOS(hostname):
+        osNames = ["ubuntu", "debian"]
+        moduleArg = "uname -a"
+        for name in osNames:
+            inv = [hostname]
+            results = ansible.runner.Runner(module_name='command', 
+                                            module_args=moduleArg ,timeout=10, 
+                                            remote_user='root', pattern=hostname, 
+                                            host_list=inv).run()
 
+            if results is None:
+                raise model.NoAvailableHost()
+            for (hostname, result) in results['contacted'].items():
+                if not 'failed' in result:
+                    if name in result['stdout'].lower():
+                        return name
+        return None
+            
