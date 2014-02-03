@@ -94,7 +94,6 @@ class  Command(cmd.Cmd):
         add the host in Testgrid service"""
         try:
             url = 'http://{0}:{1}/add'.format(self.host, self.port)
-            print arg['<host>']
             requestData = {"host": [{ "hostname": arg['<host>'], "rootpass": arg['<password>'] }]}
             headers = {'content-type': 'application/json'}
             r = requests.post(url, data=json.dumps(requestData), headers=headers)

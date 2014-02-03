@@ -69,6 +69,8 @@ def add():
                 return {"failure": 0, "message":"successfully added %s" % host["hostname"]}
             else:
                 return {"failure": 1, "message":"fail to add %s" % host["hostname"]}
+        else:
+            return {"failure": 1, "message":"%s already exist" % host["hostname"]}
 
 @app.route("/list")
 def listNode():
