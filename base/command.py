@@ -22,7 +22,7 @@ class Command(model.Command):
                                         module_args=moduleArg ,timeout=10, 
                                         remote_user='root', pattern=hostname, 
                                         host_list=inv).run()
-        
+        print results
         if results is None:
             raise model.NoAvailableHost()
         for (hostname, result) in results['contacted'].items():
@@ -32,6 +32,7 @@ class Command(model.Command):
             return True
             #if not 'failed' in result:
              #   return result['stdout']
+             #changed FIX
 
     @staticmethod        
     def createNewNode(hostname, username, rootpass, publickey, privatekey):
@@ -67,10 +68,7 @@ class Command(model.Command):
 
     @staticmethod
     def uninstallPackage(hostname, packageName, packageVersion):
-        if packageVersion is None:
-            moduleArg = "pkg={0} state=absent".format(packageName)
-        else:
-            moduleArg = "pkg={0}={1} state=absent".format(packageName, packageVersion)
+        moduleArg = "pkg={0} state=absent force=yes".format(packageName)
         return Command.runCommand(hostname, "apt", moduleArg)
 
 

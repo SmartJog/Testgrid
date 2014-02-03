@@ -203,9 +203,10 @@ class TestGrid(model.TestGrid):
 			if success == True:
 				self.deployments.append(session, package, node)
 				node.toUsed()
-				return "package {0} has been installed successfully on node {1}".format(package.name, node.hostname) 
-			
-		return "couldn't install package {0}".format(package.name)
+				return {"failure": 0, "message":"package {0} has been installed successfully on node {1}".format(package.name, node.hostname) }
+			else:
+				return {"failure": 1, "message": "couldn't install package {0} on host {2}".format(package.name, node.hostname)}
+		return {"failure": 1,   "message": "couldn't install package {0} no host available".format(package.name)}
 			
 			
 	def undeploy(self, index):
@@ -213,11 +214,12 @@ class TestGrid(model.TestGrid):
 			package = deployment.package
 			indexedHost = deployment.indexedHost
 			success = command.Command.uninstallPackage(indexedHost.hostname, package.name, package.version)
+			print "undeploy %s" % success
 			if success == True:
 				indexedHost.toUnused()
 				self.deployments.remove(index)
-				return "success"
-			return "failure"
+				return {"failure": 0}
+			return {"failure": 1}
 ############
 # test     #
 ############

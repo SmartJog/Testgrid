@@ -4,6 +4,7 @@ import impl
 import model
 import command
 import sys
+import json
 
 SERVER_IP  = "192.168.0.8"
 LOCALHOST = "127.0.0.1"
@@ -26,13 +27,25 @@ app = Bottle()
 #
 #app.router.add_filter('list', list_filter)
 
-def checkSession(user, password):
+def checkSession(user, password=None):
     if tg.session.exist(user):
         return True
     return False
 
 
-
+@app.route("/ping")
+def checkClient():
+    login = request.GET.get("session")
+    if login is not None:
+        if checkSession(login) is True:
+            return {"failure": 0, "message": ""}
+        else:
+            return {"failure": 1, "message": "user {0} doesn't exist".format(login) }
+    else:
+        newLogin = "testgridUser{0}".format(tg.session.maxId())
+        tg.session.append(impl.Session(newLogin))
+        return {"failure": 0, "newLogin": newLogin}
+    
 
 @app.route("/session")
 def createSession():
@@ -46,14 +59,16 @@ def add():
         abort(401, "Sorry, access denied Sorry, access denied you must be admin to perform this task.")
     hosts = request.json['host']
     for host in hosts:
-        if tg.nodes.exist(host["hostname"]) == False:    
-            node = command.Command.addNode(host["hostname"], host["rootpass"])
-            print "host to add %s" % host["hostname"]
+        if tg.nodes.exist(host["hostname"]) == False:
+            if host["rootpass"]:
+                node = command.Command.addNode(host["hostname"], host["rootpass"])
+            else:
+                return {"failure": 1, "message": "missing rootpass for host %d" % host["hostname"]}
             if node is  not None:
                 tg.nodes.append(node)
-                print "successfully added %s" % host["hostname"]
+                return {"failure": 0, "message":"successfully added %s" % host["hostname"]}
             else:
-                print "fail to add %s" % host["hostname"]
+                return {"failure": 1, "message":"fail to add %s" % host["hostname"]}
 
 @app.route("/list")
 def listNode():
@@ -70,8 +85,7 @@ def delete():
     if hostname is None:
         abort(400, "Bad request")
     tg.nodes.remove(hostname)
-    #undeploy everything
-    return "delete\n"
+    return {"failure": 0}
 
 @app.route("/deploy")
 @bottle.auth_basic(checkSession)
@@ -95,18 +109,17 @@ def undeployPackage():
         result = tg.undeploy(index)
         return result
     else:
-        abort(400, "Bad request")
+        return {"failure": 1}
 
-@app.route("/deployment")
+@app.route("/deploymentlist")
 @bottle.auth_basic(checkSession)
 def listSessiondeployment():
     login = bottle.request.auth[0]
     session = tg.session.indexedSession(login)
     deploymentList = tg.deployments.listDeploymentSession(session)
-    print "deployment-id\tpackageName\tversion\t\tip\t"
-    for item  in deploymentList:
-        print "{0}\t\t{1}\t\t{2}\t\t{3}".format(item['index'], item['packageName'], item['version'], item['host'])
-    #print "no deployment for %s" % login
+    data = json.dumps({"failure": 0, "deployment": deploymentList})
+    return data
+    
 
 @app.route("/user")
 def getUserNodeInfo():
@@ -115,8 +128,8 @@ def getUserNodeInfo():
         abort(400, "Bad request")
     node = tg.nodes.indexedNode(hostname)
     if node is None:
-        abort(400, "Bad request host not found")
-    return "username: {0} password: {1} for host: {2}".format(node.username, node.userpass, hostname)
+        return {"failure": 1, "message": "Bad host {0}".format(hostname)}
+    return {"failure": 0, "username": node.username, "password": node.userpass}
 
 if __name__ == '__main__':
     tg.hostname = SERVER_IP
