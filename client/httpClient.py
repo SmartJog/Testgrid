@@ -123,7 +123,7 @@ class  Command(cmd.Cmd):
         print "ip\t\tusername\tuserpass\trootpass\toperatingsystem\tavailable"
         if not data["failure"]:
             for item in data["host"]:
-                print "{0}\t{1}\t{2}\t\t{3}\t\t{4}\t\t{5}".format(item["hostname"], item["username"], item["userpass"], item["rootpass"], item["operatingsystem"], available[item[ "available"]])
+                print "{0}\t{1}\t{2}\t{3}\t{4}\t{5}".format(item["hostname"].ljust(10), item["username"].ljust(10), item["userpass"].ljust(10), item["rootpass"].ljust(10), item["operatingsystem"].ljust(10), available[item[ "available"]].ljust(10))
 
 
     @docopt_cmd
