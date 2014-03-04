@@ -4,9 +4,9 @@
 "(debian + testbox nodes + generic grid) automated test suite"
 
 import unittest
-import testgrid
 import testbox
 import debian
+import model
 
 class SelfTest(unittest.TestCase):
 
