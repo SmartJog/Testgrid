@@ -6,10 +6,12 @@ import unittest
 import pipes
 import os
 
-import testgrid
+import debian
+import model
 import shell
 
-class Node(testgrid.Node):
+class Wheezy64(model.Node):
+	"preconfigured wheezy64 box"
 
 	idx = 0
 
@@ -34,3 +36,10 @@ class Node(testgrid.Node):
 				logger = shell.Stderr,
 				warn_only = cmd.warn_only)
 		return res
+
+class Grid(model.Grid):
+
+	def create_node(self, sysname = None, pkg = None):
+		assert isinstance(pkg, debian.Package), "%s: package type not supported" % type(pkg).__name__
+		assert not sysname or sysname == "wheezy64", "%s: unknown sysname" % sysname
+		return Wheezy64()
