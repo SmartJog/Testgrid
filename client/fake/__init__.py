@@ -1,5 +1,5 @@
-# test doubles designed to test tests :)
-
+import aksetup
+import debian
 import server
 
 class FakeServiceManager(server.model.ServiceManager):

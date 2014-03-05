@@ -1,5 +1,5 @@
 #!/usr/bin/python2.7
-# copyright 2013-2014 arkena, released under the GPL license.
+# copyright (c) 2013-2014 arkena, released under the GPL license.
 
 """
 Testgrid is a service designed to pair packages to nodes.
@@ -89,19 +89,6 @@ class Packages(Package):
 			commands += pkg.get_is_installable_commands()
 		return commands
 
-class Subnet(object):
-
-	def __init__(self, id):
-		self.id = id
-
-	__repr__ = lambda self: "%s(%s)" % (type(self).__name__, self.id)
-
-	__eq__ = lambda self, other: self.id == other.id
-
-	__ne__ = lambda self, other: not (self == other)
-
-	__contains__ = lambda self, node: any(subnet == self for subnet in node.subnets)
-
 class ServiceManager(object):
 
 	def start(self, name):
@@ -143,6 +130,19 @@ class ServiceManager(object):
 	__getitem__ = lambda self, name: self.Service(self, name)
 
 	__getattr__ = lambda self, name: self.Service(self, name)
+
+class Subnet(object):
+
+	def __init__(self, id):
+		self.id = id
+
+	__repr__ = lambda self: "%s(%s)" % (type(self).__name__, self.id)
+
+	__eq__ = lambda self, other: self.id == other.id
+
+	__ne__ = lambda self, other: not (self == other)
+
+	__contains__ = lambda self, node: any(subnet == self for subnet in node.subnets)
 
 class Node(object):
 	"a node is an interface to a physical or virtual machine"
@@ -189,6 +189,8 @@ class Node(object):
 
 	is_installable = lambda self, package: self.run(*package.get_is_installable_commands())
 
+class NodePoolExhausted(Exception): pass
+
 class Grid(object):
 
 	def __init__(self, *nodes):
@@ -219,7 +221,7 @@ class Grid(object):
 				yield node
 
 	def create_node(self, sysname = None, pkg = None):
-		raise NotImplementedError()
+		raise NodePoolExhausted()
 
 	def find_node(self, pkg = None, excluded = []):
 		"find a compatible available node or create one"
@@ -294,11 +296,11 @@ class Session(object):
 		self.key = key
 
 	def close(self):
-		self.undeploy()
+			self.undeploy()
 
-#	def __del__(self):
-#		if self.is_anonymous:
-#			self.close()
+	def __del__(self):
+		if self.is_anonymous:
+			self.close()
 
 	def allocate_node(self, sysname = None, pkg = None):
 		node = self.grid.allocate_node(key = self.key, sysname = sysname, pkg = pkg)
@@ -316,10 +318,11 @@ class Session(object):
 		return plan
 
 	def undeploy(self):
-		plan = self.grid.plans[self.key]
-		self.grid.undeploy(self.key)
-		for pkg, node in plan:
-			node.leave(self.subnet)
+		if self.key in self.grid.plans:
+			plan = self.grid.plans[self.key]
+			self.grid.undeploy(self.key)
+			for pkg, node in plan:
+				node.leave(self.subnet)
 
 ################
 # test doubles #

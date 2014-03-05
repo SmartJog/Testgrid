@@ -1,3 +1,2 @@
-import testbox
-import debian
+import local
 import fake
