@@ -26,6 +26,16 @@ class TestCase(unittest.TestCase):
 				self.assertEqual(node.service.fleche.version, "16.3-1")
 				self.assertTrue(node.service.fleche.is_running())
 
+
+	def test_linearisator_aksetup_package(self):
+		session = self.client.Session()
+		linearisator = self.client.aksetup.Package("linearisator", version = "0.1.5-1")
+		plan = session.deploy(linearisator)
+		for pkg, node in plan:
+			if pkg == linearisator:
+				self.assertEqual(node.service.linearisator.version, "0.1.5-1")
+				self.assertTrue(node.service.linearisator.is_running())
+
 class TestLocal(TestCase):
 	"use a local client, based on testboxes, allowing anonymous sessions only"
 
