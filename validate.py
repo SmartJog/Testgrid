@@ -1,23 +1,34 @@
-#!/usr/bin/python2.7
+# copyright (c) 2014 arkena, released under the GPL license.
 
 import unittest
 import client
 
 class TestCase(unittest.TestCase):
+	"base test class, to be derived by changing the client module"
 
-	Session = client.fake.Session
+	client = client.fake
 
-	def test_usecase_1(self):
-		"test deployment of a simple debian package, Fleche 16.3-1"
-		session = self.Session()
-		pkg = client.debian.Package("fleche", version = "16.3-1")
-		plan = session.deploy(pkg)
+	def test_simple_debian_package(self):
+		session = self.client.Session()
+		fleche = self.client.debian.Package("fleche", version = "16.3-1")
+		plan = session.deploy(fleche)
 		for pkg, node in plan:
-			self.assertEqual(node.service.fleche.version, "16.3-1")
-			self.assertTrue(node.service.fleche.is_running())
+			if pkg == fleche:
+				self.assertEqual(node.service.fleche.version, "16.3-1")
+				self.assertTrue(node.service.fleche.is_running())
 
-#class TestBox(TestCase):
+	def test_simple_aksetup_package(self):
+		session = self.client.Session()
+		fleche = self.client.aksetup.Package("fleche", version = "16.3-1")
+		plan = session.deploy(fleche)
+		for pkg, node in plan:
+			if pkg == fleche:
+				self.assertEqual(node.service.fleche.version, "16.3-1")
+				self.assertTrue(node.service.fleche.is_running())
 
-#	Session = client.testbox.Session
+class TestLocal(TestCase):
+	"use a local client, based on testboxes, allowing anonymous sessions only"
+
+	client = client.local
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
