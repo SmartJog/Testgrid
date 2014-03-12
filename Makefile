@@ -6,7 +6,7 @@ usage:
 	@echo "  make ci     check-in code"
 	@echo
 	@echo "Changes:"
-	git status -s
+	@git status -s
 
 clean:
 	-find . -name '*.pyc' -delete
