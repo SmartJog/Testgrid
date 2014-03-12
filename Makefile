@@ -1,9 +1,13 @@
 .PHONY: usage test clean
 
 usage:
+	@echo "Usage:"
+	@echo "  ...to be completed later..."
+	@echo
 	@echo "Reserved:"
-	@echo "  make clean  delete bytecode"
-	@echo "  make ci     check-in code"
+	@echo "  make validate  run test cases validating the implementation"
+	@echo "  make clean     delete bytecode"
+	@echo "  make ci        check-in code"
 	@echo
 	@echo "Changes:"
 	@git status -s
