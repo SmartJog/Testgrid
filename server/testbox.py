@@ -20,14 +20,14 @@ class Node(model.Node):
 		self.path = "testbox-%i" % Node.idx
 		Node.idx += 1
 		assert not os.path.exists(self.path), "%s: already exists" % self.path
-		shell.run("git clone git@git.smartjog.net:florent.claerhout/testbox.git %s" % self.path, logger = shell.Stderr)
+		shell.run("git clone git@git.smartjog.net:florent.claerhout/testbox.git %s" % self.path, logger = shell.stderr)
 		if tag:
-			shell.run("cd %s && git checkout %s" % (self.path, tag), logger = shell.Stderr)
-		shell.run("cd %s && %s up" % (self.path, entry_path), logger = shell.Stderr)
+			shell.run("cd %s && git checkout %s" % (self.path, tag), logger = shell.stderr)
+		shell.run("cd %s && %s up" % (self.path, entry_path), logger = shell.stderr)
 
 	def __del__(self):
-		shell.run("make -C %s deepclean" % self.path, logger = shell.Stderr)
-		shell.run("rm -rf %s" % self.path, logger = shell.Stderr)
+		shell.run("make -C %s deepclean" % self.path, logger = shell.stderr)
+		shell.run("rm -rf %s" % self.path, logger = shell.stderr)
 
 	log = lambda self, tag, msg:\
 		shell.run("cd %s && vagrant ssh -c 'logger -t %s %s'" % (self.path, tag, msg))
@@ -37,7 +37,7 @@ class Node(model.Node):
 		for cmd in commands:
 			res += shell.run(
 				"cd %s && vagrant ssh -c %s" % (self.path, pipes.quote("%s" % cmd)),
-				logger = shell.Stderr,
+				logger = shell.stderr,
 				warn_only = cmd.warn_only)
 		return res
 
