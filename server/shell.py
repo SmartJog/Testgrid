@@ -1,11 +1,28 @@
 # copyright (c) 2013-2014 florent claerhout, released under the MIT license.
 
-"command execution framework"
+"""
+Command execution framework.
 
-import subprocess
-import unittest
-import time
-import sys
+Python API:
+  r = Result(returncode, [stdout], [stderr])
+  Success(...) = Result(0, ...)
+  Failure(...) = Result(1, ...)
+  Strerr(...)
+  stdout(...)
+  null(...)
+  asynchronous command execution:
+    - sp = launch(argv, logger = null)
+    - res = fetch(sp, logger = null, warn_only = False)
+  synchronous command execution:
+    - res = run(argv, logger = null, warn_only = False)
+    - res = sudo(username, argv, ...)
+    - res = ssh(hoststring, argv, ...)
+    - res = scp(hoststring, localpath, remotepath, ...)
+"""
+
+__version__ = "2.1"
+
+import subprocess, unittest, time, sys
 
 class Result(object):
 	"wrap command result (returncode, stdout, stderr)"
@@ -46,19 +63,19 @@ Failure = lambda stdout = None, stderr = None: Result(1, stdout, stderr)
 
 gray = lambda string: string and "\033[0;90m%s\033[0m" % string
 
-Stderr = lambda string: sys.stderr.write("%s: %s\n" % (
+stderr = lambda string: sys.stderr.write("%s: %s\n" % (
 	gray(time.strftime("%Y.%m.%d.%H.%M.%S", time.localtime())),
 	string.rstrip()))
 
-Stdout = lambda string: sys.stdout.write("%s: %s\n" % (
+stdout = lambda string: sys.stdout.write("%s: %s\n" % (
 	gray(time.strftime("%Y.%m.%d.%H.%M.%S", time.localtime())),
 	string.rstrip()))
 
-Null = lambda *args, **kwargs: None
+null = lambda *args, **kwargs: None
 
 class CommandFailure(RuntimeError): pass
 
-def launch(argv, logger = Null):
+def launch(argv, logger = null):
 	"asynchronous command execution, return process"
 	(logger)("executing command: %s" % (argv,))
 	try:
@@ -71,7 +88,7 @@ def launch(argv, logger = Null):
 		raise CommandFailure("%s: %s" % (args, e))
 	return sp
 
-def fetch(sp, logger = Null, warn_only = False):
+def fetch(sp, logger = null, warn_only = False):
 	"""
 	wait for process result, then:
 	  * if warn_only = False, raise CommandFailure on failure
@@ -87,7 +104,7 @@ def fetch(sp, logger = Null, warn_only = False):
 		raise CommandFailure(res.stderr.strip())
 	return res
 
-def run(argv, logger = Null, warn_only = False):
+def run(argv, logger = null, warn_only = False):
 	"synchronous command execution"
 	sp = launch(argv = argv, logger = logger)
 	return fetch(sp = sp, logger = logger, warn_only = warn_only)
@@ -147,9 +164,8 @@ class RunTest(unittest.TestCase):
 		self.assertFalse(run("false", warn_only = True))
 		self.assertFalse(run(["false"], warn_only = True))
 
-	def testStdout(self):
+	def teststdout(self):
 		self.assertEqual(run("echo hello"), "hello\n")
 		self.assertEqual(run(["echo", "hello"]), "hello\n")
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
-
