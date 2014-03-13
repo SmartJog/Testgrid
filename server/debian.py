@@ -9,7 +9,7 @@ class Package(model.Package):
 		super(Package, self).__init__(*args, **kwargs)
 		self.tag = self.name
 		if self.version:
-			self.tag += "-%s" % self.version
+			self.tag += "=%s" % self.version
 
 	get_install_commands = lambda self: (
 		model.Command("sudo apt-get -qqy --force-yes install %s" % self.tag),

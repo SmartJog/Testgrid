@@ -13,6 +13,9 @@ class Database(object):
           self.dbScriptPath = scriptSqlPath
           self.databaseInit()
 
+
+#impl del to close cursor
+
      def databaseInit(self):
           try:
                if os.path.exists(self.dbPath):

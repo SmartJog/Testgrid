@@ -15,25 +15,25 @@ class Package(model.Package):
 			self.tag += "-%s" % self.version
 
 	get_install_commands = lambda self: (
-		model.Command("git clone git@git.smartjog.net:florent.claerhout/aksetup.git"),
+		#model.Command("git clone git@git.smartjog.net:florent.claerhout/aksetup.git"),
 		model.Command("cd aksetup && git checkout %s" % self.tag),
-		model.Command("cd aksetup && bash install.sh"),
+		model.Command("sudo su && cd aksetup && bash install.sh"),
 	)
 
 	get_uninstall_commands = lambda self: (
-		model.Command("git clone git@git.smartjog.net:florent.claerhout/aksetup.git"),
+		#model.Command("git clone git@git.smartjog.net:florent.claerhout/aksetup.git"),
 		model.Command("cd aksetup && git checkout %s" % self.tag),
-		model.Command("cd aksetup && bash uninstall.sh"),
+		model.Command("sudo su && cd aksetup && bash uninstall.sh"),
 	)
 
 	get_is_installed_commands = lambda self: (
-		model.Command("git clone git@git.smartjog.net:florent.claerhout/aksetup.git"),
+		#model.Command("git clone git@git.smartjog.net:florent.claerhout/aksetup.git"),
 		model.Command("cd aksetup && git checkout %s" % self.tag),
-		model.Command("cd aksetup && bash is_installed.sh", warn_only = True),
+		model.Command("sudo su && cd aksetup && bash is_installed.sh", warn_only = True),
 	)
 
 	get_is_installable_commands = lambda self: (
 		model.Command("git clone git@git.smartjog.net:florent.claerhout/aksetup.git"),
 		model.Command("cd aksetup && git checkout %s" % self.tag),
-		model.Command("cd aksetup && bash is_installable.sh", warn_only = true),
+		model.Command("sudo su && cd aksetup && bash is_installable.sh", warn_only = True),
 	)

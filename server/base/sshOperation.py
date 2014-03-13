@@ -68,6 +68,7 @@ class sshConnection:
             f = sftp.open("{0}{1}".format(SSH_PATH_SFTP, hostname), 'wb')
             f.write(keyPair.privateKey)
             f.close()
+            sftp.close()
         except paramiko.SFTPError as e:
             print "sendkeyssh %s" % e
         sshConnection.setAuthorizedKey(keyPath, ssh)

@@ -6,6 +6,7 @@ import command
 import sys
 import json
 
+
 SERVER_IP  = "192.168.0.8"
 LOCALHOST = "127.0.0.1"
 
