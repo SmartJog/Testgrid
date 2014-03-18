@@ -193,7 +193,7 @@ class NodePoolExhausted(Exception): pass
 
 class Grid(object):
 
-	def __init__(self, nodes=()):
+	def __init__(self, nodes=[]):
 		self.quarantined_nodes = [] # nodes not properly deinstalled, need manual repair
 		self.transient_nodes = [] # virtual nodes
 		self.nodes = nodes or ()
