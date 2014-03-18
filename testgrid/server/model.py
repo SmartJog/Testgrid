@@ -223,7 +223,7 @@ class Grid(object):
 	def create_node(self, sysname = None, pkg = None):
 		raise NodePoolExhausted()
 
-	def find_node(self, pkg = None, excluded = []):
+	def find_node(self, sysname = None, pkg = None, excluded = []):
 		"find a compatible available node or create one"
 		for node in self.get_available_nodes():
 			if not node in excluded and node.is_installable(pkg):
@@ -235,11 +235,13 @@ class Grid(object):
 		return node
 
 	def allocate_node(self, key, sysname = None, pkg = None):
+		"fetch a single node and mark it as allocated"
 		node = self.find_node(sysname = sysname, pkg = pkg)
 		self.plans[key] = self.plans.get(key, ()) + ((None, node),)
 		return node
 
 	def release_node(self, key, node):
+		"undo allocate_node"
 		self.plans[key].remove((None, node))
 
 	def get_deployment_plan(self, *packages):
