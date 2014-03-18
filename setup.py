@@ -10,5 +10,5 @@ setuptools.setup(
 	description = "Programmable test environments framework and command-line utility",
 	license = "GPL",
 	packages = ("testgrid", "testgrid.client", "testgrid.client.local", "testgrid.server"),
-	entry_points = { "console_scripts": "tg = testgrid.client.main:main" },
+	entry_points = { "console_scripts": "tg = testgrid.main:main" },
 )

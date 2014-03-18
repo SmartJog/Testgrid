@@ -1,12 +1,12 @@
 # copyright (c) 2014 arkena, released under the GPL license.
 
 import unittest
-import client
+import testgrid.client
 
 class TestCase(unittest.TestCase):
 	"base test class, to be derived by changing the client module"
 
-	client = client.fake
+	client = testgrid.client.fake
 
 	def test_simple_debian_package(self):
 		session = self.client.Session()
@@ -26,7 +26,6 @@ class TestCase(unittest.TestCase):
 				self.assertEqual(node.service.fleche.version, "16.3-1")
 				self.assertTrue(node.service.fleche.is_running())
 
-
 	#def test_linearisator_aksetup_package(self):
 	#	session = self.client.Session()
 	#	linearisator = self.client.aksetup.Package("linearisator", version = "0.1.5-1")
@@ -39,6 +38,6 @@ class TestCase(unittest.TestCase):
 class TestLocal(TestCase):
 	"use a local client, based on testboxes, allowing anonymous sessions only"
 
-	client = client.local
+	client = testgrid.client.local
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

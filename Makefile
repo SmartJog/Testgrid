@@ -21,18 +21,12 @@ ci:
 
 validate: NAME:=
 validate:
-	python server/model.py
+	python testgrid/server/model.py
 	python validate.py $(NAME)
 
-testgrid:
-	mkdir testgrid
-	ln __init__.py testgrid/
-	ln -s $$PWD/client testgrid/
-	ln -s $$PWD/server testgrid/
-
-install: testgrid
+install:
 	sudo apt-get install -qqy python-setuptools
 	sudo python setup.py install
 
 deepclean: clean
-	-rm -rf testgrid build dist testgrid.egg-info
+	-rm -rf build dist testgrid.egg-info

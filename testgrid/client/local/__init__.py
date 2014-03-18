@@ -4,12 +4,17 @@
 
 import aksetup
 import debian
-import server
+import testgrid
 
-class Session(server.model.Session):
+class Session(testgrid.server.model.Session):
 
-	def __init__(self):
+	def __init__(self, mode):
+		assert mode in ("eth2lan", "en0wifi")
+		if mode == "eth2lan":
+			cls = testgrid.server.testbox.Eth2Lan
+		else:
+			cls = testgrid.server.testbox.En0Wifi
 		super(Session, self).__init__(
-			grid = server.testbox.Eth2Lan(),
+			grid = (cls)(),
 			subnet = None, # FIXME
 			key = None) # anonymous only as there is no controller process
