@@ -4,7 +4,7 @@ import setuptools
 
 setuptools.setup(
 	name = "testgrid",
-	version = "0.1"
+	version = "0.1",
 	author = "arkena",
 	author_email = "qa@tdf-ms.com",
 	description = "Programmable test environments framework and command-line utility",
