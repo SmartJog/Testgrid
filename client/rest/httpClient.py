@@ -77,6 +77,7 @@ class  Command(cmd.Cmd):
                     exit()                    
             else:
                 url = 'http://{0}:{1}/ping'.format(self.host, self.port)
+                print url
                 r = requests.get(url)
                 data = r.json()
                 if not data["failure"]:
@@ -84,6 +85,7 @@ class  Command(cmd.Cmd):
                     self.username = data["newLogin"]
                     print "your login is %s" % data["newLogin"]
         except  (requests.ConnectionError,  ValueError, ) as e:
+            print "test"
             raise e
         #LocationParseError
     

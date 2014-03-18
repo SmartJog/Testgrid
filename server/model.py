@@ -150,6 +150,7 @@ class Node(object):
 	service = ServiceManager()
 
 	def __init__(self):
+		print "init node"
 		self.subnets = []
 
 	def setup_interface(self, subnet):

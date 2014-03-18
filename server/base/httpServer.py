@@ -131,7 +131,7 @@ def getUserNodeInfo():
     return {"failure": 0, "username": node.username, "password": node.userpass}
 
 if __name__ == '__main__':
-    tg.hostname = SERVER_IP
+    tg.hostname = LOCALHOST
     if len(sys.argv) == 2:
         tg.hostname = sys.argv[1]
     try: 
