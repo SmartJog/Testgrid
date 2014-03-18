@@ -27,9 +27,12 @@ validate:
 testgrid:
 	mkdir testgrid
 	ln __init__.py testgrid/
-	ln -s client testgrid/
-	ln -s server testgrid/
+	ln -s $$PWD/client testgrid/
+	ln -s $$PWD/server testgrid/
 
 install: testgrid
 	sudo apt-get install -qqy python-setuptools
 	sudo python setup.py install
+
+deepclean: clean
+	-rm -rf testgrid
