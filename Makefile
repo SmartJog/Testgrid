@@ -27,8 +27,8 @@ validate:
 testgrid:
 	mkdir testgrid
 	ln __init__.py testgrid/
-	ln client testgrid/
-	ln server testgrid/
+	ln -s client testgrid/
+	ln -s server testgrid/
 
 install: testgrid
 	sudo apt-get install -qqy python-setuptools
