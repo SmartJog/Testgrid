@@ -150,7 +150,6 @@ class Node(object):
 	service = ServiceManager()
 
 	def __init__(self):
-		print "init node"
 		self.subnets = []
 
 	def setup_interface(self, subnet):
@@ -194,7 +193,7 @@ class NodePoolExhausted(Exception): pass
 
 class Grid(object):
 
-	def __init__(self, *nodes):
+	def __init__(self, nodes=()):
 		self.quarantined_nodes = [] # nodes not properly deinstalled, need manual repair
 		self.transient_nodes = [] # virtual nodes
 		self.nodes = nodes or ()
@@ -412,7 +411,7 @@ class SelfTest(unittest.TestCase):
 	def mkenv(nb_nodes, nb_packages):
 		nodes = tuple(FakeNode() for i in xrange(nb_nodes))
 		packages = tuple(Package("pkg%i" % i, "1.0") for i in xrange(nb_packages))
-		grid = Grid(*nodes) # use a non-generative grid
+		grid = Grid(nodes) # use a non-generative grid
 		session = Session(grid, Subnet("test"))
 		return (nodes, packages, session)
 

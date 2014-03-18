@@ -49,7 +49,6 @@ class Eth0Lan(model.Grid):
 
 	create_node = lambda self, sysname = None, pkg = None: Node(entry_path = "./eth0lan")
 
-
 class Eth2Lan(model.Grid):
 
 	create_node = lambda self, sysname = None, pkg = None: Node(entry_path = "./eth2lan")

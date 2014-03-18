@@ -21,5 +21,12 @@ ci:
 
 validate: NAME:=
 validate:
-	python server/model.py
+	python testgrid/server/model.py
 	python validate.py $(NAME)
+
+install:
+	sudo apt-get install -qqy python-setuptools
+	sudo python setup.py install
+
+deepclean: clean
+	-rm -rf build dist testgrid.egg-info
