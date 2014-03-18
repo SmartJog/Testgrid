@@ -8,8 +8,9 @@ Usage:
   tg --help
 
 Options:
-  -h, --help  show help
-  --version   show version
+  -m INI, --manifest INI  comma-separated list of .ini filepaths or URIs [default: ~/grid.ini]
+  -h, --help              show help
+  --version               show version
 """
 
 __version__ = "0.1"
