@@ -1,7 +1,7 @@
 # copyright (c) 2014 arkena, released under the GPL license.
 
 import unittest
-import testgrid.client
+import testgrid
 
 class TestCase(unittest.TestCase):
 	"base test class, to be derived by changing the client module"

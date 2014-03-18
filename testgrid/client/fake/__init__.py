@@ -1,5 +1,5 @@
 
-import testgrid.server
+import testgrid
 import aksetup
 import debian
 

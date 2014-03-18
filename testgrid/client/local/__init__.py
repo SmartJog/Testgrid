@@ -2,19 +2,14 @@
 
 "local client for transient (=anonymous) sessions only"
 
+import testgrid
 import aksetup
 import debian
-import testgrid
 
 class Session(testgrid.server.model.Session):
 
-	def __init__(self, mode):
-		assert mode in ("eth2lan", "en0wifi")
-		if mode == "eth2lan":
-			cls = testgrid.server.testbox.Eth2Lan
-		else:
-			cls = testgrid.server.testbox.En0Wifi
+	def __init__(self):
 		super(Session, self).__init__(
-			grid = (cls)(),
+			grid = testgrid.server.parser.parse_grid("grid", "~/localgrid.ini"),
 			subnet = None, # FIXME
 			key = None) # anonymous only as there is no controller process
