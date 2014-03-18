@@ -35,4 +35,4 @@ install: testgrid
 	sudo python setup.py install
 
 deepclean: clean
-	-rm -rf testgrid
+	-rm -rf testgrid build dist testgrid.egg-info
