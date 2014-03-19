@@ -28,3 +28,23 @@ class Package(model.Package):
 			"sudo apt-get -qqy --force-yes --dry-run install %s" % self.tag,
 			warn_only = True),
 	)
+
+
+class Node(model.Node):
+	"debian Node"
+
+	def __init__(self, hoststring):
+		super(Node, self).__init__()
+		self.hoststring = hoststring
+		
+
+	#def is_installable(self, package):
+		
+	def run(self, *commands):
+		res = shell.Success()
+		for cmd in commands:
+			res += shell.ssh(self.hoststring,
+				cmd,
+				logger = shell.stderr,
+				warn_only = cmd.warn_only)
+		return res
