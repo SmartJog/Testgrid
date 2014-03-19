@@ -36,11 +36,8 @@ class Node(model.Node):
 	def __init__(self, hoststring):
 		super(Node, self).__init__()
 		self.hoststring = hoststring
-		
 
-	#def is_installable(self, package):
-		
-	def run(self, *commands):
+	def run(self, com):
 		res = shell.Success()
 		for cmd in commands:
 			res += shell.ssh(self.hoststring,
@@ -48,3 +45,6 @@ class Node(model.Node):
 				logger = shell.stderr,
 				warn_only = cmd.warn_only)
 		return res
+
+
+	

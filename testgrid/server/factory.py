@@ -2,12 +2,13 @@
 import model
 import sys
 import imp
-
 class Factory:
    
     @staticmethod
     def getClass(moduleName, classeName):
+        print moduleName
         m = __import__(moduleName)
+        print dir(m)
         c = getattr(m, classeName)
         return c
 
@@ -27,26 +28,26 @@ class Factory:
             return None
 
     @staticmethod
-    def generateSubclass(parent, childName,  **kwargs):
+    def generateSubclass(parent, childName, *arg, **kwargs):
         if parent.__name__.lower() == childName.lower():
-            return parent(**kwargs)
+            return parent(*arg, **kwargs)
         else:
             tmpChild = childName.split()
             if len(tmpChild) > 1:
                 childSignature = '.'.join(tmpChild)
                 if ".".join([parent.__module__,parent.__name__]).lower() == childSignature.lower():
-                    return parent(**kwargs)
+                    return parent(*arg, **kwargs)
                 subclasses = Factory.getAllSubclasses(parent)
                 for cls in subclasses:
-                    if ".".join([cls.__module__,cls.__name__]).lower() == childSignature.lower():
-                        obj = Factory.getClass(cls.__module__, cls.__name__)
-                        return obj(**kwargs)
+                    if  childSignature.lower() in ".".join([cls.__module__,cls.__name__]).lower():
+                        #obj = Factory.getClass(cls.__module__, cls.__name__)
+                        return cls(*arg, **kwargs)
             else:
                 subclasses = Factory.getAllSubclasses(parent)
                 for cls in subclasses:
                     if cls.__name__.lower() == childName.lower():
                         obj = Factory.getClass(cls.__module__, cls.__name__)
-                        return obj(**kwargs)
+                        return obj(*arg, **kwargs)
                 
             raise RuntimeError("%s: unknown type" % childName)
 

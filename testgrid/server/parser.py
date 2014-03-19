@@ -37,17 +37,17 @@ def parse_grid(name, ini):
 	nodes = []
 	config = GridConfig(name, ini)
 	gridType = config.getGridType()
-	gridParent = factory.Factory.getClass("model", "Grid")
-	nodeParent = factory.Factory.getClass("model", "Node")
+	#gridParent = factory.Factory.getClass("model", "Grid")
+	#nodeParent = factory.Factory.getClass("model", "Node")
 	nodesInfo = config.getNodesInfo()
 	if not nodesInfo:
-		return factory.Factory.generateSubclass(gridParent, gridType)
+		return factory.Factory.generateSubclass(model.Grid, gridType)
 	for nodeType, hoststring in nodesInfo:
 		nodes.append(
-			factory.Factory.generateSubclass(nodeParent, 
+			factory.Factory.generateSubclass(model.Node, 
 							 nodeType, 
 							 hoststring=hoststring))
-	return factory.Factory.generateSubclass(gridParent, gridType, nodes=nodes)
+	return factory.Factory.generateSubclass(model.Grid, gridType, nodes)
 	
 
 import tempfile
