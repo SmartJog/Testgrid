@@ -3,6 +3,7 @@
 import ConfigParser
 import factory
 import debian
+import testbox
 import model
 
 class ConfigurationError(Exception): pass
@@ -21,33 +22,42 @@ class GridConfig(object):
 	
 	def getNodesInfo(self):
 		nodeInfo = []
-		nodes =  self.config.get(self.gridName , 'nodes')
-		for n in nodes.split(" "):
-			if not self.config.has_section(n):
-				raise(ConfigurationError)
-		nodeInfo.append((self.config.get(n, 'type'), self.config.get(n, 'hoststring')))
-		return tuple(nodeInfo)
+		items = self.config.options(self.gridName)
+		if "nodes" in items:
+			nodes =  self.config.get(self.gridName , 'nodes')
+			for n in nodes.split(" "):
+				if not self.config.has_section(n):
+					raise(ConfigurationError)
+				nodeInfo.append((self.config.get(n, 'type'), self.config.get(n, 'hoststring')))
+			return tuple(nodeInfo)
+		return None
 
 def parse_grid(name, ini):
 	"parse manifests and return a grid instance"
 	nodes = []
 	config = GridConfig(name, ini)
 	gridType = config.getGridType()
+	gridParent = factory.Factory.getClass("model", "Grid")
 	nodeParent = factory.Factory.getClass("model", "Node")
 	nodesInfo = config.getNodesInfo()
+	if not nodesInfo:
+		return factory.Factory.generateSubclass(gridParent, gridType)
 	for nodeType, hoststring in nodesInfo:
 		nodes.append(
 			factory.Factory.generateSubclass(nodeParent, 
-			nodeType, 
-			hoststring=hoststring))
-	gridParent = factory.Factory.getClass("model", "Grid")
-	grid = factory.Factory.generateSubclass(gridParent, gridType, nodes=nodes)
-	return grid
+							 nodeType, 
+							 hoststring=hoststring))
+	return factory.Factory.generateSubclass(gridParent, gridType, nodes=nodes)
+	
 
 import tempfile
 import unittest
 import textwrap
 
+class parserFakeGrid(model.Grid):
+	def __init__(self, nodes):
+		self.nodes = nodes
+	
 class SelfTest(unittest.TestCase):
 
 	@staticmethod
@@ -70,6 +80,33 @@ class SelfTest(unittest.TestCase):
 		""")
 		grid = parse_grid("foo", f.name)
 		assert type(grid) is model.Grid
+
+	def test_basic_grid_with_nodes(self):
+		"assert parse_grid return a model.Grid if type is grid with defined node"
+		f = self.file("""
+			[node1]
+			type = debian Node
+			hoststring = root@a.b.c.d
+
+			[node2]
+			type = Debian Node
+			hoststring = root@a.b.c.d
+
+			[node3]
+			type = debiAn node
+			hoststring = root@a.b.c.d
+
+			[foo]
+			type = parserFakeGrid
+			nodes = node1 node2 node3
+
+		""")
+		grid = parse_grid("foo", f.name)
+		assert type(grid) is parserFakeGrid
+		assert len(grid.nodes) is 3
+		for n in grid.nodes:
+			assert type(n) is debian.Node
+
 
 	def test_testbox_grid(self):
 		"assert parse_grid return a model.Grid if type is grid"

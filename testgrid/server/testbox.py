@@ -41,6 +41,9 @@ class Node(model.Node):
 				warn_only = cmd.warn_only)
 		return res
 
+
+class Grid(model.Grid):pass
+
 class En0Wifi(model.Grid):
 
 	create_node = lambda self, sysname = None, pkg = None: Node(entry_path = "./en0wifi")

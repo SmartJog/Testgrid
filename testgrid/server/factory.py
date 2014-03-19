@@ -1,5 +1,4 @@
 # copyright (c) 2014 arkena, released under the GPL license.
-
 import model
 import sys
 import imp
@@ -8,11 +7,8 @@ class Factory:
    
     @staticmethod
     def getClass(moduleName, classeName):
-        try:
-            m = __import__(moduleName)
-            c = getattr(m, classeName)
-        except ImportError, AttributeError:
-            return None
+        m = __import__(moduleName)
+        c = getattr(m, classeName)
         return c
 
     @staticmethod
@@ -52,7 +48,7 @@ class Factory:
                         obj = Factory.getClass(cls.__module__, cls.__name__)
                         return obj(**kwargs)
                 
-            return None
+            raise RuntimeError("%s: unknown type" % childName)
 
 class FakeObject(model.Node):
     def __init__(self, fakeString):
@@ -67,25 +63,20 @@ import unittest
 class SelfTest(unittest.TestCase):
 
 
-    def test_base_factory(self):
-        parent = Factory.getClass("model", "Node")
-        child = Factory.getClass("debian", "Node")
-        self.assertNotEqual(parent, None)
-        self.assertNotEqual(child, None)
-        objet = Factory.generateSubclassObject(parent, 
-                                               child, 
-                                               hoststring="a.b.c")
-        
-        parent = Factory.getClass("fake", "Node")
-        child = Factory.getClass("fake", "Node")
-        self.assertEqual(parent, None)
-        self.assertEqual(child, None)
-        parent = Factory.getClass("model", "Node")
-        child = Factory.getClass("factory", "FakeObject")
-        obj = Factory.generateSubclassObject(parent, 
-                                               child, 
-                                               fakeString="test")
-        self.assertEqual(obj.getFakeString(), "test")
+    #def test_base_factory(self):
+    #    parent = Factory.getClass("model", "Node")
+    #    child = Factory.getClass("debian", "Node")
+    #    assert type(parent) is not  model.Node
+    #    assert type(child) is  not debian.Node
+    #    objet = Factory.generateSubclassObject(parent, 
+    #                                           child, 
+    #                                           hoststring="a.b.c")
+    #    parent = Factory.getClass("model", "Node")
+    #    child = Factory.getClass("factory", "FakeObject")
+    #    obj = Factory.generateSubclassObject(parent, 
+    #                                           child, 
+    #                                           fakeString="test")
+    #    self.assertEqual(obj.getFakeString(), "test")
 
 
     def test_subclass_factory(self):
@@ -106,15 +97,14 @@ class Bar(foo.Foo):pass"""
         import foo
         import bar
         parent = Factory.getClass("foo", "Foo")
-        self.assertNotEqual(Factory.generateSubclass(parent, "foo"), None)
-        self.assertNotEqual(Factory.generateSubclass(parent, "bar"), None)
-        self.assertNotEqual(Factory.generateSubclass(parent, "bar foo"), None)
-        fakeParent = Factory.getClass("factory", "FakeObject")
-        obj = Factory.generateSubclass(fakeParent, "FakeObject", fakeString="test")
-        self.assertNotEqual(obj, None)
+        assert type(Factory.generateSubclass(parent, "foo")) is foo.Foo
+        assert type(Factory.generateSubclass(parent, "bar")) is bar.Bar
+        assert type(Factory.generateSubclass(parent, "bar foo")) is bar.Foo
+        obj = Factory.generateSubclass(FakeObject, "FakeObject", fakeString="test")
+        assert type(obj) is FakeObject
         self.assertEqual(obj.getFakeString(), "test")
-        obj2 = Factory.generateSubclass(fakeParent, "factorY fakeObject", fakeString="test")
-        self.assertNotEqual(obj2, None)
+        obj2 = Factory.generateSubclass(FakeObject, "fakeObject", fakeString="test")
+        assert type(obj2) is FakeObject
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
 
