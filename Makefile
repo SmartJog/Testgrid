@@ -2,7 +2,7 @@
 
 usage:
 	@echo "Usage:"
-	@echo "  ...to be completed later..."
+	@echo "  make install   install testgrid command line tool and framework"
 	@echo
 	@echo "Reserved:"
 	@echo "  make validate  run test cases validating the implementation"
