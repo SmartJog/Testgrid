@@ -146,6 +146,9 @@ class Subnet(object):
 
 class Node(object):
 	"a node is an interface to a physical or virtual machine"
+	init_arg_required = ()
+
+	init_arg_optional = ()
 
 	service = ServiceManager()
 
@@ -200,8 +203,10 @@ class Grid(object):
 	def __init__(self, *nodes):
 		self.quarantined_nodes = [] # nodes not properly deinstalled, need manual repair
 		self.transient_nodes = [] # virtual nodes
-		assert nodes == list(set(nodes))
+		#print nodes
+		#assert tuple(nodes) == tuple(set(nodes))
 		self.nodes = nodes or ()
+		
 		self.plans = {} # indexed plans
 
 	def __del__(self):

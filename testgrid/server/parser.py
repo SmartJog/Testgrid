@@ -5,49 +5,72 @@ import factory
 import debian
 import testbox
 import model
+import os
 
 class ConfigurationError(Exception): pass
 
 class GridConfig(object):
 
-	def __init__(self, gridName, fileName):
-		self.config = ConfigParser.RawConfigParser()
-		self.config.read(fileName)
+	def __init__(self, gridName, fileName, parentGrid=model.Grid, parentNode=model.Node):
 		self.gridName = gridName
-	
-	def getGridType(self):
+		self.parentGrid = parentGrid
+		self.parentNode = parentNode
+
+		self.config = ConfigParser.RawConfigParser()
+		data = self.config.read(os.path.expanduser(fileName))
+		if not data:
+			raise ConfigurationError("%s: couldn't find init file " % fileName)
 		if not self.config.has_section(self.gridName):
-			raise(ConfigurationError)
-		return self.config.get(self.gridName, 'type')
-	
-	def getNodesInfo(self):
-		nodeInfo = []
-		items = self.config.options(self.gridName)
-		if "nodes" in items:
-			nodes =  self.config.get(self.gridName , 'nodes')
-			for n in nodes.split(" "):
-				if not self.config.has_section(n):
-					raise(ConfigurationError)
-				nodeInfo.append((self.config.get(n, 'type'), self.config.get(n, 'hoststring')))
-			return tuple(nodeInfo)
-		return None
+			raise ConfigurationError("%s: unknown section" % self.gridName)
+		
+
+
+
+	def createObjectFromSection(self, sectionName, parentSignature):
+		if not self.config.has_section(sectionName):
+			raise ConfigurationError("%s: unknown section" % n)
+		objectType = self.config.get(sectionName, 'type')
+		objectSignature = factory.Factory.generateSubclassSignature(parentSignature, objectType)
+		arg = []
+		for opt, value in  self.config.items(sectionName):
+			if opt != "type":
+				assert opt in objectSignature.init_arg_required \
+				    or opt in objectSignature.init_arg_optional, "%s: unknown attribute" % opt
+				arg.append(value)
+		return objectSignature(*arg)
+
+
+	def generateNodes(self, valueNodes):
+		nodes = []
+		for n in valueNodes.split(" "):
+			nodes.append(self.createObjectFromSection(n, self.parentNode))	
+		return nodes
+		
+
+	def parse_grid(self):
+		gridType = None
+		gridSignature = None
+		nodes = []
+		arg = []
+		for opt, value in self.config.items(self.gridName):
+			if opt == 'type':
+				gridType = value
+				gridSignature = factory.Factory.generateSubclassSignature(self.parentGrid, gridType)
+			elif opt == "nodes":
+				nodes = self.generateNodes(value)
+				for n in nodes:
+					arg.append(n)
+			else:
+				assert opt in gridSignature.init_arg_required \
+				    or opt in gridSignature.init_arg_optional, "%s: unknown attribute" % opt
+				arg.append(value)
+		return gridSignature(*arg)
+
 
 def parse_grid(name, ini):
 	"parse manifests and return a grid instance"
-	nodes = []
 	config = GridConfig(name, ini)
-	gridType = config.getGridType()
-	#gridParent = factory.Factory.getClass("model", "Grid")
-	#nodeParent = factory.Factory.getClass("model", "Node")
-	nodesInfo = config.getNodesInfo()
-	if not nodesInfo:
-		return factory.Factory.generateSubclass(model.Grid, gridType)
-	for nodeType, hoststring in nodesInfo:
-		nodes.append(
-			factory.Factory.generateSubclass(model.Node, 
-							 nodeType, 
-							 hoststring=hoststring))
-	return factory.Factory.generateSubclass(model.Grid, gridType, *nodes)
+	return config.parse_grid()
 	
 
 import tempfile
@@ -55,7 +78,7 @@ import unittest
 import textwrap
 
 class parserFakeGrid(model.Grid):
-	def __init__(self, nodes):
+	def __init__(self, *nodes):
 		self.nodes = nodes
 	
 class SelfTest(unittest.TestCase):
@@ -113,8 +136,17 @@ class SelfTest(unittest.TestCase):
 		f = self.file("""
 			[foo]
 			type = testbox grid
+			entry_path = ./en0wifi
 		""")
 		grid = parse_grid("foo", f.name)
 		assert type(grid) is testbox.Grid
+
+	def test_option_not_found(self):
+		f = self.file("""
+			[foo]
+			type = grid
+			bad_arg = bad_arg
+		""")
+		self.assertRaises(Exception, parse_grid, "foo", f.name)
 
 if __name__  == "__main__": unittest.main(verbosity = 2)

@@ -42,5 +42,7 @@ class TestLocal(TestCase):
 	"use a local client, based on testboxes, allowing anonymous sessions only"
 
 	client = testgrid.client.local
+	def test_simple_debian_node(self):
+		session = self.client.Session()
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

@@ -8,9 +8,7 @@ class Factory:
    
     @staticmethod
     def getClass(moduleName, classeName):
-        print moduleName
         m = __import__(moduleName)
-        print dir(m)
         c = getattr(m, classeName)
         return c
 
@@ -18,16 +16,6 @@ class Factory:
     def getAllSubclasses(cls):
         return cls.__subclasses__() + [g for s in cls.__subclasses__()
                                        for g in Factory.getAllSubclasses(s)]
-
-    @staticmethod
-    def generateSubclassObject(parent, child, **kwargs):   
-        try:
-            if not issubclass(child, parent): 
-                return None
-            else:
-                return  child(**kwargs)
-        except KeyError, e:
-            return None
 
     @staticmethod
     def generateSubclass(parent, childName, *arg, **kwargs):
@@ -42,16 +30,39 @@ class Factory:
                 subclasses = Factory.getAllSubclasses(parent)
                 for cls in subclasses:
                     if  childSignature.lower() in ".".join([cls.__module__,cls.__name__]).lower():
-                        #obj = Factory.getClass(cls.__module__, cls.__name__)
                         return cls(*arg, **kwargs)
             else:
                 subclasses = Factory.getAllSubclasses(parent)
                 for cls in subclasses:
                     if cls.__name__.lower() == childName.lower():
-                        #obj = Factory.getClass(cls.__module__, cls.__name__)
                         return cls(*arg, **kwargs)
                 
             raise RuntimeError("%s: unknown type" % childName)
+
+    @staticmethod
+    def generateSubclassSignature(parent, childName):
+        if parent.__name__.lower() == childName.lower():
+            return parent
+        else:
+            tmpChild = childName.split()
+            if len(tmpChild) > 1:
+                childSignature = '.'.join(tmpChild)
+                if ".".join([parent.__module__,parent.__name__]).lower() == childSignature.lower():
+                    return parent
+                subclasses = Factory.getAllSubclasses(parent)
+                for cls in subclasses:
+                    if  childSignature.lower() in ".".join([cls.__module__,cls.__name__]).lower():
+                        #obj = Factory.getClass(cls.__module__, cls.__name__)
+                        return cls
+            else:
+                subclasses = Factory.getAllSubclasses(parent)
+                for cls in subclasses:
+                    if cls.__name__.lower() == childName.lower():
+                        #obj = Factory.getClass(cls.__module__, cls.__name__)
+                        return cls
+                
+            raise RuntimeError("%s: unknown type" % childName)
+
 
 class FakeObject(model.Node):
     def __init__(self, fakeString):
