@@ -193,9 +193,14 @@ class NodePoolExhausted(Exception): pass
 
 class Grid(object):
 
+	init_arg_required = ()
+
+	init_arg_optional = ()
+
 	def __init__(self, *nodes):
 		self.quarantined_nodes = [] # nodes not properly deinstalled, need manual repair
 		self.transient_nodes = [] # virtual nodes
+		assert nodes == list(set(nodes))
 		self.nodes = nodes or ()
 		self.plans = {} # indexed plans
 
@@ -223,20 +228,21 @@ class Grid(object):
 	def create_node(self, sysname = None, pkg = None):
 		raise NodePoolExhausted()
 
-	def find_node(self, sysname = None, pkg = None, excluded = []):
+	def _find_node(self, sysname = None, pkg = None, excluded = []):
 		"find a compatible available node or create one"
 		for node in self.get_available_nodes():
-			if not node in excluded and node.is_installable(pkg):
+			if not node in excluded and (not pkg or node.is_installable(pkg)):
 				break
 		else:
 			node = self.create_node(pkg = pkg)
-			assert node.is_installable(pkg), "%s: created node is not able to install %s, please report this issue" % (node, pkg)
+			assert node.is_installable(pkg),\
+				"%s: created node is not able to install %s, please report this issue" % (node, pkg)
 			self.transient_nodes += (node,)
 		return node
 
 	def allocate_node(self, key, sysname = None, pkg = None):
 		"fetch a single node and mark it as allocated"
-		node = self.find_node(sysname = sysname, pkg = pkg)
+		node = self._find_node(sysname = sysname, pkg = pkg)
 		self.plans[key] = self.plans.get(key, ()) + ((None, node),)
 		return node
 
@@ -252,7 +258,7 @@ class Grid(object):
 		used = []
 		plan = []
 		for pkg in packages:
-			node = self.find_node(pkg = pkg, excluded = used)
+			node = self._find_node(pkg = pkg, excluded = used)
 			used.append(node)
 			plan.append((pkg, node))
 		return tuple(plan)

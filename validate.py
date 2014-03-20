@@ -16,8 +16,8 @@ class TestCase(unittest.TestCase):
 		self.assertEqual(node.service.fleche.version, "16.3-1")
 		self.assertTrue(node.service.fleche.is_running())
 
-	def test_local(self):
-		session = testgrid.client.local.Session()
+#	def test_local(self):
+#		session = testgrid.client.local.Session()
 		#n = session.allocate_node()
 		#n.run("pwd")
 # 	def test_simple_aksetup_package(self):
@@ -38,9 +38,9 @@ class TestCase(unittest.TestCase):
 	#			self.assertEqual(node.service.linearisator.version, "0.1.5-1")
 	#			self.assertTrue(node.service.linearisator.is_running())"""
 
-#class TestLocal(TestCase):
-#	"use a local client, based on testboxes, allowing anonymous sessions only"
+class TestLocal(TestCase):
+	"use a local client, based on testboxes, allowing anonymous sessions only"
 
-#	client = testgrid.client.local
+	client = testgrid.client.local
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
