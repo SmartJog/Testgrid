@@ -46,8 +46,8 @@ class Factory:
                 subclasses = Factory.getAllSubclasses(parent)
                 for cls in subclasses:
                     if cls.__name__.lower() == childName.lower():
-                        obj = Factory.getClass(cls.__module__, cls.__name__)
-                        return obj(*arg, **kwargs)
+                        #obj = Factory.getClass(cls.__module__, cls.__name__)
+                        return cls(*arg, **kwargs)
                 
             raise RuntimeError("%s: unknown type" % childName)
 
