@@ -11,7 +11,7 @@ class Session(testgrid.server.model.Session):
 
 	def __init__(self):
 		super(Session, self).__init__(
-			grid = testgrid.server.parser.parse_grid("grid", "config.ini"),
+			grid = testgrid.server.parser.parse_grid("grid", "~/grid.ini"),
 			subnet = None, # FIXME
 			key = None) # anonymous only as there is no controller process
 

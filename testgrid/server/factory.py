@@ -1,7 +1,9 @@
 # copyright (c) 2014 arkena, released under the GPL license.
+
 import model
 import sys
 import imp
+
 class Factory:
    
     @staticmethod
@@ -60,6 +62,7 @@ class FakeObject(model.Node):
         return self.fakeString
 
 import unittest
+import textwrap
 
 class SelfTest(unittest.TestCase):
 
@@ -82,18 +85,18 @@ class SelfTest(unittest.TestCase):
 
     def test_subclass_factory(self):
         foo = imp.new_module("foo")
-        foo_code = \
+        foo_code = """
+          class Foo(object):pass
         """
-class Foo(object):pass"""
-        exec foo_code in foo.__dict__
+        exec textwrap.dedent(foo_code) in foo.__dict__
         bar = imp.new_module("bar")
         sys.modules["foo"] = foo
-        bar_code = \
-            """
-import foo    
-class Foo(foo.Foo):pass
-class Bar(foo.Foo):pass"""
-        exec bar_code in bar.__dict__
+        bar_code = """
+          import foo    
+          class Foo(foo.Foo):pass
+          class Bar(foo.Foo):pass
+        """
+        exec textwrap.dedent(bar_code) in bar.__dict__
         sys.modules["bar"] = bar
         import foo
         import bar
@@ -108,4 +111,3 @@ class Bar(foo.Foo):pass"""
         assert type(obj2) is FakeObject
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
-

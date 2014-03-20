@@ -41,8 +41,19 @@ class Node(model.Node):
 				warn_only = cmd.warn_only)
 		return res
 
+class Grid(model.Grid):
 
-class Grid(model.Grid):pass
+	init_arg_required = ("entry_path",)
+
+	init_arg_optional = ()
+
+	def __init__(self, entry_path, *args, **kwargs):
+		super(Grid, self).__init__(*args, **kwargs)
+		self.entry_path = entry_path
+
+	create_node = lambda self, sysname = None, pkg = None: Node(entry_path = self.entry_path)
+
+# --- deprecated --- (remove later)
 
 class En0Wifi(model.Grid):
 
