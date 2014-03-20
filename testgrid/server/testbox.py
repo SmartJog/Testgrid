@@ -16,6 +16,7 @@ class Node(model.Node):
 	idx = 0
 
 	def __init__(self, entry_path, tag = None):
+# def __init__(self, use_proxy, bridge, tag = None):
 		super(Node, self).__init__()
 		self.path = "testbox-%i" % Node.idx
 		Node.idx += 1
@@ -24,6 +25,7 @@ class Node(model.Node):
 		if tag:
 			shell.run("cd %s && git checkout %s" % (self.path, tag), logger = shell.stderr)
 		shell.run("cd %s && %s up" % (self.path, entry_path), logger = shell.stderr)
+		#shell.run("USE_PROXY=... BRIDGE=... make -C %s up" % (self.path, entry_path), logger = shell.stderr)
 
 	def __del__(self):
 		shell.run("make -C %s deepclean" % self.path, logger = shell.stderr)
@@ -48,6 +50,7 @@ class Grid(model.Grid):
 	init_arg_optional = ()
 
 	def __init__(self, entry_path, *args, **kwargs):
+#	def __init__(self, use_proxy, bridge, *args, **kwargs):
 		super(Grid, self).__init__(*args, **kwargs)
 		self.entry_path = entry_path
 
