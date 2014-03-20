@@ -47,7 +47,7 @@ def parse_grid(name, ini):
 			factory.Factory.generateSubclass(model.Node, 
 							 nodeType, 
 							 hoststring=hoststring))
-	return factory.Factory.generateSubclass(model.Grid, gridType, nodes)
+	return factory.Factory.generateSubclass(model.Grid, gridType, *nodes)
 	
 
 import tempfile

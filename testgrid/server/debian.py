@@ -1,6 +1,7 @@
 # copyright (c) 2014 arkena, released under the GPL license.
 
 import model
+import shell
 
 class Package(model.Package):
 	"debian package management commands"
@@ -37,14 +38,10 @@ class Node(model.Node):
 		super(Node, self).__init__()
 		self.hoststring = hoststring
 
-	def run(self, com):
-		res = shell.Success()
-		for cmd in commands:
-			res += shell.ssh(self.hoststring,
-				cmd,
-				logger = shell.stderr,
-				warn_only = cmd.warn_only)
-		return res
+	def run(self, commands):
+		shell.ssh(self.hoststring,
+                          commands,
+                          logger = shell.Stderr)
 
 
 	

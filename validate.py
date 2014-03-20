@@ -17,7 +17,9 @@ class TestCase(unittest.TestCase):
 		self.assertTrue(node.service.fleche.is_running())
 
 	def test_local(self):
-		test = testgrid.client.local.Session()
+		session = testgrid.client.local.Session()
+		#n = session.allocate_node()
+		#n.run("pwd")
 # 	def test_simple_aksetup_package(self):
 #		session = self.client.Session()
 #		fleche = testgrid.client.aksetup.Package("fleche", version = "16.3-1")
