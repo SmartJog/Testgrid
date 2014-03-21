@@ -7,12 +7,14 @@ class FakeServiceManager(testgrid.server.model.ServiceManager):
 
 	is_running = lambda self, name: True
 
-	get_version = lambda self, name: "16.3-1"
+	get_version = lambda self, name: "16.5-1"
 
 node = testgrid.server.model.FakeNode()
+listNode = []
+listNode.append(node)
 node.service = FakeServiceManager()
 
-grid = testgrid.server.model.Grid(node) # non-generative grid
+grid = testgrid.server.model.Grid(listNode) # non-generative grid
 
 #grid = server.model.FakeGrid() # generative grid
 

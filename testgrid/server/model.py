@@ -200,11 +200,10 @@ class Grid(object):
 
 	init_arg_optional = ()
 
-	def __init__(self, *nodes):
+	def __init__(self, nodes=()):
 		self.quarantined_nodes = [] # nodes not properly deinstalled, need manual repair
 		self.transient_nodes = [] # virtual nodes
-		#print nodes
-		#assert tuple(nodes) == tuple(set(nodes))
+	        #assert tuple(nodes) == tuple(set(nodes)) FIXME
 		self.nodes = nodes or ()
 		
 		self.plans = {} # indexed plans
@@ -225,7 +224,7 @@ class Grid(object):
 
 	def get_available_nodes(self):
 		"return the list of nodes neither allocated nor quarantined"
-		for node in self.nodes + tuple(self.transient_nodes):
+		for node in tuple(self.nodes) + tuple(self.transient_nodes):
 			if not node in self.quarantined_nodes\
 			and not node in self.get_allocated_nodes():
 				yield node
@@ -424,7 +423,7 @@ class SelfTest(unittest.TestCase):
 	def mkenv(nb_nodes, nb_packages):
 		nodes = tuple(FakeNode() for i in xrange(nb_nodes))
 		packages = tuple(Package("pkg%i" % i, "1.0") for i in xrange(nb_packages))
-		grid = Grid(*nodes) # use a non-generative grid
+		grid = Grid(nodes) # use a non-generative grid
 		session = Session(grid, Subnet("test"))
 		return (nodes, packages, session)
 

@@ -10,16 +10,12 @@ class TestCase(unittest.TestCase):
 
 	def test_simple_debian_package(self):
 		session = self.client.Session()
-		fleche = testgrid.client.debian.Package("fleche", version = "16.3-1")
+		fleche = testgrid.server.debian.Package("fleche", version = "16.5-1")
 		node = session.allocate_node()
 		assert node.install(fleche)
-		self.assertEqual(node.service.fleche.version, "16.3-1")
+		self.assertEqual(node.service.fleche.version, "16.5-1")
 		self.assertTrue(node.service.fleche.is_running())
 
-#	def test_local(self):
-#		session = testgrid.client.local.Session()
-		#n = session.allocate_node()
-		#n.run("pwd")
 # 	def test_simple_aksetup_package(self):
 #		session = self.client.Session()
 #		fleche = testgrid.client.aksetup.Package("fleche", version = "16.3-1")
@@ -44,5 +40,12 @@ class TestLocal(TestCase):
 	client = testgrid.client.local
 	def test_simple_debian_node(self):
 		session = self.client.Session()
+		fleche = testgrid.server.debian.Package("fleche", version = "16.5-1")
+		n = session.allocate_node()
+		assert n.install(fleche)
+
+	#def test_rest(self):
+	#	s = testgrid.client.restclient.Session("127.0.0.1", 8080)
+	#	s.check_server()
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

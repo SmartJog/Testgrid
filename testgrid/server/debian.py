@@ -2,10 +2,11 @@
 
 import model
 import shell
+import pipes
 
 class Package(model.Package):
 	"debian package management commands"
-
+	 #fix sudo
 	def __init__(self, *args, **kwargs):
 		super(Package, self).__init__(*args, **kwargs)
 		self.tag = self.name
@@ -13,11 +14,12 @@ class Package(model.Package):
 			self.tag += "=%s" % self.version
 
 	get_install_commands = lambda self: (
-		model.Command("sudo apt-get -qqy --force-yes install %s" % self.tag),
+		model.Command("export DEBIAN_FRONTEND=noninteractive && apt-get -qqy --force-yes install %s" % self.tag),
+		
 	)
 
 	get_uninstall_commands = lambda self: (
-		model.Command("sudo apt-get -qq remove --purge %s" % self.name),
+		model.Command("export DEBIAN_FRONTEND=noninteractive && apt-get -qq remove --purge %s" % self.name),
 	)
 
 	get_is_installed_commands = lambda self: (
@@ -26,7 +28,7 @@ class Package(model.Package):
 
 	get_is_installable_commands = lambda self: (
 		model.Command(
-			"sudo apt-get -qqy --force-yes --dry-run install %s" % self.tag,
+			"export DEBIAN_FRONTEND=noninteractive && apt-get -qqy --force-yes --dry-run install %s" % self.tag,
 			warn_only = True),
 	)
 
@@ -41,10 +43,22 @@ class Node(model.Node):
 		super(Node, self).__init__()
 		self.hoststring = hoststring
 
-	def run(self, commands):
-		shell.ssh(self.hoststring,
-                          commands,
-                          logger = shell.Stderr)
+	
+	def setup_interface(self, subnet): pass
+	
+	def cleanup_interface(self, subnet): pass
 
+
+	def run(self, *commands):
+		for cmd in commands:
+			shell.ssh(self.hoststring,
+				  cmd.cmdline,
+				  logger = shell.Stderr, warn_only = cmd.warn_only)
 
 	
+	def install(self, package):
+		return self.run(*package.get_install_commands())
+
+
+	def uninstall(self, package):
+		return self.run(*package.get_uninstall_commands())

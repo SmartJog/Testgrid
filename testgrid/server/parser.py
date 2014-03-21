@@ -4,13 +4,14 @@ import ConfigParser
 import factory
 import debian
 import testbox
+import restgrid
 import model
 import os
 
 class ConfigurationError(Exception): pass
 
 class GridConfig(object):
-
+	"""parse manifest of  of a grid and object creation"""
 	def __init__(self, gridName, fileName, parentGrid=model.Grid, parentNode=model.Node):
 		self.gridName = gridName
 		self.parentGrid = parentGrid
@@ -27,6 +28,9 @@ class GridConfig(object):
 
 
 	def createObjectFromSection(self, sectionName, parentSignature):
+		""" create an instantiated subclass object from a specific section of config file  
+		and parent object signature"""
+
 		if not self.config.has_section(sectionName):
 			raise ConfigurationError("%s: unknown section" % n)
 		objectType = self.config.get(sectionName, 'type')
@@ -41,6 +45,7 @@ class GridConfig(object):
 
 
 	def generateNodes(self, valueNodes):
+		"""generate list of instantiated node object """
 		nodes = []
 		for n in valueNodes.split(" "):
 			nodes.append(self.createObjectFromSection(n, self.parentNode))	
@@ -48,23 +53,23 @@ class GridConfig(object):
 		
 
 	def parse_grid(self):
+		"parse manifests and return a grid instance"
 		gridType = None
 		gridSignature = None
 		nodes = []
-		arg = []
+		arg = {}
 		for opt, value in self.config.items(self.gridName):
 			if opt == 'type':
 				gridType = value
 				gridSignature = factory.Factory.generateSubclassSignature(self.parentGrid, gridType)
 			elif opt == "nodes":
 				nodes = self.generateNodes(value)
-				for n in nodes:
-					arg.append(n)
+				arg[opt] = nodes
 			else:
 				assert opt in gridSignature.init_arg_required \
 				    or opt in gridSignature.init_arg_optional, "%s: unknown attribute" % opt
-				arg.append(value)
-		return gridSignature(*arg)
+				arg[opt] = value
+		return gridSignature(**arg)
 
 
 def parse_grid(name, ini):
@@ -78,8 +83,8 @@ import unittest
 import textwrap
 
 class parserFakeGrid(model.Grid):
-	def __init__(self, *nodes):
-		self.nodes = nodes
+	def __init__(self, nodes):
+		super(parserFakeGrid, self).__init__(nodes)
 	
 class SelfTest(unittest.TestCase):
 
@@ -105,7 +110,7 @@ class SelfTest(unittest.TestCase):
 		assert type(grid) is model.Grid
 
 	def test_basic_grid_with_nodes(self):
-		"assert parse_grid return a model.Grid if type is grid with defined node"
+		""" assert parse_grid return a parserFakeGrid instantiated with debian Node"""
 		f = self.file("""
 			[node1]
 			type = debian Node
@@ -132,7 +137,7 @@ class SelfTest(unittest.TestCase):
 
 
 	def test_testbox_grid(self):
-		"assert parse_grid return a model.Grid if type is grid"
+		"assert parse_grid return a testbox.Grid if type is testbox grid"
 		f = self.file("""
 			[foo]
 			type = testbox grid
@@ -142,6 +147,7 @@ class SelfTest(unittest.TestCase):
 		assert type(grid) is testbox.Grid
 
 	def test_option_not_found(self):
+		"assert parse_grid raises an exception on a wrong option"
 		f = self.file("""
 			[foo]
 			type = grid

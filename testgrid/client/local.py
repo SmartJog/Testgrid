@@ -2,8 +2,6 @@
 
 "local client for transient (=anonymous) sessions only"
 import testgrid
-#import testgrid.server
-#from testgrid.server import model
 import aksetup
 import debian
 
@@ -16,4 +14,3 @@ class Session(testgrid.server.model.Session):
 			key = None) # anonymous only as there is no controller process
 
 
-#print testgrid.server.model.Session

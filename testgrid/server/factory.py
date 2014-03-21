@@ -5,7 +5,7 @@ import sys
 import imp
 
 class Factory:
-   
+    """handle subclass object creation"""
     @staticmethod
     def getClass(moduleName, classeName):
         m = __import__(moduleName)
@@ -14,51 +14,35 @@ class Factory:
 
     @staticmethod
     def getAllSubclasses(cls):
+        """list all subclass recursivly of a given class signature"""
         return cls.__subclasses__() + [g for s in cls.__subclasses__()
                                        for g in Factory.getAllSubclasses(s)]
 
     @staticmethod
     def generateSubclass(parent, childName, *arg, **kwargs):
-        if parent.__name__.lower() == childName.lower():
-            return parent(*arg, **kwargs)
-        else:
-            tmpChild = childName.split()
-            if len(tmpChild) > 1:
-                childSignature = '.'.join(tmpChild)
-                if ".".join([parent.__module__,parent.__name__]).lower() == childSignature.lower():
-                    return parent(*arg, **kwargs)
-                subclasses = Factory.getAllSubclasses(parent)
-                for cls in subclasses:
-                    if  childSignature.lower() in ".".join([cls.__module__,cls.__name__]).lower():
-                        return cls(*arg, **kwargs)
-            else:
-                subclasses = Factory.getAllSubclasses(parent)
-                for cls in subclasses:
-                    if cls.__name__.lower() == childName.lower():
-                        return cls(*arg, **kwargs)
-                
-            raise RuntimeError("%s: unknown type" % childName)
+        """generate an instantiated subclass object from a parent signature """
+        classSignature = Factory.generateSubclassSignature(parent, childName)
+        return classSignature(*arg, **kwargs)
 
     @staticmethod
     def generateSubclassSignature(parent, childName):
+        """generate the signature of a subclass  object from a parent signature """
         if parent.__name__.lower() == childName.lower():
             return parent
         else:
             tmpChild = childName.split()
             if len(tmpChild) > 1:
                 childSignature = '.'.join(tmpChild)
-                if ".".join([parent.__module__,parent.__name__]).lower() == childSignature.lower():
+                if ".".join([parent.__module__,parent.__name__]).lower().endswith(childSignature.lower()):
                     return parent
                 subclasses = Factory.getAllSubclasses(parent)
                 for cls in subclasses:
-                    if  childSignature.lower() in ".".join([cls.__module__,cls.__name__]).lower():
-                        #obj = Factory.getClass(cls.__module__, cls.__name__)
+                    if  ".".join([cls.__module__,cls.__name__]).lower().endswith(childSignature.lower()):
                         return cls
             else:
                 subclasses = Factory.getAllSubclasses(parent)
                 for cls in subclasses:
                     if cls.__name__.lower() == childName.lower():
-                        #obj = Factory.getClass(cls.__module__, cls.__name__)
                         return cls
                 
             raise RuntimeError("%s: unknown type" % childName)
@@ -78,23 +62,16 @@ import textwrap
 class SelfTest(unittest.TestCase):
 
 
-    #def test_base_factory(self):
-    #    parent = Factory.getClass("model", "Node")
-    #    child = Factory.getClass("debian", "Node")
-    #    assert type(parent) is not  model.Node
-    #    assert type(child) is  not debian.Node
-    #    objet = Factory.generateSubclassObject(parent, 
-    #                                           child, 
-    #                                           hoststring="a.b.c")
-    #    parent = Factory.getClass("model", "Node")
-    #    child = Factory.getClass("factory", "FakeObject")
-    #    obj = Factory.generateSubclassObject(parent, 
-    #                                           child, 
-    #                                           fakeString="test")
-    #    self.assertEqual(obj.getFakeString(), "test")
-
-
     def test_subclass_factory(self):
+        """generate subclass objects
+
+        test cases:
+        type: Foo # -> resolve to foo.Foo() (first match)
+        [test2]
+        type: Bar # -> resolve to bar.Bar()
+        [test3]
+        type: Bar Foo # -> resolve to bar.Foo()"""
+
         foo = imp.new_module("foo")
         foo_code = """
           class Foo(object):pass
