@@ -3,6 +3,7 @@
 import model
 import shell
 import pipes
+import json
 
 class Package(model.Package):
 	"debian package management commands"
@@ -35,9 +36,6 @@ class Package(model.Package):
 
 class Node(model.Node):
 	"debian Node"
-	init_arg_required = ("hoststring",)
-
-	init_arg_optional = ()
 
 	def __init__(self, hoststring):
 		super(Node, self).__init__()

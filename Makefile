@@ -24,6 +24,9 @@ validate:
 	python testgrid/server/model.py
 	python validate.py $(NAME)
 
+server:
+	python -m testgrid.server.rest
+
 install:
 	sudo apt-get install -qqy python-setuptools
 	sudo python setup.py install

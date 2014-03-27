@@ -45,7 +45,7 @@ class Factory:
                     if cls.__name__.lower() == childName.lower():
                         return cls
                 
-            raise RuntimeError("%s: unknown type" % childName)
+            raise RuntimeError("%s: unknown subclass" % childName)
 
 
 class FakeObject(model.Node):

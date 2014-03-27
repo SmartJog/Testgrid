@@ -1,11 +1,11 @@
 # copyright (c) 2014 arkena, released under the GPL license.
-
 import ConfigParser
 import factory
 import debian
 import testbox
 import restgrid
 import model
+import inspect
 import os
 
 class ConfigurationError(Exception): pass
@@ -23,7 +23,7 @@ class GridConfig(object):
 			raise ConfigurationError("%s: couldn't find init file " % fileName)
 		if not self.config.has_section(self.gridName):
 			raise ConfigurationError("%s: unknown section" % self.gridName)
-		
+		self._toObject = {"nodes": self.generateNodes}
 
 
 
@@ -35,13 +35,16 @@ class GridConfig(object):
 			raise ConfigurationError("%s: unknown section" % n)
 		objectType = self.config.get(sectionName, 'type')
 		objectSignature = factory.Factory.generateSubclassSignature(parentSignature, objectType)
-		arg = []
+		arg = {}
 		for opt, value in  self.config.items(sectionName):
 			if opt != "type":
-				assert opt in objectSignature.init_arg_required \
-				    or opt in objectSignature.init_arg_optional, "%s: unknown attribute" % opt
-				arg.append(value)
-		return objectSignature(*arg)
+				argspec = inspect.getargspec(objectSignature.__init__)
+				assert opt in argspec[0], "%s: unknown attribute" % opt
+				if opt in self._toObject:
+					arg[opt] = self._toObject[opt](value)
+				else:
+					arg[opt] = value
+		return objectSignature(**arg)
 
 
 	def generateNodes(self, valueNodes):
@@ -54,22 +57,7 @@ class GridConfig(object):
 
 	def parse_grid(self):
 		"parse manifests and return a grid instance"
-		gridType = None
-		gridSignature = None
-		nodes = []
-		arg = {}
-		for opt, value in self.config.items(self.gridName):
-			if opt == 'type':
-				gridType = value
-				gridSignature = factory.Factory.generateSubclassSignature(self.parentGrid, gridType)
-			elif opt == "nodes":
-				nodes = self.generateNodes(value)
-				arg[opt] = nodes
-			else:
-				assert opt in gridSignature.init_arg_required \
-				    or opt in gridSignature.init_arg_optional, "%s: unknown attribute" % opt
-				arg[opt] = value
-		return gridSignature(**arg)
+		return self.createObjectFromSection(self.gridName, self.parentGrid)
 
 
 def parse_grid(name, ini):
@@ -85,7 +73,14 @@ import textwrap
 class parserFakeGrid(model.Grid):
 	def __init__(self, nodes):
 		super(parserFakeGrid, self).__init__(nodes)
-	
+
+class  testArg(model.Grid):
+	def __init__(self, required, optional="opt", optional2="opt2"):
+		super(testArg, self).__init__()
+		self.required = required
+		self.optional = optional
+
+		
 class SelfTest(unittest.TestCase):
 
 	@staticmethod
@@ -154,5 +149,14 @@ class SelfTest(unittest.TestCase):
 			bad_arg = bad_arg
 		""")
 		self.assertRaises(Exception, parse_grid, "foo", f.name)
+
+	def test_required_arg(self):
+		f = self.file("""
+			[foo]
+			type = testArg
+			required = required
+		""")
+		grid = parse_grid("foo", f.name)
+		assert type(grid) is testArg
 
 if __name__  == "__main__": unittest.main(verbosity = 2)

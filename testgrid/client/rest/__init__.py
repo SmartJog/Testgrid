@@ -13,9 +13,3 @@ class Session(server.model.Session):
 			grid = server.testbox.Eth2Lan(),
 			subnet = None, # FIXME
 			key = None) # anonymous only as there is no controller process
-		if ! self.is_anonymous:
-			# check if in database
-			check = 1
-
-
-

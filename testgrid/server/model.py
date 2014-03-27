@@ -146,9 +146,6 @@ class Subnet(object):
 
 class Node(object):
 	"a node is an interface to a physical or virtual machine"
-	init_arg_required = ()
-
-	init_arg_optional = ()
 
 	service = ServiceManager()
 
@@ -195,10 +192,6 @@ class Node(object):
 class NodePoolExhausted(Exception): pass
 
 class Grid(object):
-
-	init_arg_required = ()
-
-	init_arg_optional = ()
 
 	def __init__(self, nodes=()):
 		self.quarantined_nodes = [] # nodes not properly deinstalled, need manual repair
