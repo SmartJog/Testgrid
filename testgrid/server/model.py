@@ -1,5 +1,4 @@
-#!/usr/bin/python2.7
-# copyright (c) 2013-2014 arkena, released under the GPL license.
+# copyright (c) 2013-2014 smartjog, released under the GPL license.
 
 """
 Testgrid is a service designed to pair packages to nodes.
@@ -12,8 +11,7 @@ On undeploy(), packages are uninstalled, nodes are deallocated.
 
 __version__ = "0.2"
 
-import getpass
-import time
+import unittest, getpass, time, abc
 
 class Command(object):
 
@@ -21,40 +19,48 @@ class Command(object):
 		self.warn_only = warn_only
 		self.cmdline = cmdline
 
-	__repr__ = lambda self: "%s(%s)" % (type(self).__name__, self.cmdline)
+	def __repr__(self):
+		return "%s(%s)" % (type(self).__name__, self.cmdline)
 
-	__str__ = lambda self: self.cmdline
-
-class Platform(object): pass
+	def __str__(self):
+		return self.cmdline
 
 class Package(object):
+
+	__metaclass__ = abc.ABCMeta
 
 	def __init__(self, name, version = None):
 		self.name = name
 		self.version = version
 
-	__repr__ = lambda self: "%s(%s-%s)" % (
-		type(self).__name__,
-		self.name,
-		self.version or "last")
+	def __repr__(self):
+		return "%s(%s-%s)" % (
+			type(self).__name__,
+			self.name,
+			self.version or "last")
 
-	__str__ = lambda self: "%s-%s" % (self.name, self.version or "last")
+	def __str__(self):
+		return "%s-%s" % (self.name, self.version or "last")
 
-	__eq__ = lambda self, other:\
-		self.name == other.name\
-		and self.version == other.version
+	def __eq__(self, other):
+		return self.name == other.name and self.version == other.version
 
-	__ne__ = lambda self, other: not (self == other)
+	def __ne__(self, other):
+		return not (self == other)
 
+	@abc.abstractmethod
 	def get_install_commands(self):
 		raise NotImplementedError()
 
+	@abc.abstractmethod
 	def get_uninstall_commands(self):
 		raise NotImplementedError()
 
+	@abc.abstractmethod
 	def get_is_installed_commands(self):
 		raise NotImplementedError()
 
+	@abc.abstractmethod
 	def get_is_installable_commands(self):
 		raise NotImplementedError()
 
@@ -91,21 +97,29 @@ class Packages(Package):
 
 class ServiceManager(object):
 
+	__metaclass__ = abc.ABCMeta
+
+	@abc.abstractmethod
 	def start(self, name):
 		raise NotImplementedError()
 
+	@abc.abstractmethod
 	def stop(self, name):
 		raise NotImplementedError()
 
+	@abc.abstractmethod
 	def restart(self, name):
 		raise NotImplementedError()
 
+	@abc.abstractmethod
 	def reload(self, name):
 		raise NotImplementedError()
 
+	@abc.abstractmethod
 	def is_running(self, name):
 		raise NotImplementedError()
 
+	@abc.abstractmethod
 	def get_version(self, name):
 		raise NotImplementedError()
 
@@ -115,65 +129,85 @@ class ServiceManager(object):
 			self.manager = manager
 			self.name = name
 
-		start = lambda self: self.manager.start(self.name)
+		def start(self):
+			return self.manager.start(self.name)
 
-		stop = lambda self: self.manager.stop(self.name)
+		def stop(self):
+			return self.manager.stop(self.name)
 
-		restart = lambda self: self.manager.restart(self.name)
+		def restart(self):
+			return self.manager.restart(self.name)
 
-		reload = lambda self: self.manager.reload(self.name)
+		def reload(self):
+			return self.manager.reload(self.name)
 
-		is_running = lambda self: self.manager.is_running(self.name)
+		def is_running(self):
+			return self.manager.is_running(self.name)
 
-		version = property(lambda self: "%s" % self.manager.get_version(self.name))
+		@property
+		def version(self):
+			return "%s" % self.manager.get_version(self.name)
 
-	__getitem__ = lambda self, name: self.Service(self, name)
+	def __getitem__(self, name):
+		return self.Service(self, name)
 
-	__getattr__ = lambda self, name: self.Service(self, name)
+	def __getattr__(self, name):
+		return self.Service(self, name)
 
 class Subnet(object):
 
 	def __init__(self, id):
 		self.id = id
 
-	__repr__ = lambda self: "%s(%s)" % (type(self).__name__, self.id)
+	def __repr__(self):
+		return "%s(%s)" % (type(self).__name__, self.id)
 
-	__eq__ = lambda self, other: self.id == other.id
+	def __eq__(self, other):
+		return self.id == other.id
 
-	__ne__ = lambda self, other: not (self == other)
+	def __ne__(self, other):
+		return not (self == other)
 
-	__contains__ = lambda self, node: any(subnet == self for subnet in node.subnets)
+	def __contains__(self, node):
+		return any(subnet == self for subnet in node.subnets)
 
 class Node(object):
 	"a node is an interface to a physical or virtual machine"
 
-	service = ServiceManager()
+	__metaclass__ = abc.ABCMeta
+
+	service = None # ServiceManager()
 
 	def __init__(self):
 		self.subnets = []
 
-	def setup_interface(self, subnet):
+	@abc.abstractmethod
+	def _setup_interface(self, subnet):
 		"setup a network interface on the specified subnet"
 		raise NotImplementedError()
 
-	def cleanup_interface(self, subnet):
+	@abc.abstractmethod
+	def _cleanup_interface(self, subnet):
 		"remove the network interface on the specified subnet"
 		raise NotImplementedError()
 
 	def join(self, subnet):
 		self.subnets.append(subnet)
-		self.setup_interface(subnet)
+		self._setup_interface(subnet)
 
 	def leave(self, subnet):
 		self.subnets.remove(subnet)
-		self.cleanup_interface(subnet)
+		self._cleanup_interface(subnet)
 
+	@abc.abstractmethod
 	def terminate(self):
 		raise NotImplementedError()
 
+	@abc.abstractmethod
 	def run(self, *commands):
 		raise NotImplementedError()
 
+	@abc.abstractmethod
 	def log(self, tag, msg):
 		raise NotImplementedError()
 
@@ -185,55 +219,81 @@ class Node(object):
 		self.log("TESTGRID", "uninstalling %s" % package)
 		return self.run(*package.get_uninstall_commands())
 
-	is_installed = lambda self, package: self.run(*package.get_is_installed_commands())
+	def is_installed(self, package):
+		return self.run(*package.get_is_installed_commands())
 
-	is_installable = lambda self, package: self.run(*package.get_is_installable_commands())
+	def is_installable(self, package):
+		return self.run(*package.get_is_installable_commands())
 
-class NodePoolExhausted(Exception): pass
+class UnknownNodeError(Exception): pass
+
+class UnknownGridError(Exception): pass
+
+class DuplicatedNodeError(Exception): pass
+
+class DuplicatedGridError(Exception): pass
+
+class NodePoolExhaustedError(Exception): pass
 
 class Grid(object):
+	"handle nodes and packages"
 
-	def __init__(self, nodes=()):
+	def __init__(self, *nodes):
 		self.quarantined_nodes = [] # nodes not properly deinstalled, need manual repair
 		self.transient_nodes = [] # virtual nodes
-	        #assert tuple(nodes) == tuple(set(nodes)) FIXME
-		self.nodes = nodes or ()
-		
+		self.nodes = [] # nodes may be added or removed
+		for node in nodes:
+			self.add_node(node)
 		self.plans = {} # indexed plans
 
+	def add_node(self, node):
+		if not node in self.nodes:
+			self.nodes.append(node)
+		else:
+			raise DuplicatedNodeError("%s" % node)
+
+	def remove_node(self, node):
+		if node in self.nodes:
+			self.nodes.remove(node)
+		else:
+			raise UnknownNodeError("%s" % node)
+
 	def __del__(self):
+		"terminate all transient nodes"
 		for node in self.transient_nodes:
 			node.terminate()
 
-	def __iter__(self):
-		for node in self.nodes:
-			yield node
-
-	def get_allocated_nodes(self):
+	def _get_allocated_nodes(self):
 		"return the list of allocated nodes"
 		for key, plan in self.plans.items():
 			for _, node in plan:
 				yield node
 
-	def get_available_nodes(self):
+	def _get_available_nodes(self):
 		"return the list of nodes neither allocated nor quarantined"
 		for node in tuple(self.nodes) + tuple(self.transient_nodes):
 			if not node in self.quarantined_nodes\
-			and not node in self.get_allocated_nodes():
+			and not node in self._get_allocated_nodes():
 				yield node
 
-	def create_node(self, sysname = None, pkg = None):
-		raise NodePoolExhausted()
+	def __iter__(self):
+		for node in self._get_allocated_nodes() + self._get_available_nodes():
+			yield node
+
+	def _create_node(self, sysname = None, pkg = None):
+		"spawn a new node using system $sysname or able to install package $pkg"
+		raise NodePoolExhaustedError()
 
 	def _find_node(self, sysname = None, pkg = None, excluded = []):
 		"find a compatible available node or create one"
-		for node in self.get_available_nodes():
+		for node in self._get_available_nodes():
 			if not node in excluded and (not pkg or node.is_installable(pkg)):
 				break
 		else:
 			node = self.create_node(pkg = pkg)
-			assert node.is_installable(pkg),\
-				"%s: created node is not able to install %s, please report this issue" % (node, pkg)
+			assert\
+				node.is_installable(pkg),\
+				"%s: invalid node, please report this issue" % (node, pkg)
 			self.transient_nodes += (node,)
 		return node
 
@@ -247,7 +307,7 @@ class Grid(object):
 		"undo allocate_node"
 		self.plans[key].remove((None, node))
 
-	def get_deployment_plan(self, *packages):
+	def _get_deployment_plan(self, *packages):
 		"""
 		Pair packages to nodes depending on their compatibility and availability.
 		Return the deployment plan as a tuple of pairs (pkg, node).
@@ -276,7 +336,7 @@ class Grid(object):
 
 	def deploy(self, key, *packages):
 		"get, apply, register and return deployment plan"
-		plan = self.get_deployment_plan(*packages)
+		plan = self._get_deployment_plan(*packages)
 		done = []
 		try:
 			for pkg, node in plan:
@@ -288,7 +348,25 @@ class Grid(object):
 			self._undeploy(done)
 			raise
 
+class Grids(Grid):
+
+	def __init__(self, *grids):
+		self.grids = grids or []
+
+	def add_grid(self, grid):
+		if not grid in self.grids:
+			self.grids.append(grid)
+		else:
+			raise DuplicatedGridError("%s" % grid)
+
+	def remove_grid(self, grid):
+		if grid in self.grids:
+			self.grids.remove(grid)
+		else:
+			raise UnknownGridError("%s" % grid)
+
 class Session(object):
+	"handle subnets"
 
 	def __init__(self, grid, subnet, key = None):
 		self.grid = grid
@@ -301,7 +379,7 @@ class Session(object):
 		self.key = key
 
 	def close(self):
-			self.undeploy()
+		self.undeploy()
 
 	def __del__(self):
 		if self.is_anonymous:
@@ -315,6 +393,13 @@ class Session(object):
 	def release_node(self, node):
 		node.leave(self.subnet)
 		self.grid.release_node(node)
+
+	def list_nodes(self):
+		"list session nodes"
+		if self.key in self.grid.plans:
+			return tuple(node for node in self.grid.plans[self.key].values())
+		else:
+			return ()
 
 	def deploy(self, *packages):
 		plan = self.grid.deploy(self.key, *packages)
@@ -333,6 +418,16 @@ class Session(object):
 # test doubles #
 ################
 
+class FakePackage(Package):
+
+	def get_install_commands(self): pass
+
+	def get_uninstall_commands(self): pass
+
+	def get_is_installed_commands(self): pass
+
+	def get_is_installable_commands(self): pass
+
 class FakeNode(Node):
 
 	def __init__(self):
@@ -340,9 +435,13 @@ class FakeNode(Node):
 		self.installed = []
 		self.terminated = False
 
-	def setup_interface(self, subnet): pass
+	def _setup_interface(self, subnet): pass
 
-	def cleanup_interface(self, subnet): pass
+	def _cleanup_interface(self, subnet): pass
+
+	def run(self, *commands): pass
+
+	def log(self, tag, msg): pass
 
 	def terminate(self):
 		self.terminated = True
@@ -377,11 +476,9 @@ def unzip(pairs):
 	res.seconds = seconds
 	return res
 
-#############
-# self test #
-#############
-
-import unittest
+##############
+# unit tests #
+##############
 
 class SelfTest(unittest.TestCase):
 
@@ -415,8 +512,8 @@ class SelfTest(unittest.TestCase):
 	@staticmethod
 	def mkenv(nb_nodes, nb_packages):
 		nodes = tuple(FakeNode() for i in xrange(nb_nodes))
-		packages = tuple(Package("pkg%i" % i, "1.0") for i in xrange(nb_packages))
-		grid = Grid(nodes) # use a non-generative grid
+		packages = tuple(FakePackage("pkg%i" % i, "1.0") for i in xrange(nb_packages))
+		grid = Grid(*nodes) # use a non-generative grid
 		session = Session(grid, Subnet("test"))
 		return (nodes, packages, session)
 
@@ -455,8 +552,8 @@ class SelfTest(unittest.TestCase):
 		"test deployment on a generative grid"
 		grid = FakeGrid()
 		assert not grid.nodes
-		foo = Package("foo", "1.0")
-		bar = Package("bar", "1.0")
+		foo = FakePackage("foo", "1.0")
+		bar = FakePackage("bar", "1.0")
 		# assert nodes are created:
 		grid.deploy(foo, bar)
 

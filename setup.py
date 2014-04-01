@@ -1,4 +1,4 @@
-# copyright (c) 2014 arkena, all rights reserved.
+# copyright (c) 2013-2014 smartjog, released under the GPL license.
 
 import setuptools
 

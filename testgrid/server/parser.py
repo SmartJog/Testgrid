@@ -1,22 +1,19 @@
-# copyright (c) 2014 arkena, released under the GPL license.
-import ConfigParser
-import factory
-import debian
-import testbox
-import restgrid
-import model
-import inspect
-import os
+# copyright (c) 2013-2014 smartjog, released under the GPL license.
+
+import ConfigParser, tempfile, unittest, textwrap, inspect, os
+
+import restgrid, factory, testbox, debian, model
 
 class ConfigurationError(Exception): pass
 
 class GridConfig(object):
-	"""parse manifest of  of a grid and object creation"""
+
+	"parse manifest of a grid and object creation"
+
 	def __init__(self, gridName, fileName, parentGrid=model.Grid, parentNode=model.Node):
 		self.gridName = gridName
 		self.parentGrid = parentGrid
 		self.parentNode = parentNode
-
 		self.config = ConfigParser.RawConfigParser()
 		data = self.config.read(os.path.expanduser(fileName))
 		if not data:
@@ -25,12 +22,9 @@ class GridConfig(object):
 			raise ConfigurationError("%s: unknown section" % self.gridName)
 		self._toObject = {"nodes": self.generateNodes}
 
-
-
 	def createObjectFromSection(self, sectionName, parentSignature):
 		""" create an instantiated subclass object from a specific section of config file  
 		and parent object signature"""
-
 		if not self.config.has_section(sectionName):
 			raise ConfigurationError("%s: unknown section" % n)
 		objectType = self.config.get(sectionName, 'type')
@@ -46,41 +40,38 @@ class GridConfig(object):
 					arg[opt] = value
 		return objectSignature(**arg)
 
-
 	def generateNodes(self, valueNodes):
 		"""generate list of instantiated node object """
 		nodes = []
 		for n in valueNodes.split(" "):
 			nodes.append(self.createObjectFromSection(n, self.parentNode))	
 		return nodes
-		
 
 	def parse_grid(self):
 		"parse manifests and return a grid instance"
 		return self.createObjectFromSection(self.gridName, self.parentGrid)
 
-
 def parse_grid(name, ini):
 	"parse manifests and return a grid instance"
 	config = GridConfig(name, ini)
 	return config.parse_grid()
-	
 
-import tempfile
-import unittest
-import textwrap
+##############
+# unit tests #
+##############
 
 class parserFakeGrid(model.Grid):
+
 	def __init__(self, nodes):
 		super(parserFakeGrid, self).__init__(nodes)
 
 class  testArg(model.Grid):
+
 	def __init__(self, required, optional="opt", optional2="opt2"):
 		super(testArg, self).__init__()
 		self.required = required
 		self.optional = optional
 
-		
 class SelfTest(unittest.TestCase):
 
 	@staticmethod
@@ -129,7 +120,6 @@ class SelfTest(unittest.TestCase):
 		assert len(grid.nodes) is 3
 		for n in grid.nodes:
 			assert type(n) is debian.Node
-
 
 	def test_testbox_grid(self):
 		"assert parse_grid return a testbox.Grid if type is testbox grid"
