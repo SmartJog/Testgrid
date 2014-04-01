@@ -2,11 +2,11 @@
 
 import ConfigParser, tempfile, unittest, textwrap, inspect, os
 
-import restgrid, factory, testbox, debian, model
+import model, factory, debian, testbox
 
 class ConfigurationError(Exception): pass
 
-class GridConfig(object):
+class Parser(object):
 
 	"parse manifest of a grid and object creation"
 
@@ -47,14 +47,14 @@ class GridConfig(object):
 			nodes.append(self.createObjectFromSection(n, self.parentNode))	
 		return nodes
 
-	def parse_grid(self):
+	def parse(self):
 		"parse manifests and return a grid instance"
 		return self.createObjectFromSection(self.gridName, self.parentGrid)
 
 def parse_grid(name, ini):
 	"parse manifests and return a grid instance"
-	config = GridConfig(name, ini)
-	return config.parse_grid()
+	parser = Parser(name, ini)
+	return parser.parse()
 
 ##############
 # unit tests #
