@@ -12,7 +12,7 @@ class TestCase(unittest.TestCase):
 		session = self.client.Session()
 		fleche = testgrid.server.debian.Package("fleche", version = "16.5-1")
 		node = session.allocate_node()
-		#assert node.install(fleche)
+		assert node.install(fleche)
 		#self.assertEqual(node.service.fleche.version, "16.5-1")
 		#self.assertTrue(node.service.fleche.is_running())
 

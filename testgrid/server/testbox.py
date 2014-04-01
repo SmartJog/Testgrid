@@ -15,20 +15,20 @@ class Node(model.Node):
 
 	idx = 0
 
-	def __init__(self, entry_path, tag = None):
-	#def __init__(self, use_proxy, bridge, tag = None):
+	#def __init__(self, entry_path, tag = None):
+	def __init__(self, use_proxy, bridge, tag = None):
 		super(Node, self).__init__()
 		self.path = "testbox-%i" % Node.idx
 		Node.idx += 1
-		self.entry_path = entry_path
-		#self.use_proxy = use_proxy
-		#self.bridge = bridge
+		#self.entry_path = entry_path
+		self.use_proxy = use_proxy
+		self.bridge = bridge
 		assert not os.path.exists(self.path), "%s: already exists" % self.path
 		shell.run("git clone git@git.smartjog.net:florent.claerhout/testbox.git %s" % self.path, logger = shell.Stderr)
 		if tag:
 			shell.run("cd %s && git checkout %s" % (self.path, tag), logger = shell.Stderr)
-		shell.run("cd %s && %s up" % (self.path, entry_path), logger = shell.Stderr)
-		#shell.run("cd %s && USE_PROXY=%s BRIDGE=%s make -C %s up" % (self.path, self.use_proxy, self.bridge), logger = shell.Stderr)
+		#shell.run("cd %s && %s up" % (self.path, entry_path), logger = shell.Stderr)
+		shell.run("export USE_PROXY=%s && export BRIDGE=%s && make -C %s up" % (self.use_proxy, self.bridge, self.path), logger = shell.Stderr)
 
 	def __del__(self):
 		shell.run("make -C %s deepclean" % self.path, logger = shell.Stderr)
@@ -48,15 +48,15 @@ class Node(model.Node):
 
 class Grid(model.Grid):
 
-#	def __init__(self, use_proxy, bridge, host=None, port=None ,*args, **kwargs):
-	def __init__(self, entry_path, host=None, port=None, *args, **kwargs):
+	def __init__(self, use_proxy, bridge, host=None, port=None ,*args, **kwargs):
+	#def __init__(self, entry_path, host=None, port=None, *args, **kwargs):
 		super(Grid, self).__init__(*args, **kwargs)
 		self.host = host
 		self.port = port
-		self.entry_path = entry_path
-		#self.use_proxy = use_proxy
-		#self.bridge = bridge
+		#self.entry_path = entry_path
+		self.use_proxy = use_proxy
+		self.bridge = bridge
 
-	create_node = lambda self, sysname = None, pkg = None: Node(entry_path=self.entry_path)
+	create_node = lambda self, sysname = None, pkg = None: Node(use_proxy=self.use_proxy, bridge=self.bridge)
 
 

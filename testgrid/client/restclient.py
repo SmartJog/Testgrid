@@ -3,9 +3,6 @@
 "local client for transient (=anonymous) sessions only"
 import testgrid
 from .. import common
-#from ..common import simplifiedModel
-#from simplifiedModel import Node 
-#from simplifiedModel import responseObject
 import requests
 import json
 import inspect 
