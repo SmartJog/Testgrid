@@ -1,4 +1,5 @@
-from .. import common
+import testgrid
+from testgrid import common
 import model
 import parser
 import bottle

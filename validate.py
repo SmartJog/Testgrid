@@ -42,13 +42,13 @@ class TestLocal(TestCase):
 		session = self.client.Session()
 		fleche = testgrid.server.debian.Package("fleche", version = "16.5-1")
 		n = session.allocate_node()
-	#assert n.install(fleche)
+		assert n.install(fleche)
+		assert n.uninstall(fleche)
 
 	def test_rest(self):
-		s = testgrid.client.restclient.Session("127.0.0.1", 8080)
+		s = testgrid.client.rest.restclient.Session("127.0.0.1", 8080)
 		n = s.allocate_node()
 		assert type(n) is testgrid.common.simplifiedModel.responseObject
 		assert type(n.data) is testgrid.common.simplifiedModel.Node
-
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
