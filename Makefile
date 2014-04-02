@@ -2,6 +2,9 @@
 
 .PHONY: usage install clean test ci
 
+# install git@git.smartjog.net:florent.claerhout/testy.git first
+TESTY ?= testy
+
 usage:
 	@echo "Usage:"
 	@echo "  make install  install testgrid command line tool and framework"
@@ -22,9 +25,8 @@ clean:
 	-rm -rf build dist testgrid.egg-info
 	-find . -name '*.pyc' -delete
 
-# install git@git.smartjog.net:florent.claerhout/testy.git first
 test:
-	testy -m test.ini
+	$(TESTY) -m test.ini
 
 ci:
 	git commit -a

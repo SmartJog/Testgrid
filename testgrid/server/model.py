@@ -502,7 +502,8 @@ class SelfTest(unittest.TestCase):
 		self.assertEqual(len(set(unzip(plan).seconds)), len(plan))
 		for pkg in packages:
 			for _pkg, node in plan:
-				assert node in session.subnet, "%s: not in %s" % (node, session.subnet)
+				if session.subnet:
+					assert node in session.subnet, "%s: not in %s" % (node, session.subnet)
 				if _pkg == pkg:
 					self.assertEqual(node.installed, [pkg])
 					break
@@ -517,7 +518,8 @@ class SelfTest(unittest.TestCase):
 		"""
 		for node in nodes:
 			assert not node.installed, "%s: %s not uninstalled" % (node, node.installed)
-			assert not node in session.subnet, "%s: still in %s" % (node, session.subnet)
+			if session.subnet:
+				assert not node in session.subnet, "%s: still in %s" % (node, session.subnet)
 
 	@staticmethod
 	def mkenv(nb_nodes, nb_packages):
