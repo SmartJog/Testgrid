@@ -277,8 +277,11 @@ class Grid(object):
 				yield node
 
 	def __iter__(self):
-		for node in self._get_allocated_nodes() + self._get_available_nodes():
+		for node in self._get_available_nodes():
 			yield node
+
+	def __len__(self):
+		return len(self._get_available_nodes())
 
 	def _create_node(self, sysname = None, pkg = None):
 		"spawn a new node using system $sysname or able to install package $pkg"
@@ -349,6 +352,7 @@ class Grid(object):
 			raise
 
 class Grids(Grid):
+	"!!! work in progress !!!"
 
 	def __init__(self, *grids):
 		self.grids = grids or []

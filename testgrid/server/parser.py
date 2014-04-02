@@ -1,35 +1,47 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
 """
-grid = parse_grid(name, path)
-
 Parse an .ini file and instanciate the corresponding grid object.
 
-Node objects:
-	[name]
-	type = ...
-	extra args...
+API
+===
+>> import parser
+>> grid = parser.parse_grid(name, path)
 
-Grid objects:
-	[name]
-	nodes = ...
-	extra args...
+Manifest Syntax
+===============
+
+See utils.get_class.__doc__ for type naming specification.
+
+Node Sections
+-------------
+[name]
+type = name # target class derived from model.Node
+extra args...
+
+Gird sections
+-------------
+[name]
+type = name # target class derived from model.Grid
+nodes = ...
+extra args...
 """
 
-import ConfigParser, tempfile, unittest, textwrap, inspect, os
+import ConfigParser, tempfile, textwrap, unittest, inspect, os
 
 import factory, model
 
 class ConfigurationError(Exception): pass
 
 class Parser(object):
-	"parse manifest of a grid and object creation"
+	"grid manifest parser"
 
-	def __init__(self, gridName, fileName, parentGrid=model.Grid, parentNode=model.Node):
+	def __init__(
+		self,
+		gridName,
+		fileName):
 		self.gridName = gridName
-		self.parentGrid = parentGrid
-		self.parentNode = parentNode
-		self.config = ConfigParser.RawConfigParser()
+		self.config = ConfigParser.ConfigParser()
 		data = self.config.read(os.path.expanduser(fileName))
 		if not data:
 			raise ConfigurationError("%s: couldn't find init file " % fileName)
@@ -37,7 +49,14 @@ class Parser(object):
 			raise ConfigurationError("%s: unknown section" % self.gridName)
 		self._toObject = {"nodes": self.generateNodes}
 
-	def createObjectFromSection(self, sectionName, parentSignature):
+	def generateNodes(self, valueNodes):
+		"generate list of instantiated node object"
+		nodes = []
+		for n in valueNodes.split(" "):
+			nodes.append(self.createObjectFromSection(n, self.parentNode))	
+		return nodes
+
+	def createObjectFromSection(self, sectionName, cls):
 		"""
 		Create an instantiated subclass object from a specific
 		section of config file and parent object signature.
@@ -45,7 +64,7 @@ class Parser(object):
 		if not self.config.has_section(sectionName):
 			raise ConfigurationError("%s: unknown section" % n)
 		objectType = self.config.get(sectionName, 'type')
-		objectSignature = factory.Factory.generateSubclassSignature(parentSignature, objectType)
+		objectSignature = factory.Factory.generateSubclassSignature(cls, objectType)
 		arg = {}
 		for opt, value in  self.config.items(sectionName):
 			if opt != "type":
@@ -57,21 +76,13 @@ class Parser(object):
 					arg[opt] = value
 		return objectSignature(**arg)
 
-	def generateNodes(self, valueNodes):
-		"generate list of instantiated node object"
-		nodes = []
-		for n in valueNodes.split(" "):
-			nodes.append(self.createObjectFromSection(n, self.parentNode))	
-		return nodes
-
 	def parse(self):
 		"parse manifests and return a grid instance"
-		return self.createObjectFromSection(self.gridName, self.parentGrid)
+		return self.createObjectFromSection(self.gridName, model.Grid)
 
 def parse_grid(name, path):
 	"parse manifests and return a grid instance"
-	parser = Parser(name, path)
-	return parser.parse()
+	return Parser(name, path).parse()
 
 ##############
 # unit tests #
@@ -109,7 +120,7 @@ class SelfTest(unittest.TestCase):
 		assert type(grid) is model.Grid
 
 	def test_basic_grid_with_nodes(self):
-		""" assert parse_grid return a parserFakeGrid instantiated with debian Node"""
+		"assert parse_grid return a model.Grid instantiated with FakeNode nodes"
 		f = self.get_file("""
 			[node1]
 			type = fake Node
@@ -123,11 +134,11 @@ class SelfTest(unittest.TestCase):
 			type = FaKe NoDe
 			hoststring = root@a.b.c.d
 
-			[foo]
+			[bar]
 			type = grid
 			nodes = node1 node2 node3
 		""")
-		grid = parse_grid("foo", f.name)
+		grid = parse_grid("bar", f.name)
 		assert type(grid) is model.Grid
 		assert len(grid.nodes) is 3
 		for n in grid.nodes:

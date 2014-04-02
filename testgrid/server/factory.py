@@ -5,7 +5,9 @@ import sys
 import imp
 
 class Factory:
+
     """handle subclass object creation"""
+
     @staticmethod
     def getClass(moduleName, classeName):
         m = __import__(moduleName)
