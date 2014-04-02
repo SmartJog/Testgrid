@@ -1,27 +1,56 @@
+# copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-import testgrid
-import aksetup
-import debian
+import server
 
-class FakeServiceManager(testgrid.server.model.ServiceManager):
+class Package(server.model.Package):
 
-	is_running = lambda self, name: True
+	def get_install_commands(self): pass
 
-	get_version = lambda self, name: "16.5-1"
+	def get_uninstall_commands(self): pass
+	
+	def get_is_installed_commands(self): pass
 
-node = testgrid.server.model.FakeNode()
-listNode = []
-listNode.append(node)
-node.service = FakeServiceManager()
+	def get_is_installable_commands(self): pass
 
-grid = testgrid.server.model.Grid(listNode) # non-generative grid
+class ServiceManager(server.model.ServiceManager):
 
-#grid = server.model.FakeGrid() # generative grid
+	def __init__(self):
+		self.versions = {}
 
-class Session(testgrid.server.model.Session):
+	def set_version(self, name, version):
+		self.versions[name] = version
 
-	def __init__(self, key = None):
-		super(Session, self).__init__(
-			grid = grid,
-			subnet = testgrid.server.model.Subnet("fakesubnet"),
-			key = key)
+	def start(self): pass
+
+	def stop(self): pass
+
+	def restart(self): pass
+
+	def reload(self): pass
+
+	def is_running(self, name):
+		return True
+
+	def get_version(self, name):
+		return self.versions[name]
+
+class Node(server.model.FakeNode):
+
+	service = ServiceManager()
+
+class Grid(server.model.FakeGrid):
+
+	def create_node(self, **opts):
+		return Node()
+
+class Client(object):
+
+	def __init__(self):
+		self.grid = Grid() # generative grid of fake.Node nodes.
+		self.sessions = {}
+
+	def list_sessions(self):
+		return self.sessions.values()
+
+	def create_session(self, key = None):
+		return server.model.Session(grid = self.grid, key = key)

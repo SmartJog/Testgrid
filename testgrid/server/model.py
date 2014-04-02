@@ -9,7 +9,7 @@ depending on their compatibility and availability.
 On undeploy(), packages are uninstalled, nodes are deallocated.
 """
 
-__version__ = "0.2"
+__version__ = "20140402"
 
 import unittest, getpass, time, abc
 
@@ -149,10 +149,10 @@ class ServiceManager(object):
 			return "%s" % self.manager.get_version(self.name)
 
 	def __getitem__(self, name):
-		return self.Service(self, name)
+		return self.Service(manager = self, name = name)
 
 	def __getattr__(self, name):
-		return self.Service(self, name)
+		return self.Service(manager = self, name = name)
 
 class Subnet(object):
 
@@ -471,7 +471,8 @@ class FakeNode(Node):
 
 class FakeGrid(Grid):
 
-	create_node = lambda self, **opts: FakeNode()
+	def create_node(self, **opts):
+		return FakeNode()
 
 def unzip(pairs):
 	"support function to split a list of pairs into two list with first and second elements"
