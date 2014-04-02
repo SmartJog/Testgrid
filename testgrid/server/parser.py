@@ -36,6 +36,10 @@ def normalized(name):
 
 class ConfigurationError(Exception): pass
 
+class ExtraArgumentError(ConfigurationError): pass
+
+class MissingArgumentError(ConfigurationError): pass
+
 class Parser(object):
 	"grid manifest parser"
 
@@ -79,53 +83,66 @@ class Parser(object):
 #					arg[opt] = value
 #		return objectSignature(**arg)
 
+	@staticmethod
+	def _mkobj(cls, *args, **kwargs):
+		xargs, varargs, keywords, defaults = inspect.getargspec(cls.__init__)
+		for arg in xargs[1:]: # skip self
+			if not arg in kwargs:
+				raise MissingArgumentError("%s: missing argument" % arg)
+		if not keywords:
+			for arg in kwargs:
+				if not arg in xargs:
+					raise ExtraArgumentError("%s: extra argument" % arg)
+		return (cls)(*args, **kwargs)
+
 	def _parse_node(self, section):
-		assert self.conf.has_section(section), "%s: node section not defined" % section
 		cls = model.Node
 		kwargs = {}
-		try:
-			for key, value in self.conf.items(section):
-				if key == "type":
-					try:
-						cls = utils.get_subclass(normalized(value), model.Node)
-					except Exception as e:
-						raise Exception("%s: invalid node type\n%s" % (value, repr(e)))
-				else:
-					kwargs[key] = value
-			obj = (cls)(**kwargs)
-		except Exception as e:
-			raise ConfigurationError("in [%s]: %s" % (section, e))
-		self.cache[section] = obj
-		return obj
+		for key, value in self.conf.items(section):
+			if key == "type":
+				try:
+					cls = utils.get_subclass(normalized(value), model.Node)
+				except Exception as e:
+					raise Exception("%s: invalid node type\n%s" % (value, repr(e)))
+			else:
+				kwargs[key] = value
+		return self._mkobj(cls, **kwargs)
 
 	def _parse_grid(self, section):
-		assert self.conf.has_section(section), "%s: node section not defined" % section
 		cls = model.Grid
 		nodes = []
 		kwargs = {}
+		for key, value in self.conf.items(section):
+			if key == "type":
+				if value == "grid": continue
+				try:
+					cls = utils.get_subclass(normalized(value), model.Grid)
+				except Exception as e:
+					raise Exception("%s: invalid grid type\n%s" % (value, repr(e)))
+			elif key == "nodes":
+				for s in value.split():
+					nodes.append(self.cache[s] if s in self.cache else self._parse(s, self._parse_node))
+			else:
+				kwargs[key] = value
+		return self._mkobj(cls, *nodes, **kwargs)
+
+	def _parse(self, section, hdl):
+		assert self.conf.has_section(section), "%s: section not defined" % section
 		try:
-			for key, value in self.conf.items(section):
-				if key == "type":
-					if value == "grid": continue
-					try:
-						cls = utils.get_subclass(normalized(value), model.Grid)
-					except Exception as e:
-						raise Exception("%s: invalid grid type\n%s" % (value, repr(e)))
-				elif key == "nodes":
-					for s in value.split():
-						nodes.append(self.cache[s] if s in self.cache else self._parse_node(s))
-				else:
-					kwargs[key] = value
-			obj = (cls)(*nodes, **kwargs)
+			obj = hdl(section)
+			self.cache[section] = obj
+			return obj
 		except Exception as e:
-			raise ConfigurationError("in [%s]: %s" % (section, e))
-		self.cache[section] = obj
-		return obj
+			if isinstance(e, ConfigurationError):
+				exc = type(e)
+			else:
+				exc = ConfigurationError
+			raise (exc)("in [%s]: %s" % (section, e))
 
 	def parse(self):
 		"parse manifests and return a grid instance"
 		#return self.createObjectFromSection(self.gridName, model.Grid)
-		return self._parse_grid(self.gridName)
+		return self._parse(self.gridName, self._parse_grid)
 
 def parse_grid(name, path):
 	"parse manifests and return a grid instance"
@@ -134,13 +151,6 @@ def parse_grid(name, path):
 ##############
 # unit tests #
 ##############
-
-class testArg(model.Grid):
-
-	def __init__(self, required, optional="opt", optional2="opt2"):
-		super(testArg, self).__init__()
-		self.required = required
-		self.optional = optional
 
 class SelfTest(unittest.TestCase):
 
@@ -158,7 +168,7 @@ class SelfTest(unittest.TestCase):
 		self.assertRaises(Exception, parse_grid, "foo", f.name)
 
 	def test_basic_grid(self):
-		"assert parse_grid return a model.Grid if type is grid"
+		"assert parse_grid returns a model.Grid if type is grid"
 		f = self.get_file("""
 			[foo]
 			type = grid
@@ -167,7 +177,7 @@ class SelfTest(unittest.TestCase):
 		self.assertIs(type(grid), model.Grid)
 
 	def test_basic_grid_with_fake_nodes(self):
-		"assert parse_grid return a model.Grid instantiated with FakeNode nodes"
+		"assert parse_grid returns a model.Grid instantiated with FakeNode nodes"
 		f = self.get_file("""
 			[node1]
 			type = fake node
@@ -189,7 +199,7 @@ class SelfTest(unittest.TestCase):
 			self.assertIs(type(node), model.FakeNode)
 
 	def test_custom_grid(self):
-		"assert parse_grid return an AnotherFakeGrid if type is testbox grid"
+		"assert parse_grid returns an AnotherFakeGrid if type is testbox grid"
 		CustomGrid = type("CustomGrid", (model.Grid,), {})
 		f = self.get_file("""
 			[foo]
@@ -198,22 +208,26 @@ class SelfTest(unittest.TestCase):
 		grid = parse_grid("foo", f.name)
 		self.assertIs(type(grid), CustomGrid)
 
-	def _test_option_not_found(self):
-		"assert parse_grid raises an exception on a wrong option"
+	def test_extra_argument(self):
+		"assert parse_grid raises an ExtraArgumentError on any extra argument"
 		f = self.get_file("""
 			[foo]
 			type = grid
 			bad_arg = bad_arg
 		""")
-		self.assertRaises(Exception, parse_grid, "foo", f.name)
+		self.assertRaises(ExtraArgumentError, parse_grid, "foo", f.name)
 
-	def _test_required_arg(self):
+	def test_required_argument(self):
+		def init(self, arg, *nodes):
+			super(model.Grid, self).__init__(*nodes)
+		type("GridWithArg", (model.Grid,), {
+			"__init__": init,
+		})
+		"assert parse_grid raises a MissingArgumentError on any missing required argument"
 		f = self.get_file("""
 			[foo]
-			type = testArg
-			required = required
+			type = grid with arg
 		""")
-		grid = parse_grid("foo", f.name)
-		assert type(grid) is testArg
+		self.assertRaises(MissingArgumentError, parse_grid, "foo", f.name)
 
 if __name__  == "__main__": unittest.main(verbosity = 2)
