@@ -351,9 +351,9 @@ class Grid(object):
 			raise
 
 class Grids(Grid):
-	"!!! work in progress !!!"
 
 	def __init__(self, *grids):
+		raise NotImplementedError("!!! work in progress !!!")
 		self.grids = grids or []
 
 	def add_grid(self, grid):

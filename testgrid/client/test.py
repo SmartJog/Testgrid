@@ -15,4 +15,7 @@ class TestCase(unittest.TestCase):
 		self.assertEqual(node.service.fleche.version, "16.5-1")
 		self.assertTrue(node.service.fleche.is_running())
 
+	def test(self):
+		assert False, "make test fail"
+
 if __name__ == "__main__": unittest.main(verbosity = 2)
