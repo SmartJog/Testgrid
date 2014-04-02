@@ -370,9 +370,9 @@ class Grids(Grid):
 			raise UnknownGridError("%s" % grid)
 
 class Session(object):
-	"handle subnets"
+	"transient session"
 
-	def __init__(self, grid, subnet, key = None):
+	def __init__(self, grid, key = None, subnet = None):
 		self.grid = grid
 		self.subnet = subnet
 		if not key:
@@ -381,6 +381,10 @@ class Session(object):
 		else:
 			self.is_anonymous = False
 		self.key = key
+
+	def __repr__(self): return "%s(%s)" % (type(self).__name__, self.key)
+
+	def __str__(self): return self.key
 
 	def close(self):
 		self.undeploy()
@@ -391,11 +395,13 @@ class Session(object):
 
 	def allocate_node(self, sysname = None, pkg = None):
 		node = self.grid.allocate_node(key = self.key, sysname = sysname, pkg = pkg)
-		node.join(self.subnet)
+		if self.subnet:
+			node.join(self.subnet) # isolate node in a subnet if possible
 		return node
 
 	def release_node(self, node):
-		node.leave(self.subnet)
+		if self.subnet:
+			node.leave(self.subnet)
 		self.grid.release_node(node)
 
 	def list_nodes(self):

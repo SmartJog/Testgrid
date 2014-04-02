@@ -1,6 +1,6 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-.PHONY: usage test clean
+.PHONY: usage install clean test ci
 
 usage:
 	@echo "Usage:"
@@ -14,26 +14,18 @@ usage:
 	@echo "Changes:"
 	@git status -s
 
+install:
+	apt-get install -qqy python-setuptools
+	python setup.py install
+
 clean:
+	-rm -rf build dist testgrid.egg-info
 	-find . -name '*.pyc' -delete
+
+# install git@git.smartjog.net:florent.claerhout/testy.git first
+test:
+	testy -m test.ini
 
 ci:
 	git commit -a
 	git push
-
-test: NAME:=
-test:
-	python testgrid/server/model.py
-	python testgrid/server/parser.py
-	#python testgrid/client/model.py
-	#python test.py $(NAME)
-
-install:
-	sudo apt-get install -qqy python-setuptools
-	sudo python setup.py install
-
-deepclean: clean
-	-rm -rf build dist testgrid.egg-info
-
-server:
-	python -m testgrid.server.rest

@@ -33,7 +33,6 @@ class Package(model.Package):
 			warn_only = True),
 	)
 
-
 class Node(model.Node):
 	"debian Node"
 
@@ -41,11 +40,9 @@ class Node(model.Node):
 		super(Node, self).__init__()
 		self.hoststring = hoststring
 
-	
 	def setup_interface(self, subnet): pass
 	
 	def cleanup_interface(self, subnet): pass
-
 
 	def run(self, *commands):
 		for cmd in commands:
@@ -53,10 +50,8 @@ class Node(model.Node):
 				  cmd.cmdline,
 				  logger = shell.Stderr, warn_only = cmd.warn_only)
 
-	
 	def install(self, package):
 		return self.run(*package.get_install_commands())
-
 
 	def uninstall(self, package):
 		return self.run(*package.get_uninstall_commands())

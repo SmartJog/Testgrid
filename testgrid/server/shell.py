@@ -27,8 +27,6 @@ Files:
   ~/.sshpass/<hoststring>  specific password for sshpass
 """
 
-__version__ = "2.1"
-
 import subprocess, unittest, atexit, pipes, time, sys, os
 
 class Result(object):
@@ -39,21 +37,27 @@ class Result(object):
 		self.stdout = stdout or ""
 		self.stderr = stderr or ""
 
-	__repr__ = lambda self: "%s(%i,%s,%s)" % (
-		type(self).__name__,
-		self.returncode,
-		self.stdout,
-		self.stderr)
+	def __repr__(self):
+		return "%s(%i,%s,%s)" % (
+			type(self).__name__,
+			self.returncode,
+			self.stdout,
+			self.stderr)
 
-	__nonzero__ = lambda self: self.returncode == 0 # True if command succeeded
+	def __nonzero__(self):
+		return self.returncode == 0 # True if command succeeded
 
-	__str__ = lambda self: self.stdout
+	def __str__(self):
+		return self.stdout
 
-	__int__ = lambda self: self.returncode
+	def __int__(self):
+		return self.returncode
 
-	__getattr__ = lambda self, key: getattr(self.stdout, key)
+	def __getattr__(self, key):
+		return getattr(self.stdout, key)
 
-	__contains__ = lambda self, other: other in self.stdout
+	def __contains__(self, other):
+		return other in self.stdout
 
 	def __eq__(self, other):
 		if isinstance(other, Result):
@@ -76,21 +80,26 @@ class Result(object):
 		r += other
 		return r
 
-Success = lambda stdout = None, stderr = None: Result(0, stdout, stderr)
+def Success(stdout = None, stderr = None):
+	return Result(0, stdout, stderr)
 
-Failure = lambda stdout = None, stderr = None: Result(1, stdout, stderr)
+def Failure(stdout = None, stderr = None):
+	return Result(1, stdout, stderr)
 
-gray = lambda string: string and "\033[0;90m%s\033[0m" % string
+def gray(string):
+	return string and "\033[0;90m%s\033[0m" % string
 
-Stderr = lambda string: sys.stderr.write("%s: %s\n" % (
-	gray(time.strftime("%Y.%m.%d.%H.%M.%S", time.localtime())),
-	string.rstrip()))
+def Stderr(string):
+	return sys.stderr.write("%s: %s\n" % (
+		gray(time.strftime("%Y.%m.%d.%H.%M.%S", time.localtime())),
+		string.rstrip()))
 
-Stdout = lambda string: sys.stdout.write("%s: %s\n" % (
-	gray(time.strftime("%Y.%m.%d.%H.%M.%S", time.localtime())),
-	string.rstrip()))
+def Stdout(string):
+	return sys.stdout.write("%s: %s\n" % (
+		gray(time.strftime("%Y.%m.%d.%H.%M.%S", time.localtime())),
+		string.rstrip()))
 
-Null = lambda *args, **kwargs: None
+def Null(*args, **kwargs): pass
 
 class CommandFailure(RuntimeError): pass
 

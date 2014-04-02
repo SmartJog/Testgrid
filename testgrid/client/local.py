@@ -1,16 +1,25 @@
 # copyright (c) 2014 arkena, released under the GPL license.
 
-"local client for transient (=anonymous) sessions only"
-import testgrid
-import aksetup
-import debian
+"client managing sessions for a controller-less grid"
 
-class Session(testgrid.server.model.Session):
+import server
 
-	def __init__(self):
-		super(Session, self).__init__(
-			grid = testgrid.server.parser.parse_grid("grid", "~/grid.ini"),
-			subnet = None, # FIXME
-			key = None) # anonymous only as there is no controller process
+class Client(object):
 
+	def __init__(self, name = "grid", ini = "~/grid.ini"):
+		self.grid = server.parser.parse_grid(name, ini)
+		self.sessions = {}
 
+	def list_sessions(self):
+		return self.sessions.values()
+
+	def create_session(self, key = None):
+		session = server.model.Session(
+			grid = self.grid,
+			subnet = None,
+			key = key) # FIXME subnet
+		self.sessions[session.key] = session
+		return session
+
+	def delete_session(self, key):
+		raise NotImplementedError()

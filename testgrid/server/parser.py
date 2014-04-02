@@ -27,9 +27,9 @@ nodes = ...
 extra args...
 """
 
-import ConfigParser, tempfile, textwrap, unittest, inspect, os
+import ConfigParser, tempfile, textwrap, unittest, inspect, os, re
 
-import factory, model
+import model
 
 def normalized(name):
 	"normalize a class name, e.g. Foo BAR4 2 -> FooBar42"
@@ -52,17 +52,25 @@ class MissingArgumentError(ConfigurationError): pass
 class Parser(object):
 	"grid manifest parser"
 
-	def __init__(self, name, path):
+	def __init__(self, name, ini):
+		"ini: comma-separated list of .ini filepaths or URIs"
 		self.name = name
-		self.path = path
+		self.ini = ini
 		self.reload()
 
 	def reload(self):
 		self.cache = {}
 		self.conf = ConfigParser.ConfigParser()
-		res = self.conf.read(os.path.expanduser(self.path))
-		if not res:
-			raise ConfigurationError("%s: couldn't find init file " % self.path)
+		# load all manifests:
+		for item in self.ini.split(","):
+			try:
+				if re.match("[a-z]*://", item):
+					fp = urllib2.urlopen(item)
+				else:
+					fp = open(os.path.abspath(os.path.expanduser(item)), "r")
+				self.conf.readfp(fp)
+			except Exception as e:
+				raise ConfigurationError("%s: invalid manifest\n%s" % (item, e))
 
 	@staticmethod
 	def _mkobj(cls, *args, **kwargs):
@@ -125,9 +133,9 @@ class Parser(object):
 		#return self.createObjectFromSection(self.name, model.Grid)
 		return self._parse(self.name, self._parse_grid)
 
-def parse_grid(name, path):
+def parse_grid(name, ini):
 	"parse manifests and return a grid instance"
-	return Parser(name, path).parse()
+	return Parser(name, ini).parse()
 
 ##############
 # unit tests #
