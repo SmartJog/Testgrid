@@ -29,10 +29,19 @@ extra args...
 
 import ConfigParser, tempfile, textwrap, unittest, inspect, os
 
-import factory, model, utils
+import factory, model
 
 def normalized(name):
+	"normalize a class name, e.g. Foo BAR4 2 -> FooBar42"
 	return name.title().replace(" ", "")
+
+def get_subclass(name, cls, *modules):
+	"return the $name'd subclass of $cls in specified $modules"
+	name = normalized(name)
+	for subcls in cls.__subclasses__():
+		if (not modules or subcls.__module__ in modules) and subcls.__name__ == name:
+			return subcls
+	raise Exception("%s: subclass not found" % name)
 
 class ConfigurationError(Exception): pass
 
@@ -43,45 +52,17 @@ class MissingArgumentError(ConfigurationError): pass
 class Parser(object):
 	"grid manifest parser"
 
-	def __init__(self, gridName, filePath):
-		self.gridName = gridName
-		self.filePath = filePath
+	def __init__(self, name, path):
+		self.name = name
+		self.path = path
 		self.reload()
 
 	def reload(self):
 		self.cache = {}
 		self.conf = ConfigParser.ConfigParser()
-		res = self.conf.read(os.path.expanduser(self.filePath))
+		res = self.conf.read(os.path.expanduser(self.path))
 		if not res:
-			raise ConfigurationError("%s: couldn't find init file " % self.filePath)
-		##self._toObject = {"nodes": self.generateNodes}
-
-#	def _generateNodes(self, valueNodes):
-#		"generate list of instantiated node object"
-#		nodes = []
-#		for n in valueNodes.split(" "):
-#			nodes.append(self.createObjectFromSection(n, self.parentNode))	
-#		return nodes
-
-#	def _createObjectFromSection(self, sectionName, cls):
-#		"""
-#		Create an instantiated subclass object from a specific
-#		section of config file and parent object signature.
-#		"""
-#		if not self.config.has_section(sectionName):
-#			raise ConfigurationError("%s: unknown section" % n)
-#		objectType = self.config.get(sectionName, 'type')
-#		objectSignature = factory.Factory.generateSubclassSignature(cls, objectType)
-#		arg = {}
-#		for opt, value in  self.config.items(sectionName):
-#			if opt != "type":
-#				argspec = inspect.getargspec(objectSignature.__init__)
-#				assert opt in argspec[0], "%s: unknown attribute" % opt
-#				if opt in self._toObject:
-#					arg[opt] = self._toObject[opt](value)
-#				else:
-#					arg[opt] = value
-#		return objectSignature(**arg)
+			raise ConfigurationError("%s: couldn't find init file " % self.path)
 
 	@staticmethod
 	def _mkobj(cls, *args, **kwargs):
@@ -101,7 +82,7 @@ class Parser(object):
 		for key, value in self.conf.items(section):
 			if key == "type":
 				try:
-					cls = utils.get_subclass(normalized(value), model.Node)
+					cls = get_subclass(value, model.Node)
 				except Exception as e:
 					raise Exception("%s: invalid node type\n%s" % (value, repr(e)))
 			else:
@@ -116,7 +97,7 @@ class Parser(object):
 			if key == "type":
 				if value == "grid": continue
 				try:
-					cls = utils.get_subclass(normalized(value), model.Grid)
+					cls = get_subclass(value, model.Grid)
 				except Exception as e:
 					raise Exception("%s: invalid grid type\n%s" % (value, repr(e)))
 			elif key == "nodes":
@@ -141,8 +122,8 @@ class Parser(object):
 
 	def parse(self):
 		"parse manifests and return a grid instance"
-		#return self.createObjectFromSection(self.gridName, model.Grid)
-		return self._parse(self.gridName, self._parse_grid)
+		#return self.createObjectFromSection(self.name, model.Grid)
+		return self._parse(self.name, self._parse_grid)
 
 def parse_grid(name, path):
 	"parse manifests and return a grid instance"
