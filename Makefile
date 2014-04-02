@@ -31,3 +31,4 @@ test:
 ci:
 	git commit -a
 	git push
+	git push --tags
