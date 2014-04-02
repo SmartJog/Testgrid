@@ -95,6 +95,31 @@ class Packages(Package):
 			commands += pkg.get_is_installable_commands()
 		return commands
 
+class Service(object):
+
+	def __init__(self, manager, name):
+		self.manager = manager
+		self.name = name
+
+	def start(self):
+		return self.manager.start(self.name)
+
+	def stop(self):
+		return self.manager.stop(self.name)
+
+	def restart(self):
+		return self.manager.restart(self.name)
+
+	def reload(self):
+		return self.manager.reload(self.name)
+
+	def is_running(self):
+		return self.manager.is_running(self.name)
+
+	@property
+	def version(self):
+		return "%s" % self.manager.get_version(self.name)
+
 class ServiceManager(object):
 
 	__metaclass__ = abc.ABCMeta
@@ -123,36 +148,11 @@ class ServiceManager(object):
 	def get_version(self, name):
 		raise NotImplementedError()
 
-	class Service(object):
-
-		def __init__(self, manager, name):
-			self.manager = manager
-			self.name = name
-
-		def start(self):
-			return self.manager.start(self.name)
-
-		def stop(self):
-			return self.manager.stop(self.name)
-
-		def restart(self):
-			return self.manager.restart(self.name)
-
-		def reload(self):
-			return self.manager.reload(self.name)
-
-		def is_running(self):
-			return self.manager.is_running(self.name)
-
-		@property
-		def version(self):
-			return "%s" % self.manager.get_version(self.name)
-
 	def __getitem__(self, name):
-		return self.Service(manager = self, name = name)
+		return Service(manager = self, name = name)
 
 	def __getattr__(self, name):
-		return self.Service(manager = self, name = name)
+		return Service(manager = self, name = name)
 
 class Subnet(object):
 
@@ -176,9 +176,8 @@ class Node(object):
 
 	__metaclass__ = abc.ABCMeta
 
-	service = None # ServiceManager()
-
-	def __init__(self):
+	def __init__(self, service_manager):
+		self.service = service_manager
 		self.subnets = []
 
 	@abc.abstractmethod
@@ -440,8 +439,8 @@ class FakePackage(Package):
 
 class FakeNode(Node):
 
-	def __init__(self):
-		super(FakeNode, self).__init__()
+	def __init__(self, service_manager = None):
+		super(FakeNode, self).__init__(service_manager)
 		self.installed = []
 		self.terminated = False
 

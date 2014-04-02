@@ -17,8 +17,11 @@ class ServiceManager(server.model.ServiceManager):
 	def __init__(self):
 		self.versions = {}
 
-	def set_version(self, name, version):
+	def add_service(self, name, version):
 		self.versions[name] = version
+
+	def remove_service(self, name):
+		del self.versions[name]
 
 	def start(self): pass
 
@@ -36,7 +39,13 @@ class ServiceManager(server.model.ServiceManager):
 
 class Node(server.model.FakeNode):
 
-	service = ServiceManager()
+	def __init__(self):
+		super(Node, self).__init__(service_manager = ServiceManager())
+
+	def install(self, package):
+		res = super(Node, self).install(package)
+		self.service.add_service(package.name, package.version)
+		return res
 
 class Grid(server.model.FakeGrid):
 

@@ -76,7 +76,7 @@ class Parser(object):
 	def _mkobj(cls, *args, **kwargs):
 		xargs, varargs, keywords, defaults = inspect.getargspec(cls.__init__)
 		for arg in xargs[1:]: # skip self
-			if not arg in kwargs:
+			if not arg in kwargs and (not defaults or len(defaults) < xargs.index(arg)):
 				raise MissingArgumentError("%s: missing argument" % arg)
 		if not keywords:
 			for arg in kwargs:
