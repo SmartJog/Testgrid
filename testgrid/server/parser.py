@@ -145,7 +145,7 @@ class SelfTest(unittest.TestCase):
 			assert type(n) is model.FakeNode
 
 	def test_testbox_grid(self):
-		"assert parse_grid return a testbox.Grid if type is testbox grid"
+		"assert parse_grid return an AnotherFakeGrid if type is testbox grid"
 		f = self.get_file("""
 			[foo]
 			type = testbox grid

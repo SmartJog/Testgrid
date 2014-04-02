@@ -1,5 +1,19 @@
 import unittest, types
 
+def get_subclasses(cls, *modules):
+	"return all subclasses of cls in specified modules"
+	res = []
+	for subcls in cls.__subclasses__():
+		if (not modules or subcls.__module__ in modules) and not issubclass(subcls, TestExec):
+			res += [subcls] + get_subclasses(subcls)
+	return res
+
+def get_subclass(name, cls, *modules):
+	for subcls in cls.__subclasses__():
+		if (not modules or subcls.__module__ in modules) and subcls.__name__ == name:
+			return subcls
+	raise Exception("%s: subclass not found" % name)
+
 def get_class(clsname):
 	"""
 	Return class object from its FQN.
@@ -27,7 +41,7 @@ def get_class(clsname):
 			except Exception as e:
 				raise Exception("%s: invalid class name (%s)" % (clsname, repr(e)))
 
-class SelfTest(unittest.TestCase):
+class GetClassTest(unittest.TestCase):
 
 	def test_local_basic(self):
 		global Foo
@@ -53,5 +67,12 @@ class SelfTest(unittest.TestCase):
 
 	def test_unload_mod(self):
 		self.assertRaises(Exception, get_class, "some unknown class")
+
+class GetSubclassTest(unittest.TestCase):
+
+	def test(self):
+		Foo = type("Foo", (object,), {})
+		Bar = type("Bar", (Foo,), {})
+		self.assertIs(get_subclass("Bar", Foo), Bar)
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
