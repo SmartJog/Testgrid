@@ -1,7 +1,7 @@
 import unittest, types
 
 def get_subclasses(cls, *modules):
-	"return all subclasses of cls in specified modules"
+	"return all subclasses of $cls in specified $modules"
 	res = []
 	for subcls in cls.__subclasses__():
 		if (not modules or subcls.__module__ in modules) and not issubclass(subcls, TestExec):
@@ -9,6 +9,7 @@ def get_subclasses(cls, *modules):
 	return res
 
 def get_subclass(name, cls, *modules):
+	"return the $name'd subclass of $cls in specified $modules"
 	for subcls in cls.__subclasses__():
 		if (not modules or subcls.__module__ in modules) and subcls.__name__ == name:
 			return subcls
