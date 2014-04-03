@@ -1,11 +1,11 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-import unittest, testgrid, fake, local, rest
+import unittest, testgrid
 
-class TestCase(unittest.TestCase):
+class FakeTest(unittest.TestCase):
 	"base test class, to be derived by changing the client module"
 
-	cls = fake.Client
+	cls = testgrid.client.fake.Client
 
 	def setUp(self):
 		self.client = (self.cls)()
@@ -18,12 +18,12 @@ class TestCase(unittest.TestCase):
 		self.assertEqual(node.service.fleche.version, "16.5-1")
 		self.assertTrue(node.service.fleche.is_running())
 
-class LocalTest(TestCase):
+class LocalTest(FakeTest):
 
-	cls = local.Client
+	cls = testgrid.client.local.Client
 
-class RestTest(TestCase):
+class RestTest(FakeTest):
 
-	cls = rest.Client
+	cls = testgrid.client.rest.Client
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
