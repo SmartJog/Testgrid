@@ -17,9 +17,9 @@ class FakeTest(unittest.TestCase):
 		if node.is_installed(fleche):
 			node.uninstall(fleche)
 		node.install(fleche)
-		assert node.is_installed(fleche), "fleche is not installed"
+		assert node.is_installed(fleche), "fleche is not installed on %s" % node
 		self.assertEqual(node.service.fleche.version, "16.5-1")
-		self.assertTrue(node.service.fleche.is_running())
+		self.assertTrue(node.service.fleche.is_running(), "fleche is not running on %s" % node)
 		node.uninstall(fleche)
 
 class LocalTest(FakeTest):

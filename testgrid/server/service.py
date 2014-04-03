@@ -131,7 +131,9 @@ class Sysv(Initd):
 	def restart(name): return ("/etc/init.d/%s" % name, "restart")
 
 	@staticmethod
-	def running(name): return "/etc/init.d/%s status | grep -q is\ running" % name
+	def running(name): return "/etc/init.d/%s status | egrep -q '(%s running|is\ running)'" % (
+		name,
+		name)
 
 class Upstart(Initd):
 	"upstart init daemon interface"

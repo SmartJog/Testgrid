@@ -118,7 +118,7 @@ class Service(object):
 
 	@property
 	def version(self):
-		return "%s" % self.manager.get_version(self.name)
+		return ("%s" % self.manager.get_version(self.name)).strip()
 
 class ServiceManager(object):
 

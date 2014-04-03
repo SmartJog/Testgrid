@@ -1,18 +1,37 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-import service
-import shell
-import model
+import service, shell, model
 
-import logging
+class ServiceManager(model.ServiceManager):
 
-logging.basicConfig(level = logging.DEBUG)
+	def __init__(self, host):
+		self.host = host
+
+	def start(self, name):
+		return self.host.start(name)
+
+	def stop(self, name):
+		return self.host.stop(name)
+
+	def restart(self, name):
+		return self.host.restart(name)
+
+	def reload(self, name):
+		return self.host.reload(name)
+
+	def get_version(self, name):
+		return self.host.version(name)
+
+	def is_running(self, name):
+		return bool(self.host.running(name, warn_only = True))
 
 class Node(model.Node):
 
 	def __init__(self, hoststring):
-		super(Node, self).__init__(srvmanager = None)
-		self.host = service.Host(hoststring = hoststring)
+		host = service.Host(hoststring = hoststring)
+		srvmanager = ServiceManager(host = host)
+		super(Node, self).__init__(srvmanager = srvmanager)
+		self.host = host
 
 	def __str__(self):
 		return self.host.hoststring

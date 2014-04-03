@@ -114,6 +114,7 @@ def launch(argv, logger = Null):
 			shell = isinstance(argv, str), # use shell on string
 			stdout = subprocess.PIPE,
 			stderr = subprocess.PIPE)
+		sp.argv = argv
 	except OSError as e:
 		raise CommandFailure("%s: %s" % (args, e))
 	return sp
@@ -131,7 +132,7 @@ def fetch(sp, logger = Null, warn_only = False):
 		(logger)("stderr: %s" % stderr)
 	res = Result(returncode = sp.returncode, stdout = stdout, stderr = stderr)
 	if not res and not warn_only:
-		raise CommandFailure(res.stderr.strip())
+		raise CommandFailure("%s: %s" % (sp.argv, res.stderr.strip()))
 	return res
 
 def run(argv, logger = Null, warn_only = False):
