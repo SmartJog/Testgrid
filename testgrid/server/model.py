@@ -176,8 +176,8 @@ class Node(object):
 
 	__metaclass__ = abc.ABCMeta
 
-	def __init__(self, service_manager):
-		self.service = service_manager
+	def __init__(self, srvmanager):
+		self.service = srvmanager
 		self.subnets = []
 
 	@abc.abstractmethod
@@ -239,8 +239,8 @@ class Grid(object):
 
 	def __init__(self, *nodes):
 		self.quarantined_nodes = [] # nodes not properly deinstalled, need manual repair
-		self.transient_nodes = [] # virtual nodes
-		self.nodes = [] # nodes may be added or removed
+		self.transient_nodes = [] # virtual nodes -- instanciated automatically
+		self.nodes = [] # physical nodes -- may be added or removed with {add,remove}_node()
 		for node in nodes:
 			self.add_node(node)
 		self.plans = {} # indexed plans
@@ -275,12 +275,18 @@ class Grid(object):
 			and not node in self._get_allocated_nodes():
 				yield node
 
-	def __iter__(self):
-		for node in self._get_available_nodes():
-			yield node
+	def is_available(self, node):
+		return node in self._get_available_nodes()
 
-	def __len__(self):
-		return len(self._get_available_nodes())
+	def is_allocated(self, node):
+		return node in self._get_allocated_nodes()
+
+	def is_quarantined(self, node):
+		return node in self.quarantined_nodes
+
+	def __iter__(self):
+		for node in self.nodes + self.transient_nodes:
+			yield node
 
 	def _create_node(self, sysname = None, pkg = None):
 		"spawn a new node using system $sysname or able to install package $pkg"
@@ -439,8 +445,8 @@ class FakePackage(Package):
 
 class FakeNode(Node):
 
-	def __init__(self, service_manager = None):
-		super(FakeNode, self).__init__(service_manager)
+	def __init__(self, srvmanager = None):
+		super(FakeNode, self).__init__(srvmanager)
 		self.installed = []
 		self.terminated = False
 

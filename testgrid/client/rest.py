@@ -3,4 +3,4 @@
 class Client(object):
 
 	def __init__(self, host = "qa.lab.fr.lan", port = 8080):
-		raise NotImplementedError()
+		raise NotImplementedError("rest.Client")

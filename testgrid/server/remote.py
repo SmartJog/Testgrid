@@ -7,22 +7,26 @@ import model
 class Node(model.Node):
 
 	def __init__(self, hoststring):
-		self.host = service.Host(hoststring = hoststring)
+		super(Node, self).__init__(srvmanager = None)
+		self.host = service.Host(hoststring = hoststring, logger = shell.Null)
+
+	def __str__(self):
+		return self.host.hoststring
 
 	def run(self, *commands):
 		res = shell.Success()
 		for cmd in commands:
-			res += self.host(cmd.cmdline, logger = shell.Stderr, warn_only = cmd.warn_only)
+			res += self.host(cmd.cmdline, warn_only = cmd.warn_only)
 		return res
 
 	def _setup_interface(self, subnet):
-		raise NotImplementedError()
+		raise NotImplementedError("remote.Node._setup_interface")
 
 	def _cleanup_interface(self, subnet):
-		raise NotImplementedError()
+		raise NotImplementedError("remote.Node._cleanup_interface")
 
 	def log(self, tag, msg):
-		raise NotImplementedError()
+		return self.host("logger -t '%s' '%s'" % (tag, msg))
 
 	def terminate(self):
-		raise NotImplementedError()
+		raise NotImplementedError("remote.Node.terminate")

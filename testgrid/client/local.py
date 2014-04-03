@@ -22,7 +22,19 @@ class Client(object):
 		self.grid = testgrid.server.parser.parse_grid(name, ini, __name__)
 		self.sessions = {}
 
-	def list_sessions(self):
+	def get_nodes(self):
+		return [node for node in self.grid]
+
+	def is_available(self, node):
+		return self.grid.is_available(node)
+
+	def is_allocated(self, node):
+		return self.grid.is_allocated(node)
+
+	def is_quarantined(self, node):
+		return self.grid.is_quarantined(node)
+
+	def get_sessions(self):
 		return self.sessions.values()
 
 	def create_session(self, key = None):

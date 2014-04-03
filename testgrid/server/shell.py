@@ -27,6 +27,8 @@ Files:
   ~/.sshpass/<hoststring>  specific password for sshpass
 """
 
+__version__ = "20140402"
+
 import subprocess, unittest, atexit, pipes, time, sys, os
 
 class Result(object):
@@ -164,6 +166,7 @@ control_master = {}
 def ssh(hoststring, argv, *args, **kwargs):
 	executor = _sshpass(hoststring) + (
 		"ssh",
+		"-o", "NumberOfPasswordPrompts=0",
 		"-o", "StrictHostKeyChecking=no",
 		"-o", "ConnectTimeout=%s" % (os.getenv("SSHCONNECTTIMEOUT") or 2),
 		"-S", "%s.socket" % hoststring, # use control master if available

@@ -37,7 +37,7 @@ class Node(model.Node):
 	"debian Node"
 
 	def __init__(self, hoststring):
-		super(Node, self).__init__()
+		super(Node, self).__init__(srvmanager = None)
 		self.hoststring = hoststring
 
 	def setup_interface(self, subnet): pass

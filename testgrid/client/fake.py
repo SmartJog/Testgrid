@@ -40,7 +40,7 @@ class ServiceManager(testgrid.server.model.ServiceManager):
 class Node(testgrid.server.model.FakeNode):
 
 	def __init__(self):
-		super(Node, self).__init__(service_manager = ServiceManager())
+		super(Node, self).__init__(srvmanager = ServiceManager())
 
 	def install(self, package):
 		res = super(Node, self).install(package)
@@ -49,7 +49,7 @@ class Node(testgrid.server.model.FakeNode):
 
 class Grid(testgrid.server.model.FakeGrid):
 
-	def create_node(self, **opts):
+	def _create_node(self, **opts):
 		return Node()
 
 class Client(object):
