@@ -12,9 +12,6 @@ setuptools.setup(
 	packages = (
 		"testgrid",
 		"testgrid.client",
-		"testgrid.client.fake",
-		"testgrid.client.local",
-		"testgrid.client.rest",
 		"testgrid.server"),
 	entry_points = { "console_scripts": "tg = testgrid.main:main" },
 )
