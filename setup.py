@@ -1,10 +1,11 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
 import setuptools
+import main
 
 setuptools.setup(
 	name = "testgrid",
-	version = "0.1",
+	version = main.__version__,
 	author = "arkena",
 	author_email = "qa@tdf-ms.com",
 	description = "Programmable test environments framework and command-line utility",
