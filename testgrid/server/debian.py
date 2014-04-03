@@ -45,10 +45,13 @@ class Node(model.Node):
 	def cleanup_interface(self, subnet): pass
 
 	def run(self, *commands):
+		res = shell.Success()
 		for cmd in commands:
-			shell.ssh(self.hoststring,
-				  cmd.cmdline,
-				  logger = shell.Stderr, warn_only = cmd.warn_only)
+			res += shell.ssh(self.hoststring,
+				cmd.cmdline,
+				logger = shell.Stderr,
+				warn_only = cmd.warn_only)
+		return res
 
 	def install(self, package):
 		return self.run(*package.get_install_commands())

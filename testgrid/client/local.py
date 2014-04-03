@@ -2,19 +2,31 @@
 
 "client managing sessions for a controller-less grid"
 
-import server
+import testgrid
+
+######################################
+# concrete types of nodes for parser #
+######################################
+
+class RemoteNode(testgrid.server.remote.Node): pass
+
+class DebianNode(testgrid.server.debian.Node): pass
+
+##########
+# client #
+##########
 
 class Client(object):
 
 	def __init__(self, name = "grid", ini = "~/grid.ini"):
-		self.grid = server.parser.parse_grid(name, ini)
+		self.grid = testgrid.server.parser.parse_grid(name, ini, __name__)
 		self.sessions = {}
 
 	def list_sessions(self):
 		return self.sessions.values()
 
 	def create_session(self, key = None):
-		session = server.model.Session(
+		session = testgrid.server.model.Session(
 			grid = self.grid,
 			subnet = None,
 			key = key) # FIXME subnet

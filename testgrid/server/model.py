@@ -292,7 +292,7 @@ class Grid(object):
 			if not node in excluded and (not pkg or node.is_installable(pkg)):
 				break
 		else:
-			node = self.create_node(pkg = pkg)
+			node = self._create_node(pkg = pkg)
 			assert\
 				node.is_installable(pkg),\
 				"%s: invalid node, please report this issue" % (node, pkg)
@@ -470,7 +470,7 @@ class FakeNode(Node):
 
 class FakeGrid(Grid):
 
-	def create_node(self, **opts):
+	def _create_node(self, **opts):
 		return FakeNode()
 
 def unzip(pairs):

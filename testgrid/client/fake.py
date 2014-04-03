@@ -1,8 +1,8 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-import server
+import testgrid
 
-class Package(server.model.Package):
+class Package(testgrid.server.model.Package):
 
 	def get_install_commands(self): pass
 
@@ -12,7 +12,7 @@ class Package(server.model.Package):
 
 	def get_is_installable_commands(self): pass
 
-class ServiceManager(server.model.ServiceManager):
+class ServiceManager(testgrid.server.model.ServiceManager):
 
 	def __init__(self):
 		self.versions = {}
@@ -37,7 +37,7 @@ class ServiceManager(server.model.ServiceManager):
 	def get_version(self, name):
 		return self.versions[name]
 
-class Node(server.model.FakeNode):
+class Node(testgrid.server.model.FakeNode):
 
 	def __init__(self):
 		super(Node, self).__init__(service_manager = ServiceManager())
@@ -47,7 +47,7 @@ class Node(server.model.FakeNode):
 		self.service.add_service(package.name, package.version)
 		return res
 
-class Grid(server.model.FakeGrid):
+class Grid(testgrid.server.model.FakeGrid):
 
 	def create_node(self, **opts):
 		return Node()
@@ -62,4 +62,4 @@ class Client(object):
 		return self.sessions.values()
 
 	def create_session(self, key = None):
-		return server.model.Session(grid = self.grid, key = key)
+		return testgrid.server.model.Session(grid = self.grid, key = key)

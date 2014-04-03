@@ -31,6 +31,16 @@ import ConfigParser, tempfile, textwrap, unittest, inspect, os, re
 
 import model
 
+def get_subclasses(cls, *modules):
+	"return all subclasses of $cls in specified $modules"
+	res = []
+	for subcls in cls.__subclasses__():
+		if (not modules or subcls.__module__ in modules):
+			res += [subcls] + get_subclasses(subcls, *modules)
+		else:
+			res += get_subclasses(subcls, *modules)
+	return res
+
 def normalized(name):
 	"normalize a class name, e.g. Foo BAR4 2 -> FooBar42"
 	return name.title().replace(" ", "")
@@ -38,10 +48,14 @@ def normalized(name):
 def get_subclass(name, cls, *modules):
 	"return the $name'd subclass of $cls in specified $modules"
 	name = normalized(name)
-	for subcls in cls.__subclasses__():
-		if (not modules or subcls.__module__ in modules) and subcls.__name__ == name:
+	subclasses = get_subclasses(cls, *modules)
+	for subcls in subclasses:
+		if subcls.__name__ == name:
 			return subcls
-	raise Exception("%s: subclass not found" % name)
+	raise Exception("%s: subclass not found in %s\navailable subclasses: %s" % (
+		name,
+		modules or "any module",
+		get_subclasses(cls)))
 
 class ConfigurationError(Exception): pass
 
@@ -52,8 +66,9 @@ class MissingArgumentError(ConfigurationError): pass
 class Parser(object):
 	"grid manifest parser"
 
-	def __init__(self, name, ini):
+	def __init__(self, name, ini, *modules):
 		"ini: comma-separated list of .ini filepaths or URIs"
+		self.modules = modules or ()
 		self.name = name
 		self.ini = ini
 		self.reload()
@@ -90,7 +105,7 @@ class Parser(object):
 		for key, value in self.conf.items(section):
 			if key == "type":
 				try:
-					cls = get_subclass(value, model.Node)
+					cls = get_subclass(value, model.Node, *self.modules)
 				except Exception as e:
 					raise Exception("%s: invalid node type\n%s" % (value, repr(e)))
 			else:
@@ -105,7 +120,7 @@ class Parser(object):
 			if key == "type":
 				if value == "grid": continue
 				try:
-					cls = get_subclass(value, model.Grid)
+					cls = get_subclass(value, model.Grid, *self.modules)
 				except Exception as e:
 					raise Exception("%s: invalid grid type\n%s" % (value, repr(e)))
 			elif key == "nodes":
@@ -133,9 +148,9 @@ class Parser(object):
 		#return self.createObjectFromSection(self.name, model.Grid)
 		return self._parse(self.name, self._parse_grid)
 
-def parse_grid(name, ini):
+def parse_grid(name, ini, *modules):
 	"parse manifests and return a grid instance"
-	return Parser(name, ini).parse()
+	return Parser(name, ini, *modules).parse()
 
 ##############
 # unit tests #
