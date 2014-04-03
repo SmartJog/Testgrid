@@ -11,7 +11,7 @@ On undeploy(), packages are uninstalled, nodes are deallocated.
 
 __version__ = "20140402"
 
-import unittest, getpass, time, abc
+import unittest, getpass, logging, time, abc
 
 class Command(object):
 
@@ -67,9 +67,9 @@ class Package(object):
 class Packages(Package):
 	"set of packages"
 
-	def __init__(self, name, version, *packages):
+	def __init__(self, name, version, packages = None):
 		super(Packages, self).__init__(name, version)
-		self.packages = set(packages)
+		self.packages = set(packages or ())
 
 	def get_install_commands(self):
 		commands = ()
@@ -234,25 +234,34 @@ class DuplicatedGridError(Exception): pass
 
 class NodePoolExhaustedError(Exception): pass
 
+def Null(*args, **kwargs): pass
+
 class Grid(object):
 	"handle nodes and packages"
 
-	def __init__(self, *nodes):
-		self.quarantined_nodes = [] # nodes not properly deinstalled, need manual repair
-		self.transient_nodes = [] # virtual nodes -- instanciated automatically
+	def __init__(self, name, logger = None, nodes = None):
+		self.name = name
+		self.logger = logger or Null
 		self.nodes = [] # physical nodes -- may be added or removed with {add,remove}_node()
-		for node in nodes:
-			self.add_node(node)
+		self.quarantined_nodes = [] # nodes not properly deinstalled, refs to self.nodes
+		self.transient_nodes = [] # virtual nodes -- instanciated automatically
 		self.plans = {} # indexed plans
+		for node in nodes or ():
+			self.add_node(node)
+
+	def __str__(self):
+		return self.name
 
 	def add_node(self, node):
 		if not node in self.nodes:
+			(self.logger)("%s: registering new node %s" % (self, node))
 			self.nodes.append(node)
 		else:
 			raise DuplicatedNodeError("%s" % node)
 
 	def remove_node(self, node):
 		if node in self.nodes:
+			(self.logger)("%s: deregistering node %s" % (self, node))
 			self.nodes.remove(node)
 		else:
 			raise UnknownNodeError("%s" % node)
@@ -260,6 +269,7 @@ class Grid(object):
 	def __del__(self):
 		"terminate all transient nodes"
 		for node in self.transient_nodes:
+			(self.logger)("%s: terminating transient node %s" % (self, node))
 			node.terminate()
 
 	def _get_allocated_nodes(self):
@@ -297,7 +307,16 @@ class Grid(object):
 		for node in self._get_available_nodes():
 			if not node in excluded and (not pkg or node.is_installable(pkg)):
 				break
+			(self.logger)("%s: node %s incompatible with (sysname=%s, pkg=%s)" % (
+				self,
+				node,
+				sysname,
+				pkg))
 		else:
+			(self.logger)("%s: no compatible node found for (sysname=%s, pkg=%s)" % (
+				self,
+				sysname,
+				pkg))
 			node = self._create_node(pkg = pkg)
 			assert\
 				node.is_installable(pkg),\
@@ -470,6 +489,10 @@ class FakeNode(Node):
 		assert not self.terminated
 		self.installed.remove(package)
 
+	def is_installed(self, package):
+		assert not self.terminated
+		return package in self.installed
+
 	def is_installable(self, package):
 		assert not self.terminated
 		return True
@@ -531,7 +554,7 @@ class SelfTest(unittest.TestCase):
 	def mkenv(nb_nodes, nb_packages):
 		nodes = tuple(FakeNode() for i in xrange(nb_nodes))
 		packages = tuple(FakePackage("pkg%i" % i, "1.0") for i in xrange(nb_packages))
-		grid = Grid(*nodes) # use a non-generative grid
+		grid = Grid(name = "test", nodes = nodes) # use a non-generative grid
 		session = Session(grid, Subnet("test"))
 		return (nodes, packages, session)
 
@@ -568,7 +591,7 @@ class SelfTest(unittest.TestCase):
 
 	def test_node_creation(self):
 		"test deployment on a generative grid"
-		grid = FakeGrid()
+		grid = FakeGrid(name = "test")
 		assert not grid.nodes
 		foo = FakePackage("foo", "1.0")
 		bar = FakePackage("bar", "1.0")

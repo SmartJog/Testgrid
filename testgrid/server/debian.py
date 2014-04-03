@@ -15,12 +15,14 @@ class Package(model.Package):
 			self.tag += "=%s" % self.version
 
 	get_install_commands = lambda self: (
-		model.Command("export DEBIAN_FRONTEND=noninteractive && apt-get -qqy --force-yes install %s" % self.tag),
+		model.Command(
+			"DEBIAN_FRONTEND=noninteractive apt-get -qqy --force-yes install %s" % self.tag),
 		
 	)
 
 	get_uninstall_commands = lambda self: (
-		model.Command("export DEBIAN_FRONTEND=noninteractive && apt-get -qq remove --purge %s" % self.name),
+		model.Command(
+			"DEBIAN_FRONTEND=noninteractive apt-get -qq remove --purge %s" % self.name),
 	)
 
 	get_is_installed_commands = lambda self: (
@@ -29,7 +31,7 @@ class Package(model.Package):
 
 	get_is_installable_commands = lambda self: (
 		model.Command(
-			"export DEBIAN_FRONTEND=noninteractive && apt-get -qqy --force-yes --dry-run install %s" % self.tag,
+			"DEBIAN_FRONTEND=noninteractive apt-get -qqy --force-yes --dry-run install %s" % self.tag,
 			warn_only = True),
 	)
 

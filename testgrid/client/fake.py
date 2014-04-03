@@ -47,6 +47,11 @@ class Node(testgrid.server.model.FakeNode):
 		self.service.add_service(package.name, package.version)
 		return res
 
+	def uninstall(self, package):
+		res = super(Node, self).uninstall(package)
+		self.service.remove_service(package.name)
+		return res
+
 class Grid(testgrid.server.model.FakeGrid):
 
 	def _create_node(self, **opts):
@@ -55,7 +60,7 @@ class Grid(testgrid.server.model.FakeGrid):
 class Client(object):
 
 	def __init__(self):
-		self.grid = Grid() # generative grid of fake.Node nodes.
+		self.grid = Grid(name = "fakegrid") # generative grid of fake.Node nodes.
 		self.sessions = {}
 
 	def list_sessions(self):

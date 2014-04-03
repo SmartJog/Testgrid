@@ -6,7 +6,7 @@ Parse an .ini file and instanciate the corresponding grid object.
 API
 ===
 >> import parser
->> grid = parser.parse_grid(name, path)
+>> grid = parser.parse_grid(ini, *modules).parse(name)
 
 Manifest Syntax
 ===============
@@ -66,10 +66,9 @@ class MissingArgumentError(ConfigurationError): pass
 class Parser(object):
 	"grid manifest parser"
 
-	def __init__(self, name, ini, *modules):
+	def __init__(self, ini, *modules):
 		"ini: comma-separated list of .ini filepaths or URIs"
 		self.modules = modules or ()
-		self.name = name
 		self.ini = ini
 		self.reload()
 
@@ -114,8 +113,7 @@ class Parser(object):
 
 	def _parse_grid(self, section):
 		cls = model.Grid
-		nodes = []
-		kwargs = {}
+		kwargs = {"name": section, "nodes": []}
 		for key, value in self.conf.items(section):
 			if key == "type":
 				if value == "grid": continue
@@ -125,10 +123,10 @@ class Parser(object):
 					raise Exception("%s: invalid grid type\n%s" % (value, repr(e)))
 			elif key == "nodes":
 				for s in value.split():
-					nodes.append(self.cache[s] if s in self.cache else self._parse(s, self._parse_node))
+					kwargs["nodes"].append(self.cache[s] if s in self.cache else self._parse(s, self._parse_node))
 			else:
 				kwargs[key] = value
-		return self._mkobj(cls, *nodes, **kwargs)
+		return self._mkobj(cls, **kwargs)
 
 	def _parse(self, section, hdl):
 		assert self.conf.has_section(section), "%s: section not defined" % section
@@ -143,14 +141,13 @@ class Parser(object):
 				exc = ConfigurationError
 			raise (exc)("in [%s]: %s" % (section, e))
 
-	def parse(self):
+	def parse_grid(self, name):
 		"parse manifests and return a grid instance"
-		#return self.createObjectFromSection(self.name, model.Grid)
-		return self._parse(self.name, self._parse_grid)
+		return self._parse(name, self._parse_grid)
 
 def parse_grid(name, ini, *modules):
 	"parse manifests and return a grid instance"
-	return Parser(name, ini, *modules).parse()
+	return Parser(ini, *modules).parse_grid(name)
 
 ##############
 # unit tests #

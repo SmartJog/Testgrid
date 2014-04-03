@@ -4,11 +4,15 @@ import service
 import shell
 import model
 
+import logging
+
+logging.basicConfig(level = logging.DEBUG)
+
 class Node(model.Node):
 
 	def __init__(self, hoststring):
 		super(Node, self).__init__(srvmanager = None)
-		self.host = service.Host(hoststring = hoststring, logger = shell.Null)
+		self.host = service.Host(hoststring = hoststring)
 
 	def __str__(self):
 		return self.host.hoststring
