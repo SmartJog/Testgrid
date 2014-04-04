@@ -27,40 +27,30 @@ __version__ = "0.1"
 
 import docopt, sys
 
-import client
-
-def red(string):
-	return string and "\033[0;91m%s\033[0m" % string
-
-def blue(string):
-	return string and "\033[0;94m%s\033[0m" % string
-
-def gray(string):
-	return string and "\033[0;90m%s\033[0m" % string
-
-def green(string):
-	return string and "\033[0;92m%s\033[0m" % string
+import strfmt, client
 
 def main():
 	try:
 		args = docopt.docopt(__doc__, version = __version__)
 		if args["--local"]:
-			c = client.local.Client(
+			clt = client.local.Client(
 				name = args["--section"],
 				ini = args["--manifest"])
 		else:
-			c = client.rest.Client(args["--controller"])
+			clt = client.rest.Client(args["--controller"])
 		cmd = args["ARGV"][0]
 		if cmd == "nodes":
-			for node in c.get_nodes():
-				if c.is_available(node):
-					print node, green("available")
-				elif c.is_allocated(node):
-					print node, blue("allocated")
-				elif c.is_quarantined(node):
-					print node, red("quarantined")
+			text = "nodes:status\n-----:------\n"
+			for node in clt.get_nodes():
+				if clt.is_available(node):
+					text += "%s:%s\n" % (node, strfmt.green("available"))
+				elif clt.is_allocated(node):
+					text += "%s:%s\n" % (node, strfmt.blue("allocated"))
+				elif clt.is_quarantined(node):
+					text += "%s:%s\n" % (node, strfmt.red("quarantined"))
+			print strfmt.strcolalign(text)
 		elif cmd == "sessions":
-			for session in c.get_sessions():
+			for session in clt.get_sessions():
 				print session
 		elif cmd == "create":
 			_, key = args["ARGV"]
@@ -72,7 +62,7 @@ def main():
 			raise NotImplementedError("%s: unknown command" % cmd)
 		return 0
 	except Exception as e:
-		sys.stderr.write(gray("%s: %s\n" % (type(e).__name__, e)))
+		sys.stderr.write(strfmt.gray("%s: %s\n" % (type(e).__name__, e)))
 		return 1
 
 if __name__ == "__main__": sys.exit(main())

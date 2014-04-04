@@ -13,7 +13,7 @@ class FakeTest(unittest.TestCase):
 	def test_simple_debian_package(self):
 		session = self.client.create_session()
 		fleche = testgrid.server.debian.Package("fleche", version = "16.5-1")
-		node = session.allocate_node(sysname = "wheezy64")
+		node = session.allocate_node(sysname = "wheezy64") # FIXME sysname!!!
 		if node.is_installed(fleche):
 			node.uninstall(fleche)
 		node.install(fleche)
