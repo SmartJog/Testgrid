@@ -100,7 +100,7 @@ class Parser(object):
 
 	def _parse_node(self, section):
 		cls = model.Node
-		kwargs = {}
+		kwargs = {"name": section}
 		for key, value in self.conf.items(section):
 			if key == "type":
 				try:
@@ -113,7 +113,7 @@ class Parser(object):
 
 	def _parse_grid(self, section):
 		cls = model.Grid
-		kwargs = {"name": section, "nodes": []}
+		kwargs = {"name": section}
 		for key, value in self.conf.items(section):
 			if key == "type":
 				if value == "grid": continue
@@ -121,9 +121,11 @@ class Parser(object):
 					cls = get_subclass(value, model.Grid, *self.modules)
 				except Exception as e:
 					raise Exception("%s: invalid grid type\n%s" % (value, repr(e)))
-			elif key == "nodes":
+			elif key.endswith("nodes"):
+				nodes = []
 				for s in value.split():
-					kwargs["nodes"].append(self.cache[s] if s in self.cache else self._parse(s, self._parse_node))
+					nodes.append(self.cache[s] if s in self.cache else self._parse(s, self._parse_node))
+				kwargs[key] = nodes
 			else:
 				kwargs[key] = value
 		return self._mkobj(cls, **kwargs)
@@ -173,6 +175,7 @@ class SelfTest(unittest.TestCase):
 		f = self.get_file("""
 			[foo]
 			type = grid
+			logger =
 		""")
 		grid = parse_grid("foo", f.name)
 		self.assertIs(type(grid), model.Grid)
@@ -191,6 +194,7 @@ class SelfTest(unittest.TestCase):
 			
 			[bar]
 			type = grid
+			logger =
 			nodes = node1 node2 node3
 		""")
 		grid = parse_grid("bar", f.name)
@@ -205,6 +209,7 @@ class SelfTest(unittest.TestCase):
 		f = self.get_file("""
 			[foo]
 			type = custom grid
+			logger =
 		""")
 		grid = parse_grid("foo", f.name)
 		self.assertIs(type(grid), CustomGrid)
@@ -214,6 +219,7 @@ class SelfTest(unittest.TestCase):
 		f = self.get_file("""
 			[foo]
 			type = grid
+			logger =
 			bad_arg = bad_arg
 		""")
 		self.assertRaises(ExtraArgumentError, parse_grid, "foo", f.name)
@@ -228,6 +234,7 @@ class SelfTest(unittest.TestCase):
 		f = self.get_file("""
 			[foo]
 			type = grid with arg
+			logger =
 		""")
 		self.assertRaises(MissingArgumentError, parse_grid, "foo", f.name)
 

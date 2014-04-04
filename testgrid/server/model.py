@@ -176,30 +176,39 @@ class Node(object):
 
 	__metaclass__ = abc.ABCMeta
 
-	def __init__(self, srvmanager):
+	def __init__(self, name, srvmanager):
 		self.service = srvmanager
-		self.subnets = []
+		self.name = name
+
+	def __repr__(self):
+		return "%s(%s)" % (type(self).__name__, self.name)
+
+	def __str__(self):
+		return self.name
 
 	@abc.abstractmethod
-	def _setup_interface(self, subnet):
+	def get_typename(self):
+		"return human-friendly type string"
+		raise NotImplementedError()
+
+	@abc.abstractmethod
+	def join(self, subnet):
 		"setup a network interface on the specified subnet"
 		raise NotImplementedError()
 
 	@abc.abstractmethod
-	def _cleanup_interface(self, subnet):
+	def leave(self, subnet):
 		"remove the network interface on the specified subnet"
 		raise NotImplementedError()
 
-	def join(self, subnet):
-		self.subnets.append(subnet)
-		self._setup_interface(subnet)
-
-	def leave(self, subnet):
-		self.subnets.remove(subnet)
-		self._cleanup_interface(subnet)
+	@abc.abstractmethod
+	def get_subnets(self):
+		"return the list of subnets the node belongs to"
+		raise NotImplementedError()
 
 	@abc.abstractmethod
 	def terminate(self):
+		"shutdown physical node or destroy virtual machine"
 		raise NotImplementedError()
 
 	@abc.abstractmethod
@@ -224,13 +233,11 @@ class Node(object):
 	def is_installable(self, package):
 		return self.run(*package.get_is_installable_commands())
 
+class UnknownPlanError(Exception): pass
+
 class UnknownNodeError(Exception): pass
 
-class UnknownGridError(Exception): pass
-
 class DuplicatedNodeError(Exception): pass
-
-class DuplicatedGridError(Exception): pass
 
 class NodePoolExhaustedError(Exception): pass
 
@@ -239,38 +246,45 @@ def Null(*args, **kwargs): pass
 class Grid(object):
 	"handle nodes and packages"
 
-	def __init__(self, name, logger = None, nodes = None):
+	def __init__(
+		self,
+		name,
+		nodes = None,
+		plans = None,
+		logger = None):
 		self.name = name
+		self.nodes = nodes or []
+		self.plans = plans or {}
 		self.logger = logger or Null
-		self.nodes = [] # physical nodes -- may be added or removed with {add,remove}_node()
-		self.quarantined_nodes = [] # nodes not properly deinstalled, refs to self.nodes
-		self.transient_nodes = [] # virtual nodes -- instanciated automatically
-		self.plans = {} # indexed plans
-		for node in nodes or ():
-			self.add_node(node)
+
+	def __repr__(self):
+		return "%s(%s)" % (type(self).__name__, self.name)
 
 	def __str__(self):
 		return self.name
 
 	def add_node(self, node):
 		if not node in self.nodes:
-			(self.logger)("%s: registering new node %s" % (self, node))
+			(self.logger)("%s: adding node %s" % (self, node))
 			self.nodes.append(node)
 		else:
 			raise DuplicatedNodeError("%s" % node)
 
 	def remove_node(self, node):
 		if node in self.nodes:
-			(self.logger)("%s: deregistering node %s" % (self, node))
+			(self.logger)("%s: removing node %s" % (self, node))
 			self.nodes.remove(node)
 		else:
 			raise UnknownNodeError("%s" % node)
 
-	def __del__(self):
-		"terminate all transient nodes"
-		for node in self.transient_nodes:
-			(self.logger)("%s: terminating transient node %s" % (self, node))
-			node.terminate()
+	def quarantine_node(self, node):
+		node.is_quarantined = True
+
+	def rehabilitate_node(self, node):
+		node.is_quarantined = False
+
+	def is_quarantined(self, node):
+		return hasattr(node, "is_quarantined") and getattr(node, "is_quarantined")
 
 	def _get_allocated_nodes(self):
 		"return the list of allocated nodes"
@@ -280,9 +294,8 @@ class Grid(object):
 
 	def _get_available_nodes(self):
 		"return the list of nodes neither allocated nor quarantined"
-		for node in tuple(self.nodes) + tuple(self.transient_nodes):
-			if not node in self.quarantined_nodes\
-			and not node in self._get_allocated_nodes():
+		for node in self.nodes:
+			if not self.is_quarantined(node) and not node in self._get_allocated_nodes():
 				yield node
 
 	def is_available(self, node):
@@ -291,18 +304,18 @@ class Grid(object):
 	def is_allocated(self, node):
 		return node in self._get_allocated_nodes()
 
-	def is_quarantined(self, node):
-		return node in self.quarantined_nodes
-
 	def __iter__(self):
-		for node in self.nodes + self.transient_nodes:
+		for node in self.nodes:
 			yield node
+
+	def __len__(self):
+		return len(self.nodes)
 
 	def _create_node(self, sysname = None, pkg = None):
 		"spawn a new node using system $sysname or able to install package $pkg"
 		raise NodePoolExhaustedError()
 
-	def _find_node(self, sysname = None, pkg = None, excluded = []):
+	def _find_node(self, sysname = None, pkg = None, excluded = ()):
 		"find a compatible available node or create one"
 		for node in self._get_available_nodes():
 			if not node in excluded and (not pkg or node.is_installable(pkg)):
@@ -321,20 +334,36 @@ class Grid(object):
 			assert\
 				node.is_installable(pkg),\
 				"%s: invalid node, please report this issue" % (node, pkg)
-			self.transient_nodes += (node,)
+			self.is_transient = True
 		return node
 
+	def is_transient(self, node):
+		return hasattr(node, "is_transient") and getattr(node, "is_transient")
+
 	def allocate_node(self, key, sysname = None, pkg = None):
-		"fetch a single node and mark it as allocated"
+		"fetch a single node and mark it as allocated in plan"
+		(self.logger)("%s: %s: allocating node (sysname=%s, pkg=%s)" % (self, key, sysname, pkg))
 		node = self._find_node(sysname = sysname, pkg = pkg)
-		self.plans[key] = self.plans.get(key, ()) + ((None, node),)
+		self.plans[key] = self.plans.get(key, []) + ((None, node),)
 		return node
 
 	def release_node(self, key, node):
-		"undo allocate_node"
-		self.plans[key].remove((None, node))
+		"release node from plan"
+		if key in self.plans:
+			if (None, node) in self.plans[key]:
+				(self.logger)("%s: releasing node %s" % (self, node))
+				try:
+					if node.is_transient:
+						node.terminate()
+				except:
+					self.quarantine_node(node)
+				self.plans[key].remove((None, node))
+			else:
+				raise UnknownNodeError("%s" % node)
+		else:
+			raise UnknownPlanError("%s" % key)
 
-	def _get_deployment_plan(self, *packages):
+	def _get_deployment_plan(self, packages):
 		"""
 		Pair packages to nodes depending on their compatibility and availability.
 		Return the deployment plan as a tuple of pairs (pkg, node).
@@ -345,35 +374,47 @@ class Grid(object):
 			node = self._find_node(pkg = pkg, excluded = used)
 			used.append(node)
 			plan.append((pkg, node))
-		return tuple(plan)
+		return plan
 
-	def _undeploy(self, plan):
-		"undo a deployment plan, put any node in error in quarantine"
+	def _undeploy_plan(self, plan):
 		for pkg, node in plan:
 			try:
 				if pkg:
 					node.uninstall(pkg)
+				if self.is_transient(_node):
+					node.terminate()
 			except:
-				self.quarantined_nodes.append(node)
+				self.quarantine_node(node)
 
 	def undeploy(self, key):
 		"undo and unregister a deployment plan"
-		self._undeploy(self.plans[key])
-		del self.plans[key]
+		if key in self.plans:
+			self._undeploy_plan(self.plans[key])
+			del self.plans[key]
+		else:
+			raise UnknownPlanError("%s" % key)
 
-	def deploy(self, key, *packages):
+	def deploy(self, key, packages):
 		"get, apply, register and return deployment plan"
-		plan = self._get_deployment_plan(*packages)
+		plan = self._get_deployment_plan(packages)
 		done = []
 		try:
 			for pkg, node in plan:
 				node.install(pkg)
 				done.append((pkg, node))
-			self.plans[key] = self.plans.get(key, ()) + plan
+			self.plans[key] = self.plans.get(key, []) + plan
 			return plan
 		except:
-			self._undeploy(done)
+			self._undeploy_plan(done)
 			raise
+
+	def get_plan_keys(self):
+		for key in self.plans:
+			yield key
+
+class UnknownGridError(Exception): pass
+
+class DuplicatedGridError(Exception): pass
 
 class Grids(Grid):
 
@@ -396,29 +437,29 @@ class Grids(Grid):
 class Session(object):
 	"transient session"
 
-	def __init__(self, grid, key = None, subnet = None):
+	def __init__(self, grid, name = None, subnet = None):
 		self.grid = grid
+		self.name = name
 		self.subnet = subnet
-		if not key:
-			key = "%s@%s" % (getpass.getuser(), time.strftime("%Y%m%d%H%M%S", time.localtime()))
+		if not self.name:
+			self.name = "%s@%s" % (getpass.getuser(), time.strftime("%Y%m%d%H%M%S", time.localtime()))
 			self.is_anonymous = True
 		else:
 			self.is_anonymous = False
-		self.key = key
 
-	def __repr__(self): return "%s(%s)" % (type(self).__name__, self.key)
+	def __repr__(self): return "%s(%s)" % (type(self).__name__, self.name)
 
-	def __str__(self): return self.key
+	def __str__(self): return self.name
 
-	def close(self):
-		self.undeploy()
+	def exists(self):
+		return self.name in self.grid.get_plan_keys()
 
 	def __del__(self):
 		if self.is_anonymous:
 			self.close()
 
 	def allocate_node(self, sysname = None, pkg = None):
-		node = self.grid.allocate_node(key = self.key, sysname = sysname, pkg = pkg)
+		node = self.grid.allocate_node(key = self.name, sysname = sysname, pkg = pkg)
 		if self.subnet:
 			node.join(self.subnet) # isolate node in a subnet if possible
 		return node
@@ -426,27 +467,32 @@ class Session(object):
 	def release_node(self, node):
 		if self.subnet:
 			node.leave(self.subnet)
-		self.grid.release_node(node)
+		self.grid.release_node(key = self.name, node = node)
 
 	def list_nodes(self):
 		"list session nodes"
-		if self.key in self.grid.plans:
-			return tuple(node for node in self.grid.plans[self.key].values())
+		if self.name in self.grid.plans:
+			return tuple(node for pkg, node in self.grid.plans[self.name])
 		else:
-			return ()
+			raise UnknowSessionError("%s" % self)
 
-	def deploy(self, *packages):
-		plan = self.grid.deploy(self.key, *packages)
+	def deploy(self, packages):
+		plan = self.grid.deploy(key = self.name, packages = packages)
 		for pkg, node in plan:
 			node.join(self.subnet)
 		return plan
 
 	def undeploy(self):
-		if self.key in self.grid.plans:
-			plan = self.grid.plans[self.key]
-			self.grid.undeploy(self.key)
+		if self.name in self.grid.plans:
+			plan = self.grid.plans[self.name]
 			for pkg, node in plan:
 				node.leave(self.subnet)
+			self.grid.undeploy(key = self.name)
+		else:
+			raise UnknownSessionError("%s" % self)
+
+	def close(self):
+		self.undeploy()
 
 ################
 # test doubles #
@@ -462,16 +508,57 @@ class FakePackage(Package):
 
 	def get_is_installable_commands(self): pass
 
+class FakeServiceManager(ServiceManager):
+
+	def __init__(self):
+		self.services = {}
+
+	def add(self, name, version, is_running):
+		self.services[name] = {
+			"version": version,
+			"is_running": is_running,
+		}
+
+	def remove(self, name):
+		del self.services[name]
+
+	def start(self, name):
+		self.services[name]["is_running"] = True
+
+	def stop(self, name):
+		self.services[name]["is_running"] = False
+
+	def restart(self, name): self.start(name)
+
+	def reload(self, name): pass
+
+	def is_running(self, name):
+		return self.services[name]["is_running"]
+
+	def get_version(self, name):
+		return self.services[name]["version"]
+
 class FakeNode(Node):
 
-	def __init__(self, srvmanager = None):
-		super(FakeNode, self).__init__(srvmanager)
-		self.installed = []
+	def __init__(self, name):
+		super(FakeNode, self).__init__(name = name, srvmanager = FakeServiceManager())
 		self.terminated = False
+		self.installed = []
+		self.subnets = []
 
-	def _setup_interface(self, subnet): pass
+	def get_typename(self):
+		return "fake node"
 
-	def _cleanup_interface(self, subnet): pass
+	def get_subnets(self):
+		return self.subnets
+
+	def join(self, subnet):
+		assert not subnet in self.subnets
+		self.subnets.append(subnet)
+
+	def leave(self, subnet):
+		assert subnet in self.subnets
+		self.subnets.remove(subnet)
 
 	def run(self, *commands): pass
 
@@ -480,30 +567,36 @@ class FakeNode(Node):
 	def terminate(self):
 		self.terminated = True
 
-	def install(self, package):
+	def install(self, pkg):
 		assert not self.terminated
-		self.installed.append(package)
+		assert not self.is_installed(pkg), "%s: already installed" % pkg
+		self.installed.append(pkg)
 		return self
 
-	def uninstall(self, package):
+	def uninstall(self, pkg):
 		assert not self.terminated
-		self.installed.remove(package)
+		assert self.is_installed(pkg), "%s: not yet installed" % pkg
+		self.installed.remove(pkg)
 
-	def is_installed(self, package):
+	def is_installed(self, pkg):
 		assert not self.terminated
-		return package in self.installed
+		return pkg in self.installed
 
-	def is_installable(self, package):
+	def is_installable(self, pkg):
 		assert not self.terminated
 		return True
 
 class FakeGrid(Grid):
 
+	ref = 0
+
 	def _create_node(self, **opts):
-		return FakeNode()
+		node = FakeNode("transientnode%i" % FakeGrid.ref)
+		FakeGrid.ref += 1
+		return node
 
 def unzip(pairs):
-	"support function to split a list of pairs into two list with first and second elements"
+	"support function to split a list of pairs into two lists with first and second elements"
 	firsts = ()
 	seconds = ()
 	for x, y in pairs:
@@ -520,6 +613,14 @@ def unzip(pairs):
 ##############
 
 class SelfTest(unittest.TestCase):
+
+	def test_fake_node(self):
+		node = FakeNode(name = "node")
+		pkg = FakePackage(name = "pkg", version = "1.0")
+		node.install(pkg)
+		assert node.is_installed(pkg)
+		node.uninstall(pkg)
+		assert not node.is_installed(pkg)
 
 	def assertDeployment(self, packages, plan, session):
 		"""
@@ -552,16 +653,16 @@ class SelfTest(unittest.TestCase):
 
 	@staticmethod
 	def mkenv(nb_nodes, nb_packages):
-		nodes = tuple(FakeNode() for i in xrange(nb_nodes))
+		nodes = tuple(FakeNode("node%i" % i) for i in xrange(nb_nodes))
 		packages = tuple(FakePackage("pkg%i" % i, "1.0") for i in xrange(nb_packages))
-		grid = Grid(name = "test", nodes = nodes) # use a non-generative grid
-		session = Session(grid, Subnet("test"))
+		grid = Grid(name = "grid", nodes = nodes) # use a non-generative grid
+		session = Session(grid, Subnet("vlan14"))
 		return (nodes, packages, session)
 
 	def test_bijective_cycle(self):
 		"deploy and undeploy packages, where |nodes| = |packages|"
-		nodes, packages, session = self.mkenv(10, 10)
-		plan = session.deploy(*packages)
+		nodes, packages, session = self.mkenv(nb_nodes = 10, nb_packages = 10)
+		plan = session.deploy(packages)
 		self.assertDeployment(packages, plan, session)
 		# assert we cannot deploy again:
 		self.assertRaises(Exception, session.deploy, *packages)
@@ -571,9 +672,9 @@ class SelfTest(unittest.TestCase):
 
 	def test_injective_cycle(self):
 		"deploy and undeploy packages, where |nodes| > |packages|"
-		nodes, packages, session = self.mkenv(20, 10)
-		plan1 = session.deploy(*packages)
-		plan2 = session.deploy(*packages)
+		nodes, packages, session = self.mkenv(nb_nodes = 20, nb_packages = 10)
+		plan1 = session.deploy(packages)
+		plan2 = session.deploy(packages)
 		# assert the deployments are correct:
 		self.assertDeployment(packages, plan1, session)
 		self.assertDeployment(packages, plan2, session)
@@ -581,21 +682,21 @@ class SelfTest(unittest.TestCase):
 		session.close()
 		self.assertUndeployment(nodes, session)
 
-	def test_sujective_cycle(self):
+	def test_surjective_cycle(self):
 		"deploy and undeploy packages, where |nodes| < |packages|"
-		nodes, packages, session = self.mkenv(10, 20)
+		nodes, packages, session = self.mkenv(nb_nodes = 10, nb_packages = 20)
 		# assert deployment fails:
 		self.assertRaises(Exception, session.deploy, *packages)
-		# assert nodes are clean:
+		# assert everything is cleaned up:
 		self.assertUndeployment(nodes, session)
 
 	def test_node_creation(self):
 		"test deployment on a generative grid"
 		grid = FakeGrid(name = "test")
-		assert not grid.nodes
+		assert len(grid) == 0
 		foo = FakePackage("foo", "1.0")
 		bar = FakePackage("bar", "1.0")
 		# assert nodes are created:
-		grid.deploy(foo, bar)
+		grid.deploy(key = "test", packages = (foo, bar))
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

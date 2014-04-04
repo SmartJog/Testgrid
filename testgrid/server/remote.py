@@ -36,6 +36,9 @@ class Node(model.Node):
 	def __str__(self):
 		return self.host.hoststring
 
+	def type(self):
+		return "remote node"
+
 	def run(self, *commands):
 		res = shell.Success()
 		for cmd in commands:

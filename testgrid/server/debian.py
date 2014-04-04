@@ -42,9 +42,12 @@ class Node(model.Node):
 		super(Node, self).__init__(srvmanager = None)
 		self.hoststring = hoststring
 
-	def setup_interface(self, subnet): pass
+	def type(self):
+		return "debian node"
+
+	def _setup_interface(self, subnet): pass
 	
-	def cleanup_interface(self, subnet): pass
+	def _cleanup_interface(self, subnet): pass
 
 	def run(self, *commands):
 		res = shell.Success()
