@@ -172,7 +172,7 @@ class Subnet(object):
 		return any(subnet == self for subnet in node.subnets)
 
 class Node(object):
-	"a node is an interface to a physical or virtual machine"
+	"*abstract* interface to a object able to install packages and hosting services"
 
 	__metaclass__ = abc.ABCMeta
 
@@ -288,7 +288,7 @@ class Grid(object):
 
 	def _get_allocated_nodes(self):
 		"return the list of allocated nodes"
-		for key, plan in self.plans.items():
+		for _, plan in self.plans.items():
 			for _, node in plan:
 				yield node
 
@@ -340,28 +340,28 @@ class Grid(object):
 	def is_transient(self, node):
 		return hasattr(node, "is_transient") and getattr(node, "is_transient")
 
-	def allocate_node(self, key, sysname = None, pkg = None):
-		"fetch a single node and mark it as allocated in plan"
-		(self.logger)("%s: %s: allocating node (sysname=%s, pkg=%s)" % (self, key, sysname, pkg))
+	def allocate_node(self, name, sysname = None, pkg = None):
+		"fetch a single node and mark it as allocated in the named plan"
+		(self.logger)("%s: %s: allocating node (sysname=%s, pkg=%s)" % (self, name, sysname, pkg))
 		node = self._find_node(sysname = sysname, pkg = pkg)
-		self.plans[key] = self.plans.get(key, []) + ((None, node),)
+		self.plans[name] = self.plans.get(name, []) + [(None, node)]
 		return node
 
-	def release_node(self, key, node):
-		"release node from plan"
-		if key in self.plans:
-			if (None, node) in self.plans[key]:
-				(self.logger)("%s: releasing node %s" % (self, node))
+	def release_node(self, name, node):
+		"release node from the named plan"
+		if name in self.plans:
+			if (None, node) in self.plans[name]:
+				(self.logger)("%s: %s: releasing node %s" % (self, name, node))
 				try:
 					if node.is_transient:
 						node.terminate()
 				except:
 					self.quarantine_node(node)
-				self.plans[key].remove((None, node))
+				self.plans[name].remove((None, node))
 			else:
 				raise UnknownNodeError("%s" % node)
 		else:
-			raise UnknownPlanError("%s" % key)
+			raise UnknownPlanError("%s" % name)
 
 	def _get_deployment_plan(self, packages):
 		"""
@@ -386,31 +386,30 @@ class Grid(object):
 			except:
 				self.quarantine_node(node)
 
-	def undeploy(self, key):
-		"undo and unregister a deployment plan"
-		if key in self.plans:
-			self._undeploy_plan(self.plans[key])
-			del self.plans[key]
+	def undeploy(self, name):
+		"undo and unregister the named plan"
+		if name in self.plans:
+			self._undeploy_plan(self.plans[name])
+			del self.plans[name]
 		else:
-			raise UnknownPlanError("%s" % key)
+			raise UnknownPlanError("%s" % name)
 
-	def deploy(self, key, packages):
-		"get, apply, register and return deployment plan"
+	def deploy(self, name, packages):
+		"get, apply, register and return a named plan"
 		plan = self._get_deployment_plan(packages)
 		done = []
 		try:
 			for pkg, node in plan:
 				node.install(pkg)
 				done.append((pkg, node))
-			self.plans[key] = self.plans.get(key, []) + plan
+			self.plans[name] = self.plans.get(name, []) + plan
 			return plan
 		except:
 			self._undeploy_plan(done)
 			raise
 
-	def get_plan_keys(self):
-		for key in self.plans:
-			yield key
+	def get_plan_names(self):
+		return self.plans.keys()
 
 class UnknownGridError(Exception): pass
 
@@ -434,8 +433,10 @@ class Grids(Grid):
 		else:
 			raise UnknownGridError("%s" % grid)
 
+class UnknownSessionError(Exception): pass
+
 class Session(object):
-	"transient session"
+	"a session links a user to a deployment plan which nodes are isolated in a subnet"
 
 	def __init__(self, grid, name = None, subnet = None):
 		self.grid = grid
@@ -452,14 +453,14 @@ class Session(object):
 	def __str__(self): return self.name
 
 	def exists(self):
-		return self.name in self.grid.get_plan_keys()
+		return self.name in self.grid.get_plan_names()
 
 	def __del__(self):
-		if self.is_anonymous:
+		if self.exists() and self.is_anonymous:
 			self.close()
 
 	def allocate_node(self, sysname = None, pkg = None):
-		node = self.grid.allocate_node(key = self.name, sysname = sysname, pkg = pkg)
+		node = self.grid.allocate_node(name = self.name, sysname = sysname, pkg = pkg)
 		if self.subnet:
 			node.join(self.subnet) # isolate node in a subnet if possible
 		return node
@@ -467,27 +468,29 @@ class Session(object):
 	def release_node(self, node):
 		if self.subnet:
 			node.leave(self.subnet)
-		self.grid.release_node(key = self.name, node = node)
+		self.grid.release_node(name = self.name, node = node)
 
-	def list_nodes(self):
+	def get_nodes(self):
 		"list session nodes"
 		if self.name in self.grid.plans:
-			return tuple(node for pkg, node in self.grid.plans[self.name])
+			return tuple(node for _, node in self.grid.plans[self.name])
 		else:
 			raise UnknowSessionError("%s" % self)
 
 	def deploy(self, packages):
-		plan = self.grid.deploy(key = self.name, packages = packages)
-		for pkg, node in plan:
-			node.join(self.subnet)
+		plan = self.grid.deploy(name = self.name, packages = packages)
+		if self.subnet:
+			for pkg, node in plan:
+				node.join(self.subnet)
 		return plan
 
 	def undeploy(self):
 		if self.name in self.grid.plans:
-			plan = self.grid.plans[self.name]
-			for pkg, node in plan:
-				node.leave(self.subnet)
-			self.grid.undeploy(key = self.name)
+			if self.subnet:
+				plan = self.grid.plans[self.name]
+				for _, node in plan:
+					node.leave(self.subnet)
+			self.grid.undeploy(name = self.name)
 		else:
 			raise UnknownSessionError("%s" % self)
 
@@ -571,11 +574,14 @@ class FakeNode(Node):
 		assert not self.terminated
 		assert not self.is_installed(pkg), "%s: already installed" % pkg
 		self.installed.append(pkg)
+		# WARNING: all packages are considered to be services
+		self.service.add(name = pkg.name, version = pkg.version, is_running = True)
 		return self
 
 	def uninstall(self, pkg):
 		assert not self.terminated
 		assert self.is_installed(pkg), "%s: not yet installed" % pkg
+		self.service.remove(name = pkg.name)
 		self.installed.remove(pkg)
 
 	def is_installed(self, pkg):
@@ -697,6 +703,6 @@ class SelfTest(unittest.TestCase):
 		foo = FakePackage("foo", "1.0")
 		bar = FakePackage("bar", "1.0")
 		# assert nodes are created:
-		grid.deploy(key = "test", packages = (foo, bar))
+		grid.deploy(name = "test", packages = (foo, bar))
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

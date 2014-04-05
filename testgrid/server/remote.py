@@ -1,6 +1,6 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-import service, shell, model
+import unittest, service, shell, model
 
 class ServiceManager(model.ServiceManager):
 
@@ -27,17 +27,29 @@ class ServiceManager(model.ServiceManager):
 
 class Node(model.Node):
 
-	def __init__(self, hoststring):
+	def __init__(self, name, hoststring):
 		host = service.Host(hoststring = hoststring)
 		srvmanager = ServiceManager(host = host)
-		super(Node, self).__init__(srvmanager = srvmanager)
+		super(Node, self).__init__(name = name, srvmanager = srvmanager)
 		self.host = host
 
 	def __str__(self):
 		return self.host.hoststring
 
-	def type(self):
+	def get_typename(self):
 		return "remote node"
+
+	def join(self, subnet):
+		raise NotImplementedError("remote.Node.join")
+
+	def leave(self, subnet):
+		raise NotImplementedError("remote.Node.leave")
+
+	def get_subnets(self):
+		raise NotImplementedError("remote.Node.get_subnets")
+
+	def terminate(self):
+		raise NotImplementedError("remote.Node.terminate")
 
 	def run(self, *commands):
 		res = shell.Success()
@@ -45,14 +57,16 @@ class Node(model.Node):
 			res += self.host(cmd.cmdline, warn_only = cmd.warn_only)
 		return res
 
-	def _setup_interface(self, subnet):
-		raise NotImplementedError("remote.Node._setup_interface")
-
-	def _cleanup_interface(self, subnet):
-		raise NotImplementedError("remote.Node._cleanup_interface")
-
 	def log(self, tag, msg):
 		return self.host("logger -t '%s' '%s'" % (tag, msg))
 
-	def terminate(self):
-		raise NotImplementedError("remote.Node.terminate")
+##############
+# unit tests #
+##############
+
+class SelfTest(unittest.TestCase):
+
+	def test(self):
+		node = Node("test", "root@test")
+
+if __name__ == "__main__": unittest.main(verbosity = 2)

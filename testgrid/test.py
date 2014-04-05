@@ -2,16 +2,16 @@
 
 import unittest, testgrid
 
-class FakeTest(unittest.TestCase):
+class LocalTest(unittest.TestCase):
 	"base test class, to be derived by changing the client module"
 
-	cls = testgrid.client.fake.Client
+	cls = testgrid.client.local.Client
 
 	def setUp(self):
 		self.client = (self.cls)()
 
 	def test_simple_debian_package(self):
-		session = self.client.create_session()
+		session = self.client.open_session()
 		fleche = testgrid.server.debian.Package("fleche", version = "16.5-1")
 		node = session.allocate_node(sysname = "wheezy64") # FIXME sysname!!!
 		if node.is_installed(fleche):
@@ -22,11 +22,7 @@ class FakeTest(unittest.TestCase):
 		self.assertTrue(node.service.fleche.is_running(), "fleche is not running on %s" % node)
 		node.uninstall(fleche)
 
-class LocalTest(FakeTest):
-
-	cls = testgrid.client.local.Client
-
-class RestTest(FakeTest):
+class RestTest(LocalTest):
 
 	cls = testgrid.client.rest.Client
 
