@@ -1,8 +1,10 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-import unittest, service, shell, model
+import unittest
 
-class ServiceManager(model.ServiceManager):
+import testgrid
+
+class ServiceManager(testgrid.model.ServiceManager):
 
 	def __init__(self, host):
 		self.host = host
@@ -25,10 +27,10 @@ class ServiceManager(model.ServiceManager):
 	def is_running(self, name):
 		return bool(self.host.running(name, warn_only = True))
 
-class Node(model.Node):
+class Node(testgrid.model.Node):
 
 	def __init__(self, name, hoststring):
-		host = service.Host(hoststring = hoststring)
+		host = testgrid.service.Host(hoststring = hoststring)
 		srvmanager = ServiceManager(host = host)
 		super(Node, self).__init__(name = name, srvmanager = srvmanager)
 		self.host = host
@@ -52,7 +54,7 @@ class Node(model.Node):
 		raise NotImplementedError("remote.Node.terminate")
 
 	def run(self, *commands):
-		res = shell.Success()
+		res = testgrid.shell.Success()
 		for cmd in commands:
 			res += self.host(cmd.cmdline, warn_only = cmd.warn_only)
 		return res

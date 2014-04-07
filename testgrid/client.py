@@ -2,7 +2,7 @@
 
 import unittest, getpass
 
-import model
+import testgrid
 
 class Client(object):
 
@@ -63,7 +63,7 @@ class Client(object):
 class FakeClient(Client):
 
 	def __init__(self):
-		grid = model.FakeGrid(name = "grid")
+		grid = testgrid.model.FakeGrid(name = "grid")
 		super(FakeClient, self).__init__(grid = grid)
 
 	def open_session(self):

@@ -4,30 +4,30 @@
 
 import unittest
 
-import remote, tgparser, client
+import testgrid
 
 ############################################
 # concrete types availables for the parser #
 ############################################
 
-class RemoteNode(remote.Node): pass
+class RemoteNode(testgrid.remote.Node): pass
 
 ##########
 # client #
 ##########
 
-class Client(client.Client):
+class Client(testgrid.client.Client):
 	"handle transient sessions only"
 
 	def __init__(self, username = None, name = "grid", ini = "~/grid.ini"):
-		grid = tgparser.parse_grid(name, ini, __name__)
+		grid = testgrid.tgparser.parse_grid(name, ini, __name__)
 		super(Client, self).__init__(grid = grid, username = username)
 
 ##############
 # unit tests #
 ##############
 
-class SelfTest(client.SelfTest):
+class SelfTest(testgrid.client.SelfTest):
 
 	cls = Client
 

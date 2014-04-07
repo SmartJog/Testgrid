@@ -16,20 +16,20 @@ See utils.get_class.__doc__ for type naming specification.
 Node Sections
 -------------
 [name]
-type = name # target class derived from model.Node
+type = name # target class derived from testgrid.model.Node
 extra args...
 
 Gird sections
 -------------
 [name]
-type = name # target class derived from model.Grid
+type = name # target class derived from testgrid.model.Grid
 nodes = ...
 extra args...
 """
 
 import ConfigParser, tempfile, textwrap, unittest, inspect, os, re
 
-import model
+import testgrid
 
 def get_subclasses(cls, *modules):
 	"return all subclasses of $cls in specified $modules"
@@ -102,12 +102,12 @@ class Parser(object):
 		return (cls)(*varargs, **kwargs)
 
 	def _parse_node(self, section):
-		cls = model.Node
+		cls = testgrid.model.Node
 		kwargs = {"name": section}
 		for key, value in self.conf.items(section):
 			if key == "type":
 				try:
-					cls = get_subclass(value, model.Node, *self.modules)
+					cls = get_subclass(value, testgrid.model.Node, *self.modules)
 				except Exception as e:
 					raise Exception("%s: invalid node type\n%s" % (value, repr(e)))
 			else:
@@ -115,13 +115,13 @@ class Parser(object):
 		return self._mkobj(cls, **kwargs)
 
 	def _parse_grid(self, section):
-		cls = model.Grid
+		cls = testgrid.model.Grid
 		kwargs = {"name": section}
 		for key, value in self.conf.items(section):
 			if key == "type":
 				if value == "grid": continue
 				try:
-					cls = get_subclass(value, model.Grid, *self.modules)
+					cls = get_subclass(value, testgrid.model.Grid, *self.modules)
 				except Exception as e:
 					raise Exception("%s: invalid grid type\n%s" % (value, repr(e)))
 			elif key.endswith("nodes"):
@@ -174,16 +174,16 @@ class SelfTest(unittest.TestCase):
 		self.assertRaises(Exception, parse_grid, "foo", f.name)
 
 	def test_basic_grid(self):
-		"assert parse_grid returns a model.Grid if type is grid"
+		"assert parse_grid returns a testgrid.model.Grid if type is grid"
 		f = self.get_file("""
 			[foo]
 			type = grid
 		""")
 		grid = parse_grid("foo", f.name)
-		self.assertIs(type(grid), model.Grid)
+		self.assertIs(type(grid), testgrid.model.Grid)
 
 	def test_basic_grid_with_fake_nodes(self):
-		"assert parse_grid returns a model.Grid instantiated with FakeNode nodes"
+		"assert parse_grid returns a testgrid.model.Grid instantiated with FakeNode nodes"
 		f = self.get_file("""
 			[node1]
 			type = fake node
@@ -199,14 +199,14 @@ class SelfTest(unittest.TestCase):
 			nodes = node1 node2 node3
 		""")
 		grid = parse_grid("bar", f.name)
-		self.assertIs(type(grid), model.Grid)
+		self.assertIs(type(grid), testgrid.model.Grid)
 		self.assertIs(len(grid.nodes), 3)
 		for node in grid.nodes:
-			self.assertIs(type(node), model.FakeNode)
+			self.assertIs(type(node), testgrid.model.FakeNode)
 
 	def test_custom_grid(self):
 		"assert parse_grid returns an AnotherFakeGrid if type is testbox grid"
-		CustomGrid = type("CustomGrid", (model.Grid,), {})
+		CustomGrid = type("CustomGrid", (testgrid.model.Grid,), {})
 		f = self.get_file("""
 			[foo]
 			type = custom grid
@@ -225,7 +225,7 @@ class SelfTest(unittest.TestCase):
 
 	def test_required_argument(self):
 		def init(self, name, arg, nodes = None, subnets = None, sessions = None): pass
-		type("GridWithArg", (model.Grid,), {
+		type("GridWithArg", (testgrid.model.Grid,), {
 			"__init__": init,
 		})
 		"assert parse_grid raises a MissingArgumentError on any missing required argument"

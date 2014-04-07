@@ -2,18 +2,20 @@
 
 "functional tests"
 
-import unittest, debian, client, local, rest
+import unittest
+
+import testgrid
 
 class FakeTest(unittest.TestCase):
 
-	cls = client.FakeClient
+	cls = testgrid.client.FakeClient
 
 	def setUp(self):
 		self.client = (self.cls)()
 
 	def test_simple_debian_package(self):
 		session = self.client.open_session()
-		fleche = debian.Package("fleche", version = "16.5-1")
+		fleche = testgrid.debian.Package("fleche", version = "16.5-1")
 		node = session.allocate_node(sysname = "wheezy64") # FIXME sysname!!!
 		if node.is_installed(fleche):
 			node.uninstall(fleche)
@@ -25,10 +27,10 @@ class FakeTest(unittest.TestCase):
 
 class LocalTest(FakeTest):
 
-	cls = local.Client
+	cls = testgrid.local.Client
 
 class RestTest(FakeTest):
 
-	cls = rest.Client
+	cls = testgrid.rest.Client
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
