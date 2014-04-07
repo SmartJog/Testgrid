@@ -1,4 +1,4 @@
-# copyright (c) 2014 arkena, released under the GPL license.
+# copyright (c) 2014 smartjog, released under the GPL license.
 
 """
 Testgrid command-line utility.
@@ -64,17 +64,17 @@ __version__ = "0.1"
 
 import docopt, sys
 
-import strfmt, testgrid
+import strfmt, local, rest
 
 def grid_list_nodes(client):
 	text = "node:type:status\n----:----:------\n"
 	for node in client.get_nodes():
 		if client.is_available(node):
-			text += "%s:%s:%s\n" % (node, node.typename, strfmt.green("available"))
+			text += "%s:%s:%s\n" % (node, node.get_typename(), strfmt.green("available"))
 		elif client.is_allocated(node):
-			text += "%s:%s:%s\n" % (node, node.typename, strfmt.blue("allocated"))
+			text += "%s:%s:%s\n" % (node, node.get_typename(), strfmt.blue("allocated"))
 		elif client.is_quarantined(node):
-			text += "%s:%s:%s\n" % (node, node.typename, strfmt.red("quarantined"))
+			text += "%s:%s:%s\n" % (node, node.get_typename(), strfmt.red("quarantined"))
 	print strfmt.strcolalign(text)
 
 def grid_list_sessions(client):
@@ -84,11 +84,11 @@ def main():
 	try:
 		args = docopt.docopt(__doc__, version = __version__)
 		if args["--local"]:
-			client = testgrid.client.local.Client(
+			client = local.Client(
 				name = args["--grid"],
 				ini = args["--manifest"])
 		else:
-			client = testgrid.client.rest.Client(args["--controller"])
+			client = rest.Client(args["--controller"])
 		if args["--session"]:
 			raise NotImplementedError()
 		elif args["--node"]:

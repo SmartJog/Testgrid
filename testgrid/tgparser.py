@@ -87,16 +87,19 @@ class Parser(object):
 				raise ConfigurationError("%s: invalid manifest\n%s" % (item, e))
 
 	@staticmethod
-	def _mkobj(cls, *args, **kwargs):
-		xargs, varargs, keywords, defaults = inspect.getargspec(cls.__init__)
-		for arg in xargs[1:]: # skip self
-			if not arg in kwargs and (not defaults or len(defaults) < xargs.index(arg)):
+	def _mkobj(cls, *varargs, **kwargs):
+		args, _varargs, _kwargs, defaults = inspect.getargspec(cls.__init__)
+		# check all required args are present:
+		required = args[1:-len(defaults or ())] # skip "self"
+		for arg in required:
+			if not arg in kwargs and required.index(arg) >= len(varargs):
 				raise MissingArgumentError("%s: missing argument" % arg)
-		if not keywords:
+		# check optional args are allowed:
+		if not _kwargs:
 			for arg in kwargs:
-				if not arg in xargs:
+				if not arg in args:
 					raise ExtraArgumentError("%s: extra argument" % arg)
-		return (cls)(*args, **kwargs)
+		return (cls)(*varargs, **kwargs)
 
 	def _parse_node(self, section):
 		cls = model.Node
@@ -175,7 +178,6 @@ class SelfTest(unittest.TestCase):
 		f = self.get_file("""
 			[foo]
 			type = grid
-			logger =
 		""")
 		grid = parse_grid("foo", f.name)
 		self.assertIs(type(grid), model.Grid)
@@ -194,7 +196,6 @@ class SelfTest(unittest.TestCase):
 			
 			[bar]
 			type = grid
-			logger =
 			nodes = node1 node2 node3
 		""")
 		grid = parse_grid("bar", f.name)
@@ -209,7 +210,6 @@ class SelfTest(unittest.TestCase):
 		f = self.get_file("""
 			[foo]
 			type = custom grid
-			logger =
 		""")
 		grid = parse_grid("foo", f.name)
 		self.assertIs(type(grid), CustomGrid)
@@ -219,14 +219,12 @@ class SelfTest(unittest.TestCase):
 		f = self.get_file("""
 			[foo]
 			type = grid
-			logger =
 			bad_arg = bad_arg
 		""")
 		self.assertRaises(ExtraArgumentError, parse_grid, "foo", f.name)
 
 	def test_required_argument(self):
-		def init(self, arg, *nodes):
-			super(model.Grid, self).__init__(*nodes)
+		def init(self, name, arg, nodes = None, subnets = None, sessions = None): pass
 		type("GridWithArg", (model.Grid,), {
 			"__init__": init,
 		})
@@ -234,7 +232,6 @@ class SelfTest(unittest.TestCase):
 		f = self.get_file("""
 			[foo]
 			type = grid with arg
-			logger =
 		""")
 		self.assertRaises(MissingArgumentError, parse_grid, "foo", f.name)
 

@@ -1,18 +1,19 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-import unittest, testgrid
+"functional tests"
 
-class LocalTest(unittest.TestCase):
-	"base test class, to be derived by changing the client module"
+import unittest, debian, client, local, rest
 
-	cls = testgrid.client.local.Client
+class FakeTest(unittest.TestCase):
+
+	cls = client.FakeClient
 
 	def setUp(self):
 		self.client = (self.cls)()
 
 	def test_simple_debian_package(self):
 		session = self.client.open_session()
-		fleche = testgrid.server.debian.Package("fleche", version = "16.5-1")
+		fleche = debian.Package("fleche", version = "16.5-1")
 		node = session.allocate_node(sysname = "wheezy64") # FIXME sysname!!!
 		if node.is_installed(fleche):
 			node.uninstall(fleche)
@@ -22,8 +23,12 @@ class LocalTest(unittest.TestCase):
 		self.assertTrue(node.service.fleche.is_running(), "fleche is not running on %s" % node)
 		node.uninstall(fleche)
 
-class RestTest(LocalTest):
+class LocalTest(FakeTest):
 
-	cls = testgrid.client.rest.Client
+	cls = local.Client
+
+class RestTest(FakeTest):
+
+	cls = rest.Client
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

@@ -1,14 +1,10 @@
-# copyright (c) 2014 arkena, released under the GPL license.
+# copyright (c) 2014 smartjog, released under the GPL license.
 
 "https://confluence.arkena.net/display/QA/Portable+Test+Boxes"
 
-import unittest
-import pipes
-import os
+import unittest, pipes, os
 
-import debian
-import model
-import shell
+import debian, model, shell
 
 class Node(model.Node):
 	"preconfigured wheezy64 box"
@@ -58,5 +54,3 @@ class Grid(model.Grid):
 		#self.bridge = bridge
 
 	create_node = lambda self, sysname = None, pkg = None: Node(entry_path=self.entry_path)
-
-
