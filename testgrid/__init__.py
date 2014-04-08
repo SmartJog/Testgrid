@@ -12,6 +12,8 @@ import debian
 import remote
 import client
 import vgadapter
+import database
+import persistent
 
 ###########
 # clients #
