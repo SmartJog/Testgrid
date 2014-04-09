@@ -123,4 +123,7 @@ class SelfTest(unittest.TestCase):
 	    pg.add_node(node)
 	    session = pg.open_session("persistent", "test")
 	    allocated_node = session.allocate_node()
+	    allocated_node_sec = session.allocate_node()
+	    print allocated_node_sec
+
 if __name__  == "__main__": unittest.main(verbosity = 2)

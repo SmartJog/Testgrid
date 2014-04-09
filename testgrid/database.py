@@ -171,10 +171,15 @@ class Database(object):
           self.db.execute(sqlrequest.GET_PLANS.format(session.id))
           res = self.db.fetchall()
           for indexnode, pname, pversion, ptype in res:
-               nodetype = self.db.execute(sqlrequest.GET_NODE_TYPE.format(indexnode))
-               pcls = tgparser.get_subclass(ptype, model.Package)
-               package = pcls(pname, pversion)
-               node = self.create_node(indexnode, typename in nodetype)
+               self.db.execute(sqlrequest.GET_NODE_TYPE.format(indexnode))
+               nodetype = self.db.fetchone()
+               print ptype
+               if ptype != "None":
+                    pcls = tgparser.get_subclass(ptype, model.Package)
+                    package = pcls(pname, pversion)
+               else:
+                    package = None
+               node = self.create_node(indexnode, nodetype[0])
                print node
                plan.append((package, node))
           return plan

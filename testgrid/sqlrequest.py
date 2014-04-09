@@ -37,6 +37,8 @@ DELETE_PLAN = "DELETE FROM Plans where session_id = '{0}' and node_id = '{1}'"
 
 GET_PLANS = "SELECT node_id, namepackage, versionpackage, packagetype From Plans where session_id = '{0}'"
 
+
+
 NODE_LIST_INDEX = "SELECT id from Node"
 
 NODE_HOSTNAME = "SELECT hostname from Node  where id = '{0}'"
