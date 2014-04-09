@@ -7,6 +7,9 @@ DELETE_NODE = "DELETE FROM Nodes where id = '{0}'"
 
 GET_NODES = "SELECT id, classname from Nodes"
 
+GET_NODE_TYPE = "SELECT classname from Nodes where id = '{0}'"
+
+
 #NodesAttributes
 
 ADD_NODE_ATTRIBUTES = "INSERT INTO NodesAttributes(key, value, node_id) VALUES('{0}', '{1}', '{2}')" 
@@ -17,7 +20,22 @@ DELETE_NODE_ATTRIBUTES = "DELETE FROM NodesAttributes where node_id = '{0}'"
 
 UPDATE_NODE_ATTRIBUTES = "UPDATE NodesAttributes SET value = '{0}' where node_id = '{1}' and key = '{2}'"
 
+NODE_HAS_ATTRIBUTE = "SELECT FROM NodesAttributes where node_id = '{0}' and key = {1}''"
+#Sessions
 
+ADD_SESSION = "INSERT INTO Sessions(username, name) VALUES('{0}', '{1}')"
+
+CLOSE_SESSION = "DELETE FROM Sessions where id = '{0}'"
+
+GET_SESSIONS = "SELECT id, username, name from Sessions"
+
+#Plans
+
+ADD_PLAN = "INSERT INTO Plans(session_id, node_id, namepackage, versionpackage, packagetype) VALUES('{0}', '{1}', '{2}', '{3}', '{4}')"
+
+DELETE_PLAN = "DELETE FROM Plans where session_id = '{0}' and node_id = '{1}'"
+
+GET_PLANS = "SELECT node_id, namepackage, versionpackage, packagetype From Plans where session_id = '{0}'"
 
 NODE_LIST_INDEX = "SELECT id from Node"
 
@@ -40,10 +58,10 @@ SET_UNSED_NODE = "UPDATE Node  SET isAvailable = 1 WHERE id = '{0}'"
 SET_USED_NODE = "UPDATE Node  SET isAvailable = 0 WHERE id = '{0}'"
 NODE_OPERATING_SYSTEM = "SELECT operatingsystem from Node  where id = '{0}'"
 
-#Session
+
 SESSION_EXIST = "SELECT id FROM Session Where login = '{0}'"
 
-ADD_SESSION = "INSERT INTO Session(login) VALUES('{0}')"
+
 
 DELETE_SESSION = "DELETE FROM Session where login = '{0}'"
 
