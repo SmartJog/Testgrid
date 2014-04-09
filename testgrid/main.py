@@ -4,41 +4,47 @@
 Testgrid command-line utility.
 
 Usage:
-  tg [-m INI] [-l|-c HOST] [-g KEY] --list-nodes
-  tg [-m INI] [-l|-c HOST] [-g KEY] --add-node KEY --type NAME
-  tg [-m INI] [-l|-c HOST] [-g KEY] --remove-node KEY
-  tg [-m INI] [-l|-c HOST] [-g KEY] --repair-node KEY
-  tg [-m INI] [-l|-c HOST] [-g KEY] [--session KEY] --node KEY --install PKG --type NAME
-  tg [-m INI] [-l|-c HOST] [-g KEY] [--session KEY] --node KEY --uninstall PKG
-  tg [-m INI] [-l|-c HOST] [-g KEY] [--session KEY] --node KEY --execute ARGV...
-  tg [-m INI] [-l|-c HOST] [-g KEY] --list-sessions
-  tg [-m INI] [-l|-c HOST] [-g KEY] --open-session KEY
-  tg [-m INI] [-l|-c HOST] [-g KEY] --close-session KEY
-  tg [-m INI] [-l|-c HOST] [-g KEY] --session KEY --list-nodes
-  tg [-m INI] [-l|-c HOST] [-g KEY] --session KEY --allocate-node KEY --type NAME
-  tg [-m INI] [-l|-c HOST] [-g KEY] --session KEY --release-node KEY
-  tg [-m INI] [-l|-c HOST] [-g KEY] --session KEY --deploy PKG --type NAME
-  tg [-m INI] [-l|-c HOST] [-g KEY] --session KEY --undeploy PKG
+  tg [-m INI] [-l|-c HOST] [-g NAME] --list-nodes
+  tg [-m INI] [-l|-c HOST] [-g NAME] --add-node NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] --remove-node NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] --repair-node NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --ping
+  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --install NAME --type NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --uninstall NAME  --type NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --is-installed NAME  --type NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --is-installable NAME  --type NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --execute [--] ARGV...
+  tg [-m INI] [-l|-c HOST] [-g NAME] --list-sessions
+  tg [-m INI] [-l|-c HOST] [-g NAME] --open-session NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] --close-session NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --list-nodes
+  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --allocate-node NAME --type NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --release-node NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --deploy PKG --type NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --undeploy PKG
   tg --version
   tg --help
 
 Options:
-  -g KEY, --grid KEY          set grid section key in the manifest [default: grid]
-  -n KEY, --node KEY          set node key
-  -s KEY, --session KEY       set session key
+  -g NAME, --grid NAME        set grid section NAME in the manifest [default: grid]
+  -n NAME, --node NAME        set node NAME
+  -s NAME, --session NAME     set session NAME
   --list-nodes                list nodes in selected container
-  --add-node KEY              ...
-  --remove-node KEY           ...
-  --repair-node KEY           rehabilitate a quarantined node
-  --install PKG               ...
+  --add-node NAME             add node parsed from manifest
+  --remove-node NAME          ...
+  --repair-node NAME          rehabilitate a quarantined node
+  --ping                      ...
+  --install NAME              ...
   --type NAME                 specify an object type
-  --uninstall PKG             ...
-  --execute                   ...
+  --uninstall NAME            ...
+  --is-installed NAME         ...
+  --is-installable NAME       ...
+  -e, --execute               ...
   --list-sessions             ...
-  --open-session KEY          ...
-  --close-session KEY         ...
-  --allocate-node KEY         ...
-  --release-node KEY          ...
+  --open-session NAME         ...
+  --close-session NAME        ...
+  --allocate-node NAME        ...
+  --release-node NAME         ...
   --deploy PKG                ...
   --undeploy PKG              ...
   -m INI, --manifest INI      comma-separated list of .ini filepaths or URIs [default: ~/grid.ini]
@@ -64,21 +70,44 @@ __version__ = "0.1"
 
 import docopt, sys
 
-import strfmt, local, rest
+import threading, strfmt, local, rest
 
 def grid_list_nodes(client):
-	text = "node:type:status\n----:----:------\n"
+	rows = [
+		("name", "type", "status", "allocation"),
+		("----", "----", "------", "----------"),
+	]
+	pool = []
 	for node in client.get_nodes():
+		def get_is_up(node = node):
+			node._is_up = node.is_up()
+		t = threading.Thread(target = get_is_up)
+		t.daemon = True
+		t.start()
+		pool.append(t)
+	for t in pool:
+		t.join()
+	for node in client.get_nodes():
+		row = [
+			"%s" % node,
+			node.get_typename(),
+			strfmt.Green("up") if node._is_up else strfmt.Gray("unreachable")]
 		if client.is_available(node):
-			text += "%s:%s:%s\n" % (node, node.get_typename(), strfmt.green("available"))
+			row.append(strfmt.Green("available"))
 		elif client.is_allocated(node):
-			text += "%s:%s:%s\n" % (node, node.get_typename(), strfmt.blue("allocated"))
+			row.append(strfmt.Blue("allocated"))
 		elif client.is_quarantined(node):
-			text += "%s:%s:%s\n" % (node, node.get_typename(), strfmt.red("quarantined"))
-	print strfmt.strcolalign(text)
+			row.append(strfmt.Red("quarantined"))
+		rows.append(row)
+	print strfmt.strcolalign(rows)
 
-def grid_list_sessions(client):
-	raise NotImplementedError()
+def print_res(res):
+	code, stdout, stderr = res
+	if stderr:
+		sys.stderr.write("%s\n" % strfmt.Gray(stderr))
+	if stdout:
+		sys.stdout.write("%s\n" % stdout)
+	sys.exit(code)
 
 def main():
 	try:
@@ -89,36 +118,59 @@ def main():
 				ini = args["--manifest"])
 		else:
 			client = rest.Client(args["--controller"])
-		if args["--session"]:
-			raise NotImplementedError()
-		elif args["--node"]:
+		# --- node-level operation ---
+		if args["--node"]:
 			if args["--session"]:
 				node = client.get_session(args["--session"]).get_node(args["--node"])
 			else:
 				node = client.get_node(args["--node"])
-			if args["--install"]:
-				node.install(name = args["--install"], type = args["--type"])
+			if args["--ping"]:
+				sys.exit(0 if node.is_up() else 1)
+			elif args["--install"]:
+				pkg = client.get_package(
+					typename = args["--type"],
+					name = args["--install"])
+				print_res(node.install(pkg))
 			elif args["--uninstall"]:
-				node.uninstall(name = args["--uninstall"])
+				pkg = client.get_package(
+					typename = args["--type"],
+					name = args["--uninstall"])
+				print_res(node.uninstall(pkg))
+			elif args["--is-installed"]:
+				pkg = client.get_package(
+					typename = args["--type"],
+					name = args["--is-installed"])
+				sys.exit(0 if node.is_installed(pkg) else 1)
+			elif args["--is-installable"]:
+				pkg = client.get_package(
+					typename = args["--type"],
+					name = args["--is-installable"])
+				sys.exit(0 if node.is_installable(pkg) else 1)
+			elif args["--execute"]:
+				print_res(node.execute(" ".join(args["ARGV"])))
+		# --- session-level operation ---
+		elif args["--session"]:
+			raise NotImplementedError()
+		# --- grid-level operation ---
 		else:
-			# work on grid...
 			if args["--list-nodes"]:
 				grid_list_nodes(client)
 			elif args["--add-node"]:
-				client.add_node(key = args["--add-node"], type = args["--type"])
+				client.add_node(name = args["--add-node"], typename = args["--type"])
 			elif args["--remove-node"]:
-				client.remove_node(key = args["--remove-node"])
+				client.remove_node(NAME = args["--remove-node"])
 			elif args["--repair-node"]:
-				client.repair_node(client, key = args["--repair-node"])
+				client.repair_node(client, NAME = args["--repair-node"])
 			elif args["--list-sessions"]:
-				grid_list_sessions(client)
+				print client.get_sessions()
 			elif args["--open-session"]:
 				client.open_session(args["--open-session"])
 			elif args["--close-session"]:
 				client.close_session(args["--close-session"])
 		return 0
 	except Exception as e:
-		sys.stderr.write(strfmt.gray("%s: %s\n" % (type(e).__name__, e)))
+		raise
+		sys.stderr.write(strfmt.Gray("%s: %s\n" % (type(e).__name__, e)))
 		return 1
 
 if __name__ == "__main__": sys.exit(main())

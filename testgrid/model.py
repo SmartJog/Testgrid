@@ -2,21 +2,42 @@
 
 "service for creating on-demand, isolated, programmable test environments"
 
-__version__ = "20140407"
+__version__ = "20140407-2"
 
-import unittest, getpass, logging, time, abc
+import\
+	ansible.inventory, ansible.runner, subprocess,\
+	unittest, weakref, getpass, time, abc
 
-class Command(object):
+class UnreachableHostError(Exception): pass
 
-	def __init__(self, cmdline, warn_only = False):
-		self.warn_only = warn_only
-		self.cmdline = cmdline
+class OperationError(Exception): pass
 
-	def __repr__(self):
-		return "%s(%s)" % (type(self).__name__, self.cmdline)
+def ansible_run(hoststring, modname, modargs, sudo = False):
+	res = ansible.runner.Runner(
+		inventory = ansible.inventory.Inventory("%s," % hoststring),
+		module_name = modname,
+		module_args = modargs,
+		sudo = sudo,
+		forks = 0,
+	).run()
+	if not hoststring in res["contacted"]:
+		raise UnreachableHostError("%s: unreachable" % hoststring)
+	res = res["contacted"][hoststring]
+	if "failed" in res:
+		raise OperationError("%s: module %s: %s" % (hoststring, modname, res["msg"]))
+	return res
 
-	def __str__(self):
-		return self.cmdline
+def local_run(argv, warn_only = False):
+	sp = subprocess.Popen(
+		args = argv,
+		shell = isinstance(argv, str), # use shell if $argv is a string
+		stdout = subprocess.PIPE,
+		stderr = subprocess.PIPE)
+	stdout, stderr = sp.communicate()
+	code = sp.returncode
+	if code and not warn_only:
+		raise OperationError("%s: command (%i): %s" % (argv, code, stderr.strip()))
+	return (code, stdout, stderr)
 
 class Package(object):
 
@@ -26,14 +47,11 @@ class Package(object):
 		self.name = name
 		self.version = version
 
-	def __repr__(self):
-		return "%s(%s-%s)" % (
-			type(self).__name__,
-			self.name,
-			self.version or "last")
-
 	def __str__(self):
-		return "%s-%s" % (self.name, self.version or "last")
+		return "%s%s" % (self.name, ("-%s" % self.version) if self.version else "")
+
+	def __repr__(self):
+		return "%s(%s)" % (type(self).__name__, self)
 
 	def __eq__(self, other):
 		return self.name == other.name and self.version == other.version
@@ -42,110 +60,69 @@ class Package(object):
 		return not (self == other)
 
 	@abc.abstractmethod
-	def get_install_commands(self):
+	def install(self, node):
+		"install package on $node, raise exception on error"
 		raise NotImplementedError()
 
 	@abc.abstractmethod
-	def get_uninstall_commands(self):
+	def uninstall(self, node):
+		"uninstall package from $node, raise exception on error"
 		raise NotImplementedError()
 
 	@abc.abstractmethod
-	def get_is_installed_commands(self):
+	def is_installed(self, node):
+		"return True if the package is installed on $node, False otherwise"
 		raise NotImplementedError()
 
 	@abc.abstractmethod
-	def get_is_installable_commands(self):
+	def is_installable(self, node):
+		"return True if the package is installable on $node, False otherwise"
 		raise NotImplementedError()
-
-class Packages(Package):
-	"set of packages"
-
-	def __init__(self, name, version, packages = None):
-		super(Packages, self).__init__(name, version)
-		self.packages = set(packages or ())
-
-	def get_install_commands(self):
-		commands = ()
-		for pkg in self.packages:
-			commands += pkg.get_install_commands()
-		return commands
-
-	def get_uninstall_commands(self):
-		commands = ()
-		for pkg in self.packages:
-			commands += pkg.get_uninstall_commands()
-		return commands
-
-	def get_is_installed_commands(self):
-		commands = ()
-		for pkg in self.packages:
-			commands += pkg.get_is_installed_commands()
-		return commands
-
-	def get_is_installable_commands(self):
-		commands = ()
-		for pkg in self.packages:
-			commands += pkg.get_is_installable_commands()
-		return commands
 
 class Service(object):
 
-	def __init__(self, manager, name):
-		self.manager = manager
-		self.name = name
-
-	def start(self):
-		return self.manager.start(self.name)
-
-	def stop(self):
-		return self.manager.stop(self.name)
-
-	def restart(self):
-		return self.manager.restart(self.name)
-
-	def reload(self):
-		return self.manager.reload(self.name)
-
-	def is_running(self):
-		return self.manager.is_running(self.name)
-
-	@property
-	def version(self):
-		return ("%s" % self.manager.get_version(self.name)).strip()
-
-class ServiceManager(object):
-
 	__metaclass__ = abc.ABCMeta
 
+	def __init__(self, name):
+		self.name = name
+
+	def __repr__(self):
+		return "%s(%s)" % (type(self).__name__, self.name)
+
+	def __str__(self):
+		return self.name
+
+	def __eq__(self, other):
+		return self.name == other.name
+
+	def __ne__(self, other):
+		return not (self == other)
+
+	def _run(self, node, state):
+		return ansible_run(
+			hoststring = node.get_hoststring(),
+			modname = "service",
+			modargs = "name=%s state=%s" % (self.name, state))
+
+	def start(self, node):
+		return self._run(node, state = "started")
+
+	def stop(self, hoststring):
+		return self._run(node, state = "stopped")
+
+	def restart(self, hoststring):
+		return self._run(node, state = "restarted")
+
+	def reload(self, hoststring):
+		return self._run(node, state = "reloaded")
+
 	@abc.abstractmethod
-	def start(self, name):
+	def is_started(self, node):
 		raise NotImplementedError()
 
 	@abc.abstractmethod
-	def stop(self, name):
+	def get_version(self, node):
 		raise NotImplementedError()
-
-	@abc.abstractmethod
-	def restart(self, name):
-		raise NotImplementedError()
-
-	@abc.abstractmethod
-	def reload(self, name):
-		raise NotImplementedError()
-
-	@abc.abstractmethod
-	def is_running(self, name):
-		raise NotImplementedError()
-
-	@abc.abstractmethod
-	def get_version(self, name):
-		raise NotImplementedError()
-
-	def __getitem__(self, name):
-		return Service(manager = self, name = name)
-
-	def __getattr__(self, name):
-		return Service(manager = self, name = name)
 
 class Subnet(object):
 
@@ -164,13 +141,29 @@ class Subnet(object):
 	def __contains__(self, node):
 		return any(subnet == self for subnet in node.get_subnets())
 
+class Hoststring(str):
+
+	def split(self):
+		if "@" in self:
+			userpass, hostport = super(Hoststring, self).split("@")
+		else:
+			userpass, hostport = (None, "%s" % self)
+		if ":" in userpass:
+			username, password = userpass.split(":")
+		else:
+			username, password = (userpass, None)
+		if ":" in hostport:
+			hostname, port = hostport.split(":")
+		else:
+			hostname, port = (hostport, None)
+		return (username, password, hostname, port)
+
 class Node(object):
 	"abstract interface to an object able to install packages and hosting services"
 
 	__metaclass__ = abc.ABCMeta
 
-	def __init__(self, name, srvmanager):
-		self.service = srvmanager
+	def __init__(self, name):
 		self.name = name
 
 	def __repr__(self):
@@ -182,6 +175,16 @@ class Node(object):
 	@abc.abstractmethod
 	def get_typename(self):
 		"return human-friendly type string"
+		raise NotImplementedError()
+
+	@abc.abstractmethod
+	def has_support(self, **opts):
+		"return True if all specified options are supported"
+		raise NotImplementedError()
+
+	@abc.abstractmethod
+	def get_load(self):
+		"return a float abstracting the overall node load"
 		raise NotImplementedError()
 
 	@abc.abstractmethod
@@ -200,41 +203,67 @@ class Node(object):
 		raise NotImplementedError()
 
 	@abc.abstractmethod
-	def terminate(self):
-		"shutdown physical node or destroy virtual machine"
+	def get_hoststring(self):
 		raise NotImplementedError()
 
-	@abc.abstractmethod
-	def run(self, *commands):
-		"run list of commands and return the result"
-		raise NotImplementedError()
+	# clean but too slow on unreachable nodes and no timeout parameter...
+	def _disabled_is_up(self):
+		"return True if the node is reachable, False otherwise"
+		hoststring = self.get_hoststring()
+		res = ansible.runner.Runner(
+			inventory = ansible.inventory.Inventory("%s," % hoststring),
+			module_name = "ping",
+			forks = 0,
+		).run()
+		return hoststring in res["contacted"]
 
-	@abc.abstractmethod
-	def log(self, tag, msg):
-		"add system log entry"
-		raise NotImplementedError()
+	# poorman replacement for the above routine
+	def is_up(self):
+		"return True if the node is reachable, False otherwise"
+		username, password, hostname, port = self.get_hoststring().split()
+		code, stdout, stderr = local_run("ping -t 1 -c 1 %s" % hostname, warn_only = True)
+		return code == 0
+
+	def start(self, service):
+		return service.start(node = self)
+
+	def stop(self, service):
+		return service.stop(node = self)
+
+	def restart(self, service):
+		return service.restart(node = self)
+
+	def reload(self, service):
+		return service.reload(node = self)
 
 	def install(self, package):
-		self.log("TESTGRID", "installing %s" % package)
-		return self.run(*package.get_install_commands())
+		return package.install(node = self)
 
 	def uninstall(self, package):
-		self.log("TESTGRID", "uninstalling %s" % package)
-		return self.run(*package.get_uninstall_commands())
+		return package.uninstall(node = self)
 
 	def is_installed(self, package):
-		return self.run(*package.get_is_installed_commands())
+		return package.is_installed(node = self)
 
 	def is_installable(self, package):
-		return self.run(*package.get_is_installable_commands())
+		return package.is_installable(node = self)
+
+	def execute(self, args):
+		"execute args, return tuple (code, stdout, stderr)"
+		hoststring = self.get_hoststring()
+		res = ansible_run(
+			hoststring = hoststring,
+			modname = "command",
+			modargs = args)
+		return (res["rc"], res["stdout"], res["stderr"])
 
 class UnknownNodeError(Exception): pass
 
 class Session(object):
 	"a session holds a deployment plan and the associated subnet"
 
-	def __init__(self, grid, username, name = None, plan = None, subnet = None):
-		self.grid = grid
+	def __init__(self, gridref, username, name = None, plan = None, subnet = None):
+		self.gridref = gridref
 		self.username = username
 		self.name = name
 		self.plan = plan or [] # list of pairs (package, node)
@@ -258,7 +287,7 @@ class Session(object):
 
 	def allocate_node(self, pkg = None, **opts):
 		"fetch a node available and compatible with $pkg and map it to the session"
-		node = self.grid.find_node(pkg = pkg, **opts)
+		node = self.gridref().find_node(pkg = pkg, **opts)
 		assert not node in self, "%s: node already allocated, please report this bug" % node
 		if self.subnet:
 			node.join(self.subnet)
@@ -267,14 +296,15 @@ class Session(object):
 
 	def _release_pair(self, pkg, node):
 		try:
-			if pkg:
-				node.uninstall(pkg)
+			if self.gridref().is_transient(node):
+				self.gridref().terminate_node(node)
+			else:
+				if pkg:
+					node.uninstall(pkg)
 				if self.subnet:
 					node.leave(self.subnet)
-			if self.grid.is_transient(node):
-				node.terminate()
 		except Exception as e:
-			self.grid.quarantine_node(node = node, exc = e)
+			self.gridref().quarantine_node(node = node, exc = e)
 
 	def release_node(self, node):
 		"release the node from the session"
@@ -287,7 +317,7 @@ class Session(object):
 
 	def deploy(self, packages):
 		"get, apply, register and return a named plan"
-		plan = self.grid.get_deployment_plan(packages)
+		plan = self.gridref().get_deployment_plan(packages)
 		done = []
 		try:
 			for pkg, node in plan:
@@ -308,12 +338,14 @@ class Session(object):
 		self.plan = []
 
 	def __del__(self):
-		if self in self.grid.get_sessions() and self.is_anonymous:
+		if self.gridref()\
+		and self in self.gridref().get_sessions()\
+		and self.is_anonymous:
 			self.close()
 
 	def close(self):
 		self.undeploy()
-		self.grid._close_session(self)
+		self.gridref()._close_session(self)
 
 class DuplicatedNodeError(Exception): pass
 
@@ -359,7 +391,6 @@ class Grid(object):
 			raise UnknownNodeError("%s" % node)
 
 	def quarantine_node(self, node, exc):
-		logging.debug("%s: set %s in quarantine, %s" % (self, node, exc))
 		node.is_quarantined = exc
 
 	def rehabilitate_node(self, node):
@@ -386,7 +417,7 @@ class Grid(object):
 	def is_allocated(self, node):
 		return node in self._get_allocated_nodes()
 
-	def _create_node(self, pkg = None, **opts):
+	def create_node(self, pkg = None, **opts):
 		"""
 		Create a new node:
 		  * compatible with package $pkg
@@ -394,16 +425,22 @@ class Grid(object):
 		"""
 		raise NodePoolExhaustedError()
 
+	def terminate_node(self, node):
+		"counterpart of create_node"
+		raise NotImplementedError()
+
 	def find_node(self, pkg = None, excluded = (), **opts):
 		"find a node available and compatible with $pkg or create one"
 		for node in self._get_available_nodes():
-			if not node in excluded and (not pkg or node.is_installable(pkg)):
+			if not node in excluded\
+			and node.has_support(**opts)\
+			and (not pkg or node.is_installable(pkg)):
 				break
 		else:
-			node = self._create_node(pkg = pkg, **opts)
+			node = self.create_node(pkg = pkg, **opts)
 			assert\
-				node.is_installable(pkg),\
-				"%s: invalid node, please report this issue" % (node, pkg)
+				not pkg or node.is_installable(pkg),\
+				"%s: node cannot install %s, please report this issue" % (node, pkg)
 			node.is_transient = True
 			self.add_node(node)
 		return node
@@ -451,7 +488,7 @@ class Grid(object):
 				break
 		else:
 			session = Session(
-				grid = self,
+				gridref = weakref.ref(self),
 				username = username,
 				name = name,
 				subnet = self._allocate_subnet())
@@ -492,48 +529,28 @@ class Grids(Grid):
 
 class FakePackage(Package):
 
-	def get_install_commands(self): pass
+	def install(self, node):
+		assert not node.terminated
+		assert not node.is_installed(self), "%s: %s: already installed" % (node, self)
+		node.installed.append(self)
 
-	def get_uninstall_commands(self): pass
+	def uninstall(self, node):
+		assert not node.terminated
+		assert node.is_installed(self), "%s: %s: not yet installed" % (node, self)
+		node.installed.remove(self)
 
-	def get_is_installed_commands(self): pass
+	def is_installed(self, node):
+		assert not node.terminated
+		return self in node.installed
 
-	def get_is_installable_commands(self): pass
-
-class FakeServiceManager(ServiceManager):
-
-	def __init__(self):
-		self.services = {}
-
-	def add(self, name, version, is_running):
-		self.services[name] = {
-			"version": version,
-			"is_running": is_running,
-		}
-
-	def remove(self, name):
-		del self.services[name]
-
-	def start(self, name):
-		self.services[name]["is_running"] = True
-
-	def stop(self, name):
-		self.services[name]["is_running"] = False
-
-	def restart(self, name): self.start(name)
-
-	def reload(self, name): pass
-
-	def is_running(self, name):
-		return self.services[name]["is_running"]
-
-	def get_version(self, name):
-		return self.services[name]["version"]
+	def is_installable(self, node):
+		assert not node.terminated
+		return True
 
 class FakeNode(Node):
 
 	def __init__(self, name):
-		super(FakeNode, self).__init__(name = name, srvmanager = FakeServiceManager())
+		super(FakeNode, self).__init__(name = name)
 		self.terminated = False
 		self.installed = []
 		self.subnets = []
@@ -541,60 +558,46 @@ class FakeNode(Node):
 	def get_typename(self):
 		return "fake node"
 
+	def has_support(self, **opts):
+		return True
+
+	def is_up(self):
+		return not self.terminated
+
+	def get_load(self):
+		assert not self.terminated
+		return .0
+
 	def join(self, subnet):
+		assert not self.terminated
 		assert subnet, "%s: cannot join null subnet" % self
 		assert not subnet in self.subnets
 		self.subnets.append(subnet)
-		logging.debug("%s: joined %s" % (self, subnet))
 
 	def leave(self, subnet):
+		assert not self.terminated
 		assert subnet, "%s: cannot leave null subnet" % self
 		assert subnet in self.subnets
 		self.subnets.remove(subnet)
-		logging.debug("%s: left %s" % (self, subnet))
 
 	def get_subnets(self):
+		assert not self.terminated
 		return self.subnets
 
-	def run(self, *commands): pass
-
-	def log(self, tag, msg): pass
-
-	def terminate(self):
-		self.terminated = True
-
-	def install(self, pkg):
-		assert not self.terminated
-		assert not self.is_installed(pkg), "%s: already installed" % pkg
-		self.installed.append(pkg)
-		# WARNING: all packages are considered to be services
-		self.service.add(name = pkg.name, version = pkg.version, is_running = True)
-		logging.debug("%s: installed %s" % (self, pkg))
-
-	def uninstall(self, pkg):
-		assert not self.terminated
-		assert self.is_installed(pkg), "%s: not yet installed" % pkg
-		self.service.remove(name = pkg.name)
-		self.installed.remove(pkg)
-		logging.debug("%s: uninstalled %s" % (self, pkg))
-
-	def is_installed(self, pkg):
-		assert not self.terminated
-		return pkg in self.installed
-
-	def is_installable(self, pkg):
-		assert not self.terminated
-		return True
+	def get_hoststring(self): pass
 
 class FakeGrid(Grid):
 	"generative grid of fake nodes"
 
 	ref = 0
 
-	def _create_node(self, **opts):
+	def create_node(self, **opts):
 		node = FakeNode("tnode%i" % FakeGrid.ref)
 		FakeGrid.ref += 1
 		return node
+
+	def terminate_node(self, node):
+		node.terminated = True
 
 def unzip(pairs):
 	"support function to split a list of pairs into two lists with first and second elements"
@@ -613,8 +616,6 @@ def unzip(pairs):
 # unit tests #
 ##############
 
-#logging.basicConfig(level = logging.DEBUG)
-
 class SelfTest(unittest.TestCase):
 
 	def test_fake_node(self):
@@ -630,7 +631,7 @@ class SelfTest(unittest.TestCase):
 		node.leave(subnet)
 		assert not node in subnet
 
-	def assertDeployment(self, packages, plan, session):
+	def assertDeployment(self, packages, plan, grid, session):
 		"assert deployment is correct"
 		# assert each allocated nodes is allocated once
 		self.assertEqual(len(set(unzip(plan).seconds)), len(plan))
@@ -638,7 +639,7 @@ class SelfTest(unittest.TestCase):
 		if session.subnet:
 			for _, node in plan:
 				assert node in session.subnet, "%s: not in %s" % (node, session.subnet)
-				assert session.grid.is_allocated(node), "%s: not allocated" % node
+				assert grid.is_allocated(node), "%s: not allocated" % node
 		# assert all packages are installed
 		for pkg in packages:
 			for _pkg, node in plan:
@@ -648,10 +649,10 @@ class SelfTest(unittest.TestCase):
 			else:
 				raise Exception("%s: not installed" % pkg)
 
-	def assertUndeployment(self, nodes, session):
+	def assertUndeployment(self, nodes, grid, session):
 		"assert undeployment is correct"
 		for node in nodes:
-			assert session.grid.is_available(node), "%s: not available" % node
+			assert grid.is_available(node), "%s: not available" % node
 			# assert node have no package installed
 			assert not node.installed, "%s: %s not uninstalled" % (node, node.installed)
 			# assert node has left the session subnet
@@ -666,49 +667,54 @@ class SelfTest(unittest.TestCase):
 		subnets = [Subnet("vlan14")]
 		grid = Grid(name = "grid", subnets = subnets, nodes = nodes) # use a non-generative grid
 		session = grid.open_session()
-		return (nodes, packages, session)
+		return (nodes, packages, grid, session)
 
 	def test_bijective_cycle(self):
 		"deploy and undeploy packages, where |nodes| = |packages|"
-		nodes, packages, session = self.mkenv(nb_nodes = 10, nb_packages = 10)
+		nodes, packages, grid, session = self.mkenv(nb_nodes = 10, nb_packages = 10)
 		plan = session.deploy(packages)
-		self.assertDeployment(packages, plan, session)
+		self.assertDeployment(packages, plan, grid, session)
 		# assert we cannot deploy again:
 		self.assertRaises(Exception, session.deploy, packages = packages)
 		# assert everything is cleaned up:
 		session.close()
-		self.assertUndeployment(nodes, session)
+		self.assertUndeployment(nodes, grid, session)
 
 	def test_injective_cycle(self):
 		"deploy and undeploy packages, where |nodes| > |packages|"
-		nodes, packages, session = self.mkenv(nb_nodes = 20, nb_packages = 10)
+		nodes, packages, grid, session = self.mkenv(nb_nodes = 20, nb_packages = 10)
 		plan1 = session.deploy(packages)
 		plan2 = session.deploy(packages)
 		# assert the deployments are correct:
-		self.assertDeployment(packages, plan1, session)
-		self.assertDeployment(packages, plan2, session)
+		self.assertDeployment(packages, plan1, grid, session)
+		self.assertDeployment(packages, plan2, grid, session)
 		# assert everything is cleaned up:
 		session.close()
-		self.assertUndeployment(nodes, session)
+		self.assertUndeployment(nodes, grid, session)
 
 	def test_surjective_cycle(self):
 		"deploy and undeploy packages, where |nodes| < |packages|"
-		nodes, packages, session = self.mkenv(nb_nodes = 10, nb_packages = 20)
+		nodes, packages, grid, session = self.mkenv(nb_nodes = 10, nb_packages = 20)
 		# assert deployment fails:
 		self.assertRaises(Exception, session.deploy, packages = packages)
 		# assert everything is cleaned up:
-		self.assertUndeployment(nodes, session)
+		self.assertUndeployment(nodes, grid, session)
 
 	def test_node_creation(self):
 		"test deployment on a generative grid"
-		grid = FakeGrid(name = "test")
+		grid = FakeGrid(name = "test") # empty grid
 		assert len(grid) == 0
 		foo = FakePackage("foo", "1.0")
 		bar = FakePackage("bar", "1.0")
 		packages = (foo, bar)
-		# assert nodes are created:
 		session = grid.open_session()
+		# assert nodes are created:
 		plan = session.deploy(packages = packages)
-		self.assertDeployment(packages, plan, session)
+		for pkg, node in plan:
+			self.assertTrue(grid.is_transient(node), "%s: not transient" % node)
+		self.assertDeployment(packages, plan, grid, session)
+		session.close()
+		for pkg, node in plan:
+			self.assertFalse(node.is_up(), "%s: still up" % node)
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

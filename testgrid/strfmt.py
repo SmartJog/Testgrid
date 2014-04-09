@@ -1,50 +1,78 @@
-# coding: utf-8
 # copyright (c) 2013-2014 florent claerhout, released under the MIT license.
+# coding: utf-8
 
 """
-Formatting framework & utility.
+String formatting routines.
 
 API:
+  * Red|Blue|Gray|Green|Yellow|Purple(string)
+  * lookahead(iterable)
+  * cutline(string, maxlen)
   * strtree(iterable, use_ascii = False, maxlen = 80, is_prunable = False)
-    return recursively iterable as a pretty tree string
-  * strcolalign(text)
-    left-justify colon-separated content in lines of text
-  * ClassTree(obj)
-    make a class iterable over its sub-classes
-  * ListTree(obj)
-    make a list iterable over its elements
+  * strcolalign(obj)
+  * strtree helper, ClassTree(obj)
+  * strtree helper, ListTree(obj)
 
-Example:
-  class Foo(object): pass
-  class Bar(Foo): pass
-  class Baz(Foo): pass
-  a call to strfmt.strtree(strfmt.ClassTree(Foo)) will returns:
+Examples:
+  >> import strfmt
+  >> class Foo(object): pass
+  >> class Bar(Foo): pass
+  >> class Baz(Foo): pass
+  >> strfmt.strtree(ClassTree(Foo))
   Foo
   ├── Bar
   └── Baz
+  >> strfmt.strcolalign("a:bbbb:c\naaa:b:c")
+  a    bbbb  c
+  aaa  b     c
 """
 
-__version__ = "20140402"
+__version__ = "20140408"
 
-import unittest
+import unittest, re
 
-def red(string):
-	return string and "\033[0;91m%s\033[0m" % string
+class Color(object):
+	"ANSI-escaped SGR string — see http://en.wikipedia.org/wiki/ANSI_escape_code"
 
-def blue(string):
-	return string and "\033[0;94m%s\033[0m" % string
+	def __init__(self, string, code = None):
+		if not code:
+			m = re.search("\033\[0;(.*)m(.*)\033\[0m", string)
+			assert m, "%s: expected escaped string" % string
+			self.code = int(m.group(1))
+			self.string = m.group(2)
+		else:
+			self.string = string
+			self.code = code
 
-def gray(string):
-	return string and "\033[0;90m%s\033[0m" % string
+	def __str__(self):
+		return "\033[0;%im%s\033[0m" % (self.code, self.string)
 
-def green(string):
-	return string and "\033[0;92m%s\033[0m" % string
+	def __len__(self):
+		return len(self.string)
 
-def yellow(string):
-	return string and "\033[0;93m%s\033[0m" % string
+	def __add__(self, other):
+		return Color(self.string + other, code = self.code)
 
-def purple(string):
-	return string and "\033[0;95m%s\033[0m" % string
+	def __getattr__(self, key):
+		return getattr(self.string, key)
+
+def Red(string):
+	return Color(string, code = 91)
+
+def Blue(string):
+	return Color(string, code = 94)
+
+def Gray(string):
+	return Color(string, code = 90)
+
+def Green(string):
+	return Color(string, code = 92)
+
+def Yellow(string):
+	return Color(string, code = 93)
+
+def Purple(string):
+	return Color(string, code = 95)
 
 def lookahead(iterable):
 	"""
@@ -89,34 +117,36 @@ def strtree(iterable, use_ascii = False, maxlen = 80, is_prunable = False):
 		return [] if not cnt and is_prunable(iterable) else lines
 	return "\n".join(map(lambda s: cutline(s, maxlen), treelines(iterable)))
 
-def strcolalign(text):
-	"left-justify colon-separated content in lines of text"
+def strcolalign(obj):
+	"left-justify table or colon-separated cols in lines of text"
 	maxwidth = []
-	rows = text.splitlines()
+	if isinstance(obj, str):
+		rows = obj.splitlines()
+		rows = map(lambda row: row.split(":"), rows)
+	else:
+		rows = obj
 	# compute max width of each column:
 	for row in rows:
-		cols = row.split(":")
-		if len(maxwidth) < len(cols):
-			maxwidth += [0] * (len(cols) - len(maxwidth))
-		for i, col in enumerate(cols):
+		if len(maxwidth) < len(row):
+			maxwidth += [0] * (len(row) - len(maxwidth))
+		for i, col in enumerate(row):
 			width = len(col) + 2 # add 2 spaces at least between columns
 			maxwidth[i] = max(maxwidth[i], width)
 	# render output:
 	lines = []
 	for row in rows:
-		cols = row.split(":")
-		line = []
-		for i, col in enumerate(cols):
+		line = ""
+		for i, col in enumerate(row):
 			width = len(col)
 			if i + 1 == len(maxwidth) or width == maxwidth[i]:
-				line.append(col)
+				line = "%s%s" % (line, col)
 			else:
-				line.append(col + " " * (maxwidth[i] - width))
-		lines.append("".join(line))
+				line = "%s%s%s" % (line, col, " " * (maxwidth[i] - width))
+		lines.append(line)
 	return "\n".join(lines)
 
 ###################
-# strtree adapter #
+# strtree helpers #
 ###################
 
 class ClassTree(object):
@@ -153,11 +183,17 @@ class ListTree(object):
 
 class SelfTest(unittest.TestCase):
 
+	def test_color(self):
+		s = "hello"
+		assert len(s) == len(Red(s))
+		lst = (Red("foo"), Green("bar"))
+		" ".join("%s" for c in lst)
+
 	def test_cutline(self):
 		self.assertEqual(cutline("a" * 5, 5), "a" * 5)
 		self.assertEqual(cutline("a" * 10, 5), u"%s…" % ("a" * 4))
 
-	def test_class_tree(self):
+	def test_strtree(self):
 		class A(object): pass
 		class B(A): pass
 		class C(B): pass
@@ -165,7 +201,6 @@ class SelfTest(unittest.TestCase):
 		class E(A): pass
 		class F(A): pass
 		class G(F): pass
-		class H(F): pass
 		res = tuple(val.cls for val in ClassTree(A))
 		self.assertEqual((B, E, F), res)
 		self.assertEqual(strtree(ClassTree(A)), u"""A
@@ -174,7 +209,16 @@ class SelfTest(unittest.TestCase):
 │   └── D
 ├── E
 └── F
-    ├── G
-    └── H""")
+    └── G""")
+
+	def test_strcolalign_txt(self):
+		txt = "a:bbbbbb:c\naaa:b:c"
+		out = "a    bbbbbb  c\naaa  b       c"
+		self.assertEqual(strcolalign(txt), out)
+
+	def test_strcolalign_tbl(self):
+		tbl = (("a", "bbbbbb", "c"), ("aaa", "b", Green("c")))
+		out = "a    bbbbbb  c\naaa  b       %s" % Green("c")
+		self.assertEqual(strcolalign(tbl), out)
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

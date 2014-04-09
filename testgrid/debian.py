@@ -1,6 +1,6 @@
 # copyright (c) 2014 smartjog, released under the GPL license.
 
-import testgrid
+import ansible.inventory, ansible.runner, testgrid
 
 def noninteractive(string):
 	return "DEBIAN_FRONTEND=noninteractive %s" % string
@@ -10,21 +10,39 @@ class Package(testgrid.model.Package):
 
 	def __init__(self, *args, **kwargs):
 		super(Package, self).__init__(*args, **kwargs)
-		self.tag = self.name
 		if self.version:
-			self.tag += "=%s" % self.version
+			self.tag = "%s=%s" % (self.name, self.version)
+		else:
+			self.tag = self.name
 
-	def get_install_commands(self):
-		return (testgrid.model.Command(noninteractive("apt-get -qqy --force-yes install %s" % self.tag)),)
-
-	def get_uninstall_commands(self):
-		return (testgrid.model.Command(noninteractive("apt-get -qq remove --purge %s" % self.name)),)
-
-	def get_is_installed_commands(self):
-		return (testgrid.model.Command("dpkg -s %s" % self.name, warn_only = True),)
-
-	def get_is_installable_commands(self):
-		return (testgrid.model.Command(
-			noninteractive("apt-get -qqy --force-yes --dry-run install %s" % self.tag),
-			warn_only = True),
+	def _run_apt(self, node, state):
+		"reach package state on target, raise exception on error"
+		hoststring = node.get_hoststring()
+		username, password, hostname, port = hoststring.split()
+		res = testgrid.model.ansible_run(
+			hoststring = hoststring,
+			modname = "apt",
+			modargs = "pkg=%s state=%s" % (self.tag, state),
+			sudo = username != "root",
 		)
+		return (0, res.get("stdout", None), res.get("stderr", None))
+
+	def install(self, node):
+		# legacy command: noninteractive("apt-get -qqy --force-yes install %s" % self.tag)
+		return self._run_apt(node = node, state = "present force=yes")
+
+	def uninstall(self, node):
+		# legacy command: noninteractive("apt-get -qq remove --purge %s" % self.name)
+		return self._run_apt(node = node, state = "absent purge=yes force=yes")
+
+	def is_installed(self, node):
+		code, stdout, stderr = node.execute("dpkg -s %s" % self.name)
+		return code == 0
+
+	def is_installable(self, node):
+		args = noninteractive("apt-get -qqy --force-yes --dry-run install %s" % self.name)
+		res = testgrid.model.ansible_run(
+			hoststring = node.get_hoststring(),
+			modname = "shell",
+			modargs = args)
+		return res["rc"] == 0

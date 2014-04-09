@@ -2,11 +2,9 @@
 
 "https://confluence.arkena.net/display/QA/Portable+Test+Boxes"
 
-import unittest, pipes, os
+import testgrid, unittest, pipes, os
 
-import debian, model, shell
-
-class Node(model.Node):
+class Node(testgrid.model.Node):
 	"preconfigured wheezy64 box"
 
 	idx = 0
@@ -42,7 +40,7 @@ class Node(model.Node):
 				warn_only = cmd.warn_only)
 		return res
 
-class Grid(model.Grid):
+class Grid(testgrid.model.Grid):
 
 #	def __init__(self, use_proxy, bridge, host=None, port=None ,*args, **kwargs):
 	def __init__(self, entry_path, host=None, port=None, *args, **kwargs):

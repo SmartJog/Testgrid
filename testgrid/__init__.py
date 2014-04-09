@@ -4,13 +4,14 @@
 # reserved #
 ############
 
-import service
-import shell
+import vagrant
 
 import model
-import tgparser
+import parser
+import debian
 import remote
 import client
+import vgadapter
 
 ###########
 # clients #

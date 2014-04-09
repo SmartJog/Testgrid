@@ -2,8 +2,18 @@
 
 .PHONY: usage install clean test ci
 
+MODULES := strfmt.py docopt.py vagrant.py bottle.py
+SOURCES :=\
+	client.py debian.py local.py main.py model.py parser.py persistent.py\
+	playground.py remote.py rest.py test.py testbox.py
+
 # install git@git.smartjog.net:florent.claerhout/testy.git first
-TESTY ?= testy
+ifeq ($(shell which testy),)
+$(warning testy not installed, trying to use sources directly)
+TESTY := python ~/Documents/work/testy/main.py
+else
+TESTY := testy
+endif
 
 usage:
 	@echo "Usage:"
@@ -17,6 +27,9 @@ usage:
 	@echo "Changes:"
 	@git status -s
 
+testgrid/%.py: ~/Documents/work/%.py
+	cp -p $< $@
+
 install:
 	apt-get install -qqy python-setuptools
 	python setup.py install
@@ -25,8 +38,9 @@ clean:
 	-rm -rf build dist testgrid.egg-info
 	-find . -name '*.pyc' -delete
 
-test:
-	$(TESTY) -m test.ini
+test: NAME :=
+test: $(addprefix testgrid/,$(MODULES))
+	$(TESTY) -m test.ini $(NAME)
 
 ci:
 	git commit -a

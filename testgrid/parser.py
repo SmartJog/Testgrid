@@ -129,6 +129,16 @@ class Parser(object):
 				for s in value.split():
 					nodes.append(self.cache[s] if s in self.cache else self._parse(s, self._parse_node))
 				kwargs[key] = nodes
+			elif key.endswith("grids"):
+				grids = []
+				for s in value.split():
+					grids.append(self.cache[s] if s in self.cache else self._parse(s, self._parse_grid))
+				kwargs[key] = grids
+			elif key.endswith("subnets"):
+				subnets = []
+				for s in value.split():
+					subnets.append(testgrid.model.Subnet(s))
+				kwargs[key] = subnets
 			else:
 				kwargs[key] = value
 		return self._mkobj(cls, **kwargs)
