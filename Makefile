@@ -43,13 +43,13 @@ clean:
 	-rm -rf build dist testgrid.egg-info
 	-find . -name '*.pyc' -delete
 
-ifneq ($(which testy),)
+ifeq ($(shell which testy),)
+test:
+	@echo please install git@git.smartjog.net:florent.claerhout/testy.git
+else
 test: NAME :=
 test: $(addprefix testgrid/,$(MODULES))
 	testy -m test.ini $(NAME)
-else
-test:
-	@echo please install git@git.smartjog.net:florent.claerhout/testy.git
 endif
 
 ci:
