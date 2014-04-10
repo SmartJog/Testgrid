@@ -287,7 +287,7 @@ class Session(object):
 
 	def allocate_node(self, pkg = None, **opts):
 		"fetch a node available and compatible with $pkg and map it to the session"
-		node = self.gridref().find_node(pkg = pkg, **opts)
+		node = self.gridref.find_node(pkg = pkg, **opts)
 		assert not node in self, "%s: node already allocated, please report this bug" % node
 		if self.subnet:
 			node.join(self.subnet)

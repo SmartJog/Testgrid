@@ -4,7 +4,7 @@ import os
 import sqlrequest
 import unittest
 import model
-import tgparser
+import parser
 import inspect
 
 class DatabaseError(sqlite3.Error): pass
@@ -88,7 +88,7 @@ class Database(object):
           attr = {}
           self.db.execute(sqlrequest.GET_NODE_ATTRIBUTES.format(index))
           result = self.db.fetchall()
-          cls = tgparser.get_subclass(typename, model.Node)
+          cls = parser.get_subclass(typename, model.Node)
           args, varargs, kwargs, default = inspect.getargspec(cls.__init__)
           for item in result:
                key, value = item

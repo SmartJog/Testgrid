@@ -133,12 +133,12 @@ class SelfTest(unittest.TestCase):
 		
 
 	def test_persistent_nodes(self):
-		pg = persistentGrid(name="persistentGrid", databasePath="db_test/persistentNodes.db")
+		pg = persistentGrid(name="persistentGrid", databasepath="db_test/persistentNodes.db")
 		node = model.FakeNode("fake node")
 		pg.add_node(node)
 		self.assertEqual(len(pg.nodes), 1)
 		pg.close_database()
-		secondpg = persistentGrid(name=" persistentGridsecond", databasePath="db_test/persistentNodes.db")
+		secondpg = persistentGrid(name=" persistentGridsecond", databasepath="db_test/persistentNodes.db")
 		self.assertEqual(len(secondpg.nodes), 1)
 	    #secondpg.remove_node(node)
 	    #self.assertEqual(len(secondpg.nodes), 0)
@@ -146,23 +146,23 @@ class SelfTest(unittest.TestCase):
 		#secondpg.remove_database()
 
 	def test_persistent_sessions(self):
-		pg = persistentGrid(name=" persistentGrid", databasePath="db_test/persistentSessions.db")
+		pg = persistentGrid(name=" persistentGrid", databasepath="db_test/persistentSessions.db")
 		session = pg.open_session("persistent", "test")
 		anonymous_session = pg.open_session("persistent_anonymous")
 		anonymous_session.close()
-		secondpg = persistentGrid(name="persistentGridsecond", databasePath="db_test/persistentSessions.db")
+		secondpg = persistentGrid(name="persistentGridsecond", databasepath="db_test/persistentSessions.db")
 		sessions = secondpg.get_sessions()
 		self.assertEqual(len(sessions), 1)
 
 	def test_persistent_plan(self):
-		pg = persistentGrid(name=" persistentGrid", databasePath="db_test/persistentPlan.db")
+		pg = persistentGrid(name=" persistentGrid", databasepath="db_test/persistentPlan.db")
 		node = model.FakeNode("fake node")
 		pg.add_node(node)
 		session = pg.open_session("persistent", "test")
 		allocated_node = session.allocate_node()
 		self.assertRaises(model.NodePoolExhaustedError,session.allocate_node)
 		pg.close_database()
-		pg2 = persistentGrid(name=" persistentGrid", databasePath="db_test/persistentPlan.db")
+		pg2 = persistentGrid(name=" persistentGrid", databasepath="db_test/persistentPlan.db")
 		session2 = pg2.open_session("persistent2", "test2")
 		self.assertRaises(model.NodePoolExhaustedError, session2.allocate_node)
 		node2 = model.FakeNode("fake node")
