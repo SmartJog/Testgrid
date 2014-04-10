@@ -42,11 +42,16 @@ class Database(object):
                raise DatabaseError(e)
 
 
+     def close(self):
+          self.con.close()
+
+     def __del__(self):
+          self.close()
 # Nodes
      def add_node(self, node):
           try:
                self.db.execute(sqlrequest.ADD_NODE.format(node.name, node.__class__.__name__))
-               node.id = self.db.lastrowid
+               node.id = int(self.db.lastrowid)
                self.con.commit()
                for property, value in vars(node).iteritems():
                     self.db.execute(sqlrequest.ADD_NODE_ATTRIBUTES.format(property, value, node.id))
@@ -73,7 +78,7 @@ class Database(object):
 
      def rehabilitate_node(self, node):
           try:
-               self.db.execute(sqlrequest.UPDATE_NODE_ATTRIBUTES.format( False ,node.id, "is_quarantined"))
+               self.db.execute(sqlrequest.UPDATE_NODE_ATTRIBUTES.format(False ,node.id, "is_quarantined"))
                self.con.commit()
           except sqlite3.Error, e:
                self.con.rollback()
@@ -115,11 +120,6 @@ class Database(object):
           for attr in res:
                node.is_transient = attr
 
-     
-
-
-
-
 # Table Sessions
 
      def get_sessions(self, cls, grid):
@@ -128,7 +128,7 @@ class Database(object):
           res = self.db.fetchall()
           for index, username, name in res:
                session = cls(self, grid, username, name)
-               session.id = index
+               session.id = int(index)
                session.plan = self.get_plans(session)
                sessions.append(session)
           return sessions
@@ -136,15 +136,17 @@ class Database(object):
      def open_session(self, session):
           try:
                self.db.execute(sqlrequest.ADD_SESSION.format(session.username, session.name))
-               session.id = self.db.lastrowid
+               session.id = int(self.db.lastrowid)
                self.con.commit()
           except sqlite3.IntegrityError:
                self.con.rollback()
 
      def close_session(self, session):
           try:
+               self.db.execute(sqlrequest.CLOSE_PLAN.format(session.id))
+               self.con.commit()
                self.db.execute(sqlrequest.CLOSE_SESSION.format(session.id))
-          
+               self.con.commit()
           except sqlite3.Error, e:
                self.con.rollback()
 # Table Plans
@@ -156,13 +158,14 @@ class Database(object):
                     self.db.execute(sqlrequest.ADD_PLAN.format(session.id, node.id, None, None, None))
                else:
                     self.db.execute(sqlrequest.ADD_PLAN.format(session.id, node.id, pkg.name, pkg.version, pkg.__class__.__name__))
-                    self.con.commit()
+               self.con.commit()
           except sqlite3.Error, e:
                self.con.rollback()
 
      def remove_plan(self, session, node):
           try:
                self.db.execute(sqlrequest.DELETE_PLAN.format(session.id, node.id))
+               self.con.commit()
           except sqlite3.Error, e:
                self.con.rollback()
                                          
@@ -171,19 +174,17 @@ class Database(object):
           self.db.execute(sqlrequest.GET_PLANS.format(session.id))
           res = self.db.fetchall()
           for indexnode, pname, pversion, ptype in res:
-               self.db.execute(sqlrequest.GET_NODE_TYPE.format(indexnode))
-               nodetype = self.db.fetchone()
-               print ptype
-               if ptype != "None":
-                    pcls = tgparser.get_subclass(ptype, model.Package)
-                    package = pcls(pname, pversion)
-               else:
-                    package = None
-               node = self.create_node(indexnode, nodetype[0])
-               print node
-               plan.append((package, node))
-          return plan
-
+               for node in session.grid.nodes:
+                    if int(node.id) == int(indexnode):
+                         if ptype != "None":
+                              pcls = tgparser.get_subclass(ptype, model.Package)
+                              package = pcls(pname, pversion)
+                         else:
+                              package = None   
+                         plan.append((package, node))
+                         break
+          return plan          
+               
 ##############
 # unit tests #
 ##############
