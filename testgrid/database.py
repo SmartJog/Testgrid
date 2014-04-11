@@ -174,7 +174,7 @@ class Database(object):
           self.db.execute(sqlrequest.GET_PLANS.format(session.id))
           res = self.db.fetchall()
           for indexnode, pname, pversion, ptype in res:
-               for node in session.grid.nodes:
+               for node in session.gridref:
                     if int(node.id) == int(indexnode):
                          if ptype != "None":
                               pcls = tgparser.get_subclass(ptype, model.Package)

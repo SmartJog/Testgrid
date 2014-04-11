@@ -7,10 +7,10 @@ import os
 import shutil
 
 class persistentSession(model.Session):
-	def __init__(self, hdl , grid, username, name = None, subnet = None):
+	def __init__(self, hdl , gridref, username, name = None, subnet = None):
 		self.hdl = hdl
-		self.grid = grid
-		super(persistentSession, self).__init__(grid, username, name, subnet)
+		self.gridref = gridref
+		super(persistentSession, self).__init__(gridref, username, name, subnet)
 
 	def __iter__(self):
 		self.plan = self.hdl.get_plans(self)
@@ -36,7 +36,7 @@ class persistentSession(model.Session):
 
 	def close(self):
 		self.hdl.close_session(self)
-		self.grid._close_session()
+		self.gridref._close_session()
 		#super(persistentSession, self).close()
 
 class persistentGrid(model.Grid):
@@ -45,9 +45,6 @@ class persistentGrid(model.Grid):
 		self.hdl = database.Database(databasePath=databasepath, scriptSqlPath=scriptSqlPath)
 		self.nodes = self.hdl.get_nodes()
 		self.sessions = self.get_sessions()
-	
-	def get_typename(self):
-		return "persistent grid"
 
         def add_node(self, node):
 		self.nodes = self.hdl.get_nodes()
@@ -103,7 +100,7 @@ class persistentGrid(model.Grid):
 				break
 		else:
 			session = persistentSession(hdl = self.hdl,
-						    grid = self,
+						    gridref = self,
 						    username = username,
 						    name = name,
 						    subnet = self._allocate_subnet())
@@ -149,6 +146,8 @@ class SelfTest(unittest.TestCase):
 		pg = persistentGrid(name=" persistentGrid", databasepath="db_test/persistentSessions.db")
 		session = pg.open_session("persistent", "test")
 		anonymous_session = pg.open_session("persistent_anonymous")
+		sessions = pg.get_sessions()
+		self.assertEqual(len(sessions), 2)
 		anonymous_session.close()
 		secondpg = persistentGrid(name="persistentGridsecond", databasepath="db_test/persistentSessions.db")
 		sessions = secondpg.get_sessions()
