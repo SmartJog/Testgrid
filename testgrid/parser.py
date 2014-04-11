@@ -45,9 +45,10 @@ def normalized(name):
 	"normalize a class name, e.g. Foo BAR4 2 -> FooBar42"
 	return name.title().replace(" ", "")
 
-def get_subclass(name, cls, *modules):
+def get_subclass(name, cls, norm = True,*modules):
 	"return the $name'd subclass of $cls in specified $modules"
-	name = normalized(name)
+	if norm:
+		name = normalized(name)
 	subclasses = get_subclasses(cls, *modules)
 	for subcls in subclasses:
 		if subcls.__name__ == name:
