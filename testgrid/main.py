@@ -101,6 +101,17 @@ def grid_list_nodes(client):
 		rows.append(row)
 	print strfmt.strcolalign(rows)
 
+def list_sessions(client):
+	sessions = client.get_sessions()
+	rows = [
+		("username", "name"),
+		("--------", "----"),
+	]
+	for session in sessions:
+		row = [session.username, session.name] 
+		rows.append(row)
+	print strfmt.strcolalign(rows)
+
 def print_res(res):
 	code, stdout, stderr = res
 	if stderr:
@@ -162,7 +173,7 @@ def main():
 			elif args["--repair-node"]:
 				client.repair_node(client, NAME = args["--repair-node"])
 			elif args["--list-sessions"]:
-				print client.get_sessions()
+				list_sessions(client)
 			elif args["--open-session"]:
 				client.open_session(args["--open-session"])
 			elif args["--close-session"]:

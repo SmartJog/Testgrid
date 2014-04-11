@@ -50,7 +50,8 @@ class Database(object):
 # Nodes
      def add_node(self, node):
           try:
-               self.db.execute(sqlrequest.ADD_NODE.format(node.name, node.__class__.__name__))
+               #print node.__class__.__name__
+               self.db.execute(sqlrequest.ADD_NODE.format("remote node", node.name))
                node.id = int(self.db.lastrowid)
                self.con.commit()
                for property, value in vars(node).iteritems():
@@ -88,7 +89,11 @@ class Database(object):
           attr = {}
           self.db.execute(sqlrequest.GET_NODE_ATTRIBUTES.format(index))
           result = self.db.fetchall()
-          cls = parser.get_subclass(typename, model.Node)
+          try: 
+               cls = parser.get_subclass(typename, model.Node)
+          except Exception as e:
+               raise Exception("database create node: %s" % e)
+
           args, varargs, kwargs, default = inspect.getargspec(cls.__init__)
           for item in result:
                key, value = item

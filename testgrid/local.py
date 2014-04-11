@@ -16,7 +16,7 @@ class RemoteNode(testgrid.remote.Node): pass
 
 class VagrantGrid(testgrid.vgadapter.Grid): pass
 
-#class PersistentGrid(testgrid.persistent.Grid): pass
+class PersistentGrid(testgrid.persistent.Grid): pass
 
 ##########
 # client #

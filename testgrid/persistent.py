@@ -43,14 +43,20 @@ class Grid(model.Grid):
         def __init__(self, name, databasepath="testgrid.db", scriptSqlPath="testgrid/testgrid.sql", *args, **kwargs):
 		super(Grid, self).__init__(name, *args, **kwargs)
 		self.hdl = database.Database(databasePath=databasepath, scriptSqlPath=scriptSqlPath)
+		if (self.nodes):
+			for node in self.nodes:
+				self.add_node(node)
+
 		self.nodes = self.hdl.get_nodes()
 		self.sessions = self.get_sessions()
-
+		
         def add_node(self, node):
 		self.nodes = self.hdl.get_nodes()
 		super(Grid, self).add_node(node)
 		self.hdl.add_node(node)
-		
+
+	def update_nodes(self):
+		self.nodes = self.hdl.get_nodes()
 
         def remove_node(self, node):
 		super(Grid, self).remove_node(node)
@@ -86,8 +92,17 @@ class Grid(model.Grid):
 			if not self.is_quarantined(node) and not node in self._get_allocated_nodes():
 				yield node
 			
-        
-        
+	def is_available(self, node):
+		available_nodes = self._get_available_nodes()
+		for n in available_nodes:
+			if int(node.id) == int(n.id):
+				return node
+
+        def is_allocated(self, node):
+		for n in _get_allocated_node:
+			if int(node.id) == int(n.id):
+				return node
+
 	def get_sessions(self):
 		return self.hdl.get_sessions(persistentSession, self)
 

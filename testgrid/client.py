@@ -23,9 +23,9 @@ class Client(object):
 		cls = testgrid.parser.get_subclass(typename, testgrid.model.Package)
 		return cls(name = name, version = version)
 
-	def add_node(self, typename):
+	def add_node(self, name, typename):
 		"administration -- add node to grid"
-		cls = parser.get_subclass(typename, testgrid.model.Node, __name__)
+		cls = testgrid.parser.get_subclass(typename, testgrid.model.Node, __name__)
 		node = (cls)()
 		self.grid.add_node(node)
 
