@@ -39,40 +39,40 @@ class persistentSession(model.Session):
 		self.gridref._close_session()
 		#super(persistentSession, self).close()
 
-class persistentGrid(model.Grid):
+class Grid(model.Grid):
         def __init__(self, name, databasepath="testgrid.db", scriptSqlPath="testgrid/testgrid.sql", *args, **kwargs):
-		super(persistentGrid, self).__init__(name, *args, **kwargs)
+		super(Grid, self).__init__(name, *args, **kwargs)
 		self.hdl = database.Database(databasePath=databasepath, scriptSqlPath=scriptSqlPath)
 		self.nodes = self.hdl.get_nodes()
 		self.sessions = self.get_sessions()
 
         def add_node(self, node):
 		self.nodes = self.hdl.get_nodes()
-		super(persistentGrid, self).add_node(node)
+		super(Grid, self).add_node(node)
 		self.hdl.add_node(node)
 		
 
         def remove_node(self, node):
-		super(persistentGrid, self).remove_node(node)
+		super(Grid, self).remove_node(node)
 		self.hdl.remove_node(node)
 
         def quarantine_node(self, node, exc):
-		super(persistentGrid, self).quarantine_node(node, exc)
+		super(Grid, self).quarantine_node(node, exc)
 		self.hdl.quarantine_node(node, exc)
 
         def rehabilitate_node(self, node):
-		super(persistentGrid, self).rehabilitate_node(node)
+		super(Grid, self).rehabilitate_node(node)
 		self.hdl.rehabilitate_node(node)
 
 	def is_quarantined(self, node):
 		if hasattr(node, "is_quarantined"):
 			self.hdl.is_quarantined(node)
-		super(persistentGrid, self).is_quarantined(node)
+		super(Grid, self).is_quarantined(node)
 	
 	def is_transient(self, node):
 		if hasattr(node, "is_transient"):
 			self.hdl.is_transient(node)
-		super(persistentGrid, self).is_transient(node)
+		super(Grid, self).is_transient(node)
 
         def _get_allocated_nodes(self):
 		self.sessions = self.get_sessions()
@@ -130,12 +130,12 @@ class SelfTest(unittest.TestCase):
 		
 
 	def test_persistent_nodes(self):
-		pg = persistentGrid(name="persistentGrid", databasepath="db_test/persistentNodes.db")
+		pg = Grid(name="persistentGrid", databasepath="db_test/persistentNodes.db")
 		node = model.FakeNode("fake node")
 		pg.add_node(node)
 		self.assertEqual(len(pg.nodes), 1)
 		pg.close_database()
-		secondpg = persistentGrid(name=" persistentGridsecond", databasepath="db_test/persistentNodes.db")
+		secondpg = Grid(name=" persistentGridsecond", databasepath="db_test/persistentNodes.db")
 		self.assertEqual(len(secondpg.nodes), 1)
 	    #secondpg.remove_node(node)
 	    #self.assertEqual(len(secondpg.nodes), 0)
@@ -143,25 +143,25 @@ class SelfTest(unittest.TestCase):
 		#secondpg.remove_database()
 
 	def test_persistent_sessions(self):
-		pg = persistentGrid(name=" persistentGrid", databasepath="db_test/persistentSessions.db")
+		pg = Grid(name=" persistentGrid", databasepath="db_test/persistentSessions.db")
 		session = pg.open_session("persistent", "test")
 		anonymous_session = pg.open_session("persistent_anonymous")
 		sessions = pg.get_sessions()
 		self.assertEqual(len(sessions), 2)
 		anonymous_session.close()
-		secondpg = persistentGrid(name="persistentGridsecond", databasepath="db_test/persistentSessions.db")
+		secondpg = Grid(name="persistentGridsecond", databasepath="db_test/persistentSessions.db")
 		sessions = secondpg.get_sessions()
 		self.assertEqual(len(sessions), 1)
 
 	def test_persistent_plan(self):
-		pg = persistentGrid(name=" persistentGrid", databasepath="db_test/persistentPlan.db")
+		pg = Grid(name=" persistentGrid", databasepath="db_test/persistentPlan.db")
 		node = model.FakeNode("fake node")
 		pg.add_node(node)
 		session = pg.open_session("persistent", "test")
 		allocated_node = session.allocate_node()
 		self.assertRaises(model.NodePoolExhaustedError,session.allocate_node)
 		pg.close_database()
-		pg2 = persistentGrid(name=" persistentGrid", databasepath="db_test/persistentPlan.db")
+		pg2 = Grid(name=" persistentGrid", databasepath="db_test/persistentPlan.db")
 		session2 = pg2.open_session("persistent2", "test2")
 		self.assertRaises(model.NodePoolExhaustedError, session2.allocate_node)
 		node2 = model.FakeNode("fake node")
