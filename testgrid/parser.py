@@ -47,7 +47,6 @@ def normalized(name):
 
 def get_subclass(name, cls, *modules):
 	"return the $name'd subclass of $cls in specified $modules"
-	name = normalized(name)
 	subclasses = get_subclasses(cls, *modules)
 	for subcls in subclasses:
 		if subcls.__name__ == name:
@@ -55,7 +54,7 @@ def get_subclass(name, cls, *modules):
 	raise Exception("%s: subclass not found in %s\navailable subclasses: %s" % (
 		name,
 		modules or "any module",
-		get_subclasses(cls)))
+		subclasses))
 
 class ConfigurationError(Exception): pass
 
@@ -107,7 +106,7 @@ class Parser(object):
 		for key, value in self.conf.items(section):
 			if key == "type":
 				try:
-					cls = get_subclass(value, testgrid.model.Node, *self.modules)
+					cls = get_subclass(normalized(value), testgrid.model.Node, *self.modules)
 				except Exception as e:
 					raise Exception("%s: invalid node type\n%s" % (value, repr(e)))
 			else:
@@ -121,7 +120,7 @@ class Parser(object):
 			if key == "type":
 				if value == "grid": continue
 				try:
-					cls = get_subclass(value, testgrid.model.Grid, *self.modules)
+					cls = get_subclass(normalized(value), testgrid.model.Grid, *self.modules)
 				except Exception as e:
 					raise Exception("%s: invalid grid type\n%s" % (value, repr(e)))
 			elif key.endswith("nodes"):

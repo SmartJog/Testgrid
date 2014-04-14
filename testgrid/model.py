@@ -173,7 +173,7 @@ class Node(object):
 
 	@abc.abstractmethod
 	def get_typename(self):
-		"return human-friendly type string"
+		"return human-readable type string"
 		raise NotImplementedError()
 
 	@abc.abstractmethod
