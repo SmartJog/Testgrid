@@ -18,8 +18,7 @@ def ansible_run(hoststring, modname, modargs, sudo = False):
 		module_name = modname,
 		module_args = modargs,
 		sudo = sudo,
-		forks = 0,
-	).run()
+		forks = 0).run()
 	if not hoststring in res["contacted"]:
 		raise UnreachableHostError("%s: unreachable" % hoststring)
 	res = res["contacted"][hoststring]
@@ -287,7 +286,7 @@ class Session(object):
 
 	def allocate_node(self, pkg = None, **opts):
 		"fetch a node available and compatible with $pkg and map it to the session"
-		node = self.gridref.find_node(pkg = pkg, **opts)
+		node = self.gridref().find_node(pkg = pkg, **opts)
 		assert not node in self, "%s: node already allocated, please report this bug" % node
 		if self.subnet:
 			node.join(self.subnet)
@@ -362,6 +361,12 @@ class Grid(object):
 		self.subnets = subnets # may be None
 		self.sessions = sessions or []
 
+	def __del__(self):
+		"cleanup transient nodes -- to be overloaded for a persistent grid"
+		for node in self.nodes:
+			if self.is_transient(node):
+				self.terminate_node(node)
+
 	def __repr__(self):
 		return "%s(%s)" % (type(self).__name__, self.name)
 
@@ -419,14 +424,14 @@ class Grid(object):
 
 	def create_node(self, pkg = None, **opts):
 		"""
-		Create a new node:
+		Create a new node (hereafter called a "transient node"):
 		  * compatible with package $pkg
 		  * supporting specified options $opts
 		"""
 		raise NodePoolExhaustedError()
 
 	def terminate_node(self, node):
-		"counterpart of create_node"
+		"destroy a transient node (created with create_node())"
 		raise NotImplementedError()
 
 	def find_node(self, pkg = None, excluded = (), **opts):

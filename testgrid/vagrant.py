@@ -1,6 +1,6 @@
 # copyright (c) 2014 florent claerhout, released under the MIT license.
 
-import subprocess, pipes, os
+import subprocess, unittest, shutil, pipes, os
 
 def run(argv, warn_only = False):
 	sp = subprocess.Popen(
@@ -24,21 +24,40 @@ class Guest(object):
 
 	def __init__(self, root):
 		self.root = os.path.abspath(os.path.expanduser(root))
+		self.vagrantfile_path = os.path.join(self.root, "Vagrantfile")
 
-	def init(self, box_name, box_url, bridge, cpucap = 25, memory = 256):
+	def is_initialized(self):
+		return os.path.exists(self.vagrantfile_path)
+
+	def init(
+		self,
+		bridge,
+		box_name,
+		box_url = None,
+		cpucap = 25,
+		memory = 256,
+		provision_path = None):
 		if not os.path.exists(self.root):
 			os.mkdir(self.root)
+		assert\
+			not self.is_initialized(),\
+			"%s: guest already initialized" % self.vagrantfile_path
 		if not box_url:
 			assert box_name in URL, "%s: unknown url for this box" % box_name
 			box_url = URL[box_name]
+		if provision_path:
+			provision = 'config.vm.provision :shell, :path => "%s"' % provision_path
+		else:
+			provision = ""
 		parms = {
 			"box": box_name,
 			"box_url": box_url,
 			"bridge": bridge,
 			"cpucap": cpucap,
 			"memory": memory,
+			"provision": provision,
 		}
-		with open(os.path.join(self.root, "Vagrantfile"), "w+") as f:
+		with open(self.vagrantfile_path, "w+") as f:
 			f.write("""
 				Vagrant.configure("2") do |config|
 					config.vm.box = "%(box)s"
@@ -46,12 +65,19 @@ class Guest(object):
 					config.vm.network :public_network, :bridge => "%(bridge)s"
 					config.vm.provider "virtualbox" do |v|
 						v.customize ["modifyvm", :id, "--cpuexecutioncap", "%(cpucap)i"]
-						v.memory = %i
+						v.memory = %(memory)i
 					end
+					%(provision)s
 				end
 			""" % parms)
 
+	def fini(self):
+		shutil.rmtree(self.root)
+
 	def _get_cmd(self, argv):
+		assert\
+			os.path.exists(self.vagrantfile_path),\
+			"%s: guest not yet initialized" % self.vagrantfile_path
 		return "VAGRANT_CWD=%s vagrant %s" % (self.root, argv)
 
 	def up(self):
@@ -64,7 +90,7 @@ class Guest(object):
 		return run(self._get_cmd("reload"))
 
 	def destroy(self):
-		return run(self._get_cmd("destroy"))
+		return run(self._get_cmd("destroy --force"))
 	
 	def run(self, argv, warn_only = False):
 		return run(self._get_cmd("ssh -c %s" % pipes.quote(argv)))
@@ -98,3 +124,34 @@ class Guest(object):
 		# 1. find network of the host bridging interface
 		# 2. find the matching guest interface
 		return "eth1"
+
+##############
+# unit tests #
+##############
+
+DEFAULT_BRIDGE = "en0: Wi-Fi (AirPort)" # Macbook + WiFi
+
+class SelfTest(unittest.TestCase):
+
+	def setUp(self):
+		self.guest = Guest("/tmp/foo")
+		self.guest.init(
+			box_name = "wheezy64",
+			bridge = os.getenv("BRIDGE", DEFAULT_BRIDGE))
+
+	def tearDown(self):
+		self.guest.fini()
+
+	def test(self):
+		self.guest.up()
+		assert self.guest.is_running()
+		self.guest.destroy()
+
+	def test_double_init(self):
+		self.assertRaises(
+			Exception,
+			self.guest.init,
+			box_name = "wheezy64",
+			bridge = os.getenv("BRIDGE", DEFAULT_BRIDGE))
+
+if __name__ == "__main__": unittest.main(verbosity = 2)

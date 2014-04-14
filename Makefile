@@ -44,7 +44,7 @@ clean:
 	-find . -name '*.pyc' -delete
 
 ifeq ($(shell which testy),)
-test:
+test: $(addprefix testgrid/,$(MODULES))
 	@echo please install git@git.smartjog.net:florent.claerhout/testy.git
 else
 test: NAME :=

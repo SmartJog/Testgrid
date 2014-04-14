@@ -86,20 +86,20 @@ class FakeClient(Client):
 
 class SelfTest(unittest.TestCase):
 
-	cls = FakeClient
+	client_cls = FakeClient
 
 	def test(self):
-		c = (self.cls)()
-		session = c.open_session()
+		client = (self.client_cls)()
+		session = client.open_session()
 		node = session.allocate_node()
-		self.assertTrue(c.is_transient(node), "%s: not transient" % node)
-		self.assertIn(node, c.get_nodes())
+		self.assertTrue(client.is_transient(node), "%s: not transient" % node)
+		self.assertIn(node, client.get_nodes())
 		self.assertIn(node, session)
-		self.assertTrue(c.is_allocated(node),"%s: not allocated" % node)
-		self.assertIn(session, c.get_sessions())
+		self.assertTrue(client.is_allocated(node),"%s: not allocated" % node)
+		self.assertIn(session, client.get_sessions())
 		session.close()
-		self.assertIn(node, c.get_nodes())
-		self.assertNotIn(session, c.get_sessions())
+		self.assertIn(node, client.get_nodes())
+		self.assertNotIn(session, client.get_sessions())
 		self.assertFalse(node.is_up(), "%s: still up" % node)
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
