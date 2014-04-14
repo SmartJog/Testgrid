@@ -174,7 +174,7 @@ class Node(object):
 	@abc.abstractmethod
 	def get_typename(self):
 		"return human-readable type string"
-		raise NotImplementedError()
+		return "node"
 
 	@abc.abstractmethod
 	def has_support(self, **opts):
