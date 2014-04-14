@@ -13,7 +13,7 @@ usage:
 	@echo
 	@echo "Reserved:"
 	@echo "  make clean    delete generated files"
-	@echo "  make test     run tests"
+	@echo "  make test     run tests, you may pass a testname via NAME="
 	@echo "  make ci       check-in changes below"
 	@echo
 	@echo "Changes:"
