@@ -12,7 +12,6 @@ import testgrid
 class DatabaseError(sqlite3.Error): pass
 
 class Database(object):
-      #transaction
     def __init__(self, dbpath = "TestGrid.db", script_path="testgrid.sql"):
         self.dbpath = dbpath
         self.script_path = script_path
@@ -53,21 +52,20 @@ class Database(object):
         try:
             self.db.execute("INSERT INTO Nodes(classname, name) VALUES (?,?)", 
                             (node.get_typename(), node.name))
+            #FIX CONCURRENCY
             node.id = int(self.db.lastrowid)
             self.con.commit()
             args, varargs, kwargs, defaults = inspect.getargspec(node.__init__)
             for arg in args[1:]:
                 self.db.execute("INSERT INTO NodesAttributes(key, value, node_id) VALUES(?, ?, ?)"
                                 , (arg, str(getattr(node, arg)), node.id))
-                self.con.commit()
                 if hasattr(node, "is_transient"):
                     self.db.execute("INSERT INTO NodesAttributes(key, value, node_id) VALUES(?, ?, ?)"
                                     , ("is_transient", str(node.is_transient), node.id))
-                    self.con.commit()
                 if hasattr(node, "is_quarantined"):
                     self.db.execute("INSERT INTO NodesAttributes(key, value, node_id) VALUES(?, ?, ?)"
                                     , ("is_quarantined", str(node.is_quarantined), node.id))
-                    self.con.commit()
+            self.con.commit()
         except sqlite3.Error as e:
             self.con.rollback()
             raise DatabaseError("error while adding node %s :%s" % (node.name, e))
@@ -163,6 +161,7 @@ class Database(object):
         try:
             self.db.execute("INSERT INTO Sessions(username, name) VALUES(?, ?)"
                             ,(session.username, session.name))
+            #FIX CONCURRENCY
             session.id = int(self.db.lastrowid)
             self.con.commit()
         except sqlite3.Error:
