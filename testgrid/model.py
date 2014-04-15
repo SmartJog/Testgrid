@@ -59,6 +59,11 @@ class Package(object):
 		return not (self == other)
 
 	@abc.abstractmethod
+	def get_typename(self):
+		"return human-friendly type string"
+		raise NotImplementedError()
+
+	@abc.abstractmethod
 	def install(self, node):
 		"install package on $node, raise exception on error"
 		raise NotImplementedError()

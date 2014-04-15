@@ -1,12 +1,12 @@
 import unittest
-#import testgrid
+import testgrid
 import database
-import model
+#import model
 import inspect
 import os
 import shutil
 
-class persistentSession(model.Session):
+class persistentSession(testgrid.model.Session):
 	def __init__(self, hdl , gridref, username, name = None, subnet = None):
 		self.hdl = hdl
 		self.gridref = gridref
@@ -39,10 +39,10 @@ class persistentSession(model.Session):
 		self.gridref._close_session()
 		#super(persistentSession, self).close()
 
-class Grid(model.Grid):
-        def __init__(self, name, databasepath="testgrid.db", scriptSqlPath="testgrid/testgrid.sql", *args, **kwargs):
+class Grid(testgrid.model.Grid):
+        def __init__(self, name, dbpath="testgrid.db", script_path="testgrid/testgrid.sql", *args, **kwargs):
 		super(Grid, self).__init__(name, *args, **kwargs)
-		self.hdl = database.Database(databasePath=databasepath, scriptSqlPath=scriptSqlPath)
+		self.hdl = database.Database(dbpath=dbpath, script_path=script_path)
 		if (self.nodes):
 			for node in self.nodes:
 				self.add_node(node)
@@ -130,7 +130,7 @@ class Grid(model.Grid):
 		self.hdl.close()
 
 	def remove_database(self):
-		os.remove(self.hdl.dbPath)
+		os.remove(self.hdl.dbpath)
 ##############
 # unit tests #
 ##############
@@ -145,12 +145,12 @@ class SelfTest(unittest.TestCase):
 		
 
 	def test_persistent_nodes(self):
-		pg = Grid(name="persistentGrid", databasepath="db_test/persistentNodes.db")
-		node = model.FakeNode("fake node")
+		pg = Grid(name="persistentGrid", dbpath="db_test/persistentNodes.db")
+		node = testgrid.model.FakeNode("fake node")
 		pg.add_node(node)
 		self.assertEqual(len(pg.nodes), 1)
 		pg.close_database()
-		secondpg = Grid(name=" persistentGridsecond", databasepath="db_test/persistentNodes.db")
+		secondpg = Grid(name=" persistentGridsecond", dbpath="db_test/persistentNodes.db")
 		self.assertEqual(len(secondpg.nodes), 1)
 	    #secondpg.remove_node(node)
 	    #self.assertEqual(len(secondpg.nodes), 0)
@@ -158,28 +158,28 @@ class SelfTest(unittest.TestCase):
 		#secondpg.remove_database()
 
 	def test_persistent_sessions(self):
-		pg = Grid(name=" persistentGrid", databasepath="db_test/persistentSessions.db")
+		pg = Grid(name=" persistentGrid", dbpath="db_test/persistentSessions.db")
 		session = pg.open_session("persistent", "test")
 		anonymous_session = pg.open_session("persistent_anonymous")
 		sessions = pg.get_sessions()
 		self.assertEqual(len(sessions), 2)
 		anonymous_session.close()
-		secondpg = Grid(name="persistentGridsecond", databasepath="db_test/persistentSessions.db")
+		secondpg = Grid(name="persistentGridsecond", dbpath="db_test/persistentSessions.db")
 		sessions = secondpg.get_sessions()
 		self.assertEqual(len(sessions), 1)
 
 	def test_persistent_plan(self):
-		pg = Grid(name=" persistentGrid", databasepath="db_test/persistentPlan.db")
-		node = model.FakeNode("fake node")
+		pg = Grid(name=" persistentGrid", dbpath="db_test/persistentPlan.db")
+		node = testgrid.model.FakeNode("fake node")
 		pg.add_node(node)
 		session = pg.open_session("persistent", "test")
 		allocated_node = session.allocate_node()
-		self.assertRaises(model.NodePoolExhaustedError,session.allocate_node)
+		self.assertRaises(testgrid.model.NodePoolExhaustedError,session.allocate_node)
 		pg.close_database()
-		pg2 = Grid(name=" persistentGrid", databasepath="db_test/persistentPlan.db")
+		pg2 = Grid(name=" persistentGrid", dbpath="db_test/persistentPlan.db")
 		session2 = pg2.open_session("persistent2", "test2")
-		self.assertRaises(model.NodePoolExhaustedError, session2.allocate_node)
-		node2 = model.FakeNode("fake node")
+		self.assertRaises(testgrid.model.NodePoolExhaustedError, session2.allocate_node)
+		node2 = testgrid.model.FakeNode("fake node")
 		pg2.close_database()
 		pg2.remove_database()
 
