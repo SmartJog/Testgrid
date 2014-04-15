@@ -25,13 +25,19 @@ class Session(testgrid.model.Session):
 		return node
 
 	def _release_pair(self, pkg ,node):
-		#super(persistentSession, self)._release_pair(pkg ,node)
+		super(persistentSession, self)._release_pair(pkg ,node)
 		self.hdl.remove_plan(self, (node, pkg))
 
 	def deploy(self, packages):
 		plan = super(Session, self).deploy(packages)
 		self.hdl.add_plan(self, plan)
-	
+
+	def remove_node(self, node):
+		self.hdl.remove_plan(self, node)
+		for p in self.plan:
+			pkg, n = p
+			if n.id == node.id:
+				self.plan.remove(p)
 	def __del__(self):
 		if self.is_anonymous:
 			self.close()
@@ -39,6 +45,7 @@ class Session(testgrid.model.Session):
 	def close(self):
 		self.hdl.close_session(self)
 		self.gridref._close_session()
+		#FIXME
 		#super(persistentSession, self).close()
 
 class Grid(testgrid.model.Grid):
@@ -58,12 +65,19 @@ class Grid(testgrid.model.Grid):
 		super(Grid, self).add_node(node)
 		self.hdl.add_node(node)
 
-	def update_nodes(self):
-		self.nodes = self.hdl.get_nodes()
-
         def remove_node(self, node):
-		super(Grid, self).remove_node(node)
-		self.hdl.remove_node(node)
+		self.nodes = self.hdl.get_nodes()
+		for n in self.nodes:
+			if n.id == node.id:
+				for session in self.sessions:
+					for session_node in session:
+						if session_node.id == node.id:
+							session.remove_node(node)
+				self.nodes.remove(n)
+				self.hdl.remove_node(node)
+				return
+		raise testgrid.model.UnknownNodeError("%s" % node)
+		
 
         def quarantine_node(self, node, exc):
 		super(Grid, self).quarantine_node(node, exc)
@@ -148,30 +162,40 @@ class SelfTest(unittest.TestCase):
 		
 
 	def test_persistent_nodes(self):
+		"test add , remove node persistency"
+		#perform operation with first grid
 		pg = Grid(name="persistentGrid", dbpath="db_test/persistentNodes.db")
 		node = testgrid.model.FakeNode("fake node")
 		pg.add_node(node)
+		node2 = testgrid.model.FakeNode("fake node")
+		pg.add_node(node2)
+		self.assertEqual(len(pg.nodes), 2)
+		pg.remove_node(node2)
 		self.assertEqual(len(pg.nodes), 1)
 		pg.close_database()
+		#perform operation with second  grid using same db
 		secondpg = Grid(name=" persistentGridsecond", dbpath="db_test/persistentNodes.db")
 		self.assertEqual(len(secondpg.nodes), 1)
-		#secondpg.remove_node(node)
-		#self.assertEqual(len(secondpg.nodes), 0)
+		self.assertRaises(testgrid.model.UnknownNodeError, secondpg.remove_node, node2)
 		secondpg.close_database()
-		#secondpg.remove_database()
 
 	def test_persistent_sessions(self):
+		"test persistent session persistency, assert anonymous session is removed after being closed"
+		#perform operation with first grid
 		pg = Grid(name=" persistentGrid", dbpath="db_test/persistentSessions.db")
 		session = pg.open_session("persistent", "test")
-		anonymous_session = pg.open_session("persistent_anonymous")
+		anonymous_session = pg.open_session("anonymous")
 		sessions = pg.get_sessions()
 		self.assertEqual(len(sessions), 2)
 		anonymous_session.close()
+		#perform operation with second  grid using same db
 		secondpg = Grid(name="persistentGridsecond", dbpath="db_test/persistentSessions.db")
 		sessions = secondpg.get_sessions()
 		self.assertEqual(len(sessions), 1)
 
 	def test_persistent_plan(self):
+		"test plan persistency associate to specific session"
+		#perform operation with first grid
 		pg = Grid(name=" persistentGrid", dbpath="db_test/persistentPlan.db")
 		node = testgrid.model.FakeNode("fake node")
 		pg.add_node(node)
@@ -179,11 +203,18 @@ class SelfTest(unittest.TestCase):
 		allocated_node = session.allocate_node()
 		self.assertRaises(testgrid.model.NodePoolExhaustedError,session.allocate_node)
 		pg.close_database()
+		#perform operation with second  grid using same db
 		pg2 = Grid(name=" persistentGrid", dbpath="db_test/persistentPlan.db")
 		session2 = pg2.open_session("persistent2", "test2")
 		self.assertRaises(testgrid.model.NodePoolExhaustedError, session2.allocate_node)
-		node2 = testgrid.model.FakeNode("fake node")
+		pg2.remove_node(allocated_node)
 		pg2.close_database()
-		pg2.remove_database()
+		#check remove node persistency
+		pg = Grid(name=" persistentGrid", dbpath="db_test/persistentPlan.db")
+		self.assertEqual(len(pg.nodes), 0)
+		session = pg.open_session("persistent", "test")
+		self.assertEqual(len(session.plan), 0)
+		
+		
 
 if __name__  == "__main__": unittest.main(verbosity = 2)
