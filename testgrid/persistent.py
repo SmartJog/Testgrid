@@ -1,16 +1,18 @@
+# copyright (c) 2013-2014 smartjog, released under the GPL license.
 import unittest
 import testgrid
 import database
-#import model
 import inspect
 import os
 import shutil
 
-class persistentSession(testgrid.model.Session):
+"persistent grid implementation"
+
+class Session(testgrid.model.Session):
 	def __init__(self, hdl , gridref, username, name = None, subnet = None):
 		self.hdl = hdl
 		self.gridref = gridref
-		super(persistentSession, self).__init__(gridref, username, name, subnet)
+		super(Session, self).__init__(gridref, username, name, subnet)
 
 	def __iter__(self):
 		self.plan = self.hdl.get_plans(self)
@@ -18,7 +20,7 @@ class persistentSession(testgrid.model.Session):
 			yield node
 
 	def allocate_node(self, pkg = None, **opts):
-		node = super(persistentSession, self).allocate_node(pkg, **opts)
+		node = super(Session, self).allocate_node(pkg, **opts)
 		self.hdl.add_plan(self, (None, node))
 		return node
 
@@ -27,7 +29,7 @@ class persistentSession(testgrid.model.Session):
 		self.hdl.remove_plan(self, (node, pkg))
 
 	def deploy(self, packages):
-		plan = super(persistentSession, self).deploy(packages)
+		plan = super(Session, self).deploy(packages)
 		self.hdl.add_plan(self, plan)
 	
 	def __del__(self):
@@ -40,7 +42,8 @@ class persistentSession(testgrid.model.Session):
 		#super(persistentSession, self).close()
 
 class Grid(testgrid.model.Grid):
-        def __init__(self, name, dbpath="testgrid.db", script_path="testgrid/testgrid.sql", *args, **kwargs):
+        def __init__(self, name, dbpath="testgrid.db", 
+		     script_path="testgrid/testgrid.sql", *args, **kwargs):
 		super(Grid, self).__init__(name, *args, **kwargs)
 		self.hdl = database.Database(dbpath=dbpath, script_path=script_path)
 		if (self.nodes):
@@ -104,7 +107,7 @@ class Grid(testgrid.model.Grid):
 				return node
 
 	def get_sessions(self):
-		return self.hdl.get_sessions(persistentSession, self)
+		return self.hdl.get_sessions(Session, self)
 
 	def open_session(self, username = None, name = None):
 		self.sessions = self.get_sessions()
@@ -114,7 +117,7 @@ class Grid(testgrid.model.Grid):
 				assert session.username == username, "%s: access violation" % name
 				break
 		else:
-			session = persistentSession(hdl = self.hdl,
+			session = Session(hdl = self.hdl,
 						    gridref = self,
 						    username = username,
 						    name = name,
@@ -152,8 +155,8 @@ class SelfTest(unittest.TestCase):
 		pg.close_database()
 		secondpg = Grid(name=" persistentGridsecond", dbpath="db_test/persistentNodes.db")
 		self.assertEqual(len(secondpg.nodes), 1)
-	    #secondpg.remove_node(node)
-	    #self.assertEqual(len(secondpg.nodes), 0)
+		#secondpg.remove_node(node)
+		#self.assertEqual(len(secondpg.nodes), 0)
 		secondpg.close_database()
 		#secondpg.remove_database()
 
