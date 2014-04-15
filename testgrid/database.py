@@ -1,10 +1,9 @@
+# copyright (c) 2013-2014 smartjog, released under the GPL license.
 import sqlite3
 import sys
 import os
 import sqlrequest
 import unittest
-#import model
-#import parser
 import inspect
 import testgrid
 
@@ -21,7 +20,7 @@ class Database(object):
         self.database_init()
           
     def database_init(self):
-        "load existing database databse or creates a new database using scriptSqlPath"
+        "load existing database databse or creates a new database using script_path"
         if os.path.exists(self.dbpath):
             self.con = sqlite3.connect(self.dbpath)
             self.db = self.con.cursor()
@@ -39,7 +38,7 @@ class Database(object):
                     self.con.commit()
         except sqlite3.Error as  e:
             self.con.rollback()
-            raise DatabaseError(e)
+            raise DatabaseError("error creating database:" % e)
 
     def close(self):
         "close databse connection"
@@ -69,18 +68,19 @@ class Database(object):
                     self.db.execute("INSERT INTO NodesAttributes(key, value, node_id) VALUES(?, ?, ?)"
                                     , ("is_quarantined", str(node.is_quarantined), node.id))
                     self.con.commit()
-        except sqlite3.IntegrityError:
+        except sqlite3.Error as e:
             self.con.rollback()
+            raise DatabaseError("error while adding node %s :%s" % (node.name, e))
 
     def remove_node(self, node):
         try:
             self.db.execute("DELETE FROM Nodes where id = ?", (node.id,))
             if self.db.rowcount:
-                #self.con.commit()
                 self.db.execute("DELETE FROM NodesAttributes where node_id = ?" ,(node.id,))
                 self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
+            raise DatabaseError("error while removing node %s :%s" % (node.name, e))
 
     def quarantine_node(self, node, exc):
         try:
@@ -89,6 +89,7 @@ class Database(object):
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
+            raise DatabaseError("error setting node %s to quarantined:%s" % (node.name, e))
 
     def rehabilitate_node(self, node):
         try:
@@ -97,13 +98,13 @@ class Database(object):
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
+            raise DatabaseError("error rehabilitate node %s:%s" % (node.name, e))
 
     def create_node(self, index, typename):
         arg = {}
         is_transient = None
         is_quarantined = None
-        self.db.execute("SELECT key, value from NodesAttributes where node_id = ?"
-                        ,(index,))
+        self.db.execute("SELECT key, value from NodesAttributes where node_id = ?" , (index,))
         result = self.db.fetchall()
         try: 
             cls = testgrid.parser.get_subclass(typename, testgrid.model.Node)
@@ -164,31 +165,37 @@ class Database(object):
                             ,(session.username, session.name))
             session.id = int(self.db.lastrowid)
             self.con.commit()
-        except sqlite3.IntegrityError:
+        except sqlite3.Error:
             self.con.rollback()
+            raise DatabaseError("error opening session username:%s, name: %s :%s" \
+                                    % (session.usernname, session.name,e))
 
     def close_session(self, session):
         try:
             self.db.execute("DELETE FROM Plans where session_id = ?",(session.id,))
-            #self.con.commit()
             self.db.execute("DELETE FROM Sessions where id = ?",(session.id,))
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
-
+            raise DatabaseError("error closing session username:%s, name: %s :%s" \
+                                    % (session.usernname, session.name,e))
 # Table Plans
     def add_plan(self, session, plan):
         try:
             pkg, node = plan
             if not pkg:
-                self.db.execute("INSERT INTO Plans(session_id, node_id, packagename, packageversion, packagetypename) VALUES(?, ?, ?, ?,?)"
+                self.db.execute("INSERT INTO Plans(session_id, node_id, packagename," \
+                                    "packageversion, packagetypename) VALUES(?, ?, ?, ?,?)" \
                                 ,(session.id, node.id, None, None, None))
             else:
-                self.db.execute("INSERT INTO Plans(session_id, node_id, packagename, packageversion, packagetypename) VALUES(?, ?, ?, ?,?)"
-                                ,(session.id, node.id, pkg.name, pkg.version, pkg.get_typename()))
+                self.db.execute("INSERT INTO Plans(session_id, node_id, packagename," \
+                                    "packageversion, packagetypename) VALUES(?, ?, ?, ?,?)" \
+                                    ,(session.id, node.id, pkg.name, pkg.version, pkg.get_typename()))
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
+            raise DatabaseError("error adding plan  session username:%s, name: %s , node: %s : %s" \
+                                    % (session.usernname, session.name, node.name ,e))
 
     def remove_plan(self, session, node):
         try:
@@ -197,17 +204,21 @@ class Database(object):
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
+            raise DatabaseError("error removing plan session username:%s, name: %s , node: %s : %s" \
+                                    % (session.usernname, session.name, node.name ,e))
+
                                          
     def get_plans(self, session):
         plan = []
-        self.db.execute("SELECT node_id, packagename, packageversion, packagetypename From Plans where session_id = ?"
-                        ,(session.id,))
+        self.db.execute("SELECT node_id, packagename, packageversion," \
+                            "packagetypename From Plans where session_id = ?" \
+                            ,(session.id,))
         res = self.db.fetchall()
         for indexnode, pname, pversion, ptype in res:
             for node in session.gridref:
                 if int(node.id) == int(indexnode):
                     if ptype != None:
-                        pcls = testgrid.parser.get_subclass(ptype, model.Package)
+                        pcls = testgrid.parser.get_subclass(ptype, testgrid.model.Package)
                         package = pcls(str(pname), str(pversion))
                     else:
                         package = None   
