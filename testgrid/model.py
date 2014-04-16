@@ -485,18 +485,19 @@ class Grid(object):
 	def get_sessions(self):
 		return self.sessions
 
-	def open_session(self, username = None, name = None):
+	def open_session(self, username = None, name = None, session_cls = Session, **opts):
 		username = username or getpass.getuser()
 		for session in self.sessions:
 			if session.name == name:
 				assert session.username == username, "%s: access violation" % name
 				break
 		else:
-			session = Session(
+			session = (session_cls)(
 				gridref = weakref.ref(self),
 				username = username,
 				name = name,
-				subnet = self._allocate_subnet())
+				subnet = self._allocate_subnet(),
+				**opts)
 			self.sessions.append(session)
 		return session
 
