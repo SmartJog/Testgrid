@@ -31,6 +31,7 @@ class Session(testgrid.model.Session):
 		self.hdl.remove_plan(self, (node, pkg))
 
 	def deploy(self, packages):
+		#join subnet fix
 		plan = super(Session, self).deploy(packages)
 		self.hdl.add_plan(self, plan)
 		return plan
