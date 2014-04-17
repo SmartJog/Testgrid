@@ -446,6 +446,7 @@ class Grid(object):
 			and node.has_support(**opts)\
 			and (not pkg or node.is_installable(pkg)):
 				break
+                        print node
 		else:
 			node = self.create_node(pkg = pkg, **opts)
 			assert\
@@ -510,7 +511,8 @@ class Grid(object):
 		"do not use directly -- called by the session on closing"
 		assert session in self.sessions, "%s: unknown session" % session
 		self.sessions.remove(session)
-		self._release_subnet(session.subnet)
+                if session.subnet: #added None issue
+                        self._release_subnet(session.subnet)
 
 class UnknownGridError(Exception): pass
 

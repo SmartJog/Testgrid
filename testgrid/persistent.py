@@ -8,18 +8,21 @@ import database
 import inspect
 import os
 import shutil
+import weakref
 
 class Session(testgrid.model.Session):
 
 	def __init__(self, hdl, gridref, username, name = None, subnet = None):
 		super(Session, self).__init__(gridref, username, name, subnet)
 		self.hdl = hdl
-		#self.hdl.add_session(self)
 
 	def __iter__(self):
 		self.plan = self.hdl.get_plans(self)
 		for _, node in self.plan:
 			yield node
+
+        def update_plan(self):
+                self.plan = self.hdl.get_plans(self)
 
 	def allocate_node(self, pkg = None, **opts):
 		node = super(Session, self).allocate_node(pkg, **opts)
@@ -44,7 +47,7 @@ class Session(testgrid.model.Session):
 				self.plan.remove(p)
 
 	def close(self):
-		super(persistentSession, self).close()
+		super(Session, self).close()
 		self.hdl.remove_session(self)
 
 class Nodes(object):
@@ -53,20 +56,28 @@ class Nodes(object):
 		self.hdl = hdl
 
 	def __iter__(self):
-		for node in self.hdl.get_nodes():
+                nodes =  self.hdl.get_nodes()
+                print nodes
+		for node in nodes:
 			yield node
-
+                print "end iter node"
 	def __contains__(self, node):
 		for n in self:
 			if n.id == node.id:
 				return True
 		return False
 
+        def __len__(self):
+                size  = 0
+                for n in self:
+                        size = size + 1
+                return size
+
 	def append(self, node):
 		self.hdl.add_node(node)
 
-	def remove(self, node):
-		self.hdl.remove(node)
+        def remove(self, node):
+		self.hdl.remove_node(node)
 
 class Subnets(object):
 
@@ -77,11 +88,23 @@ class Subnets(object):
 		for subnet in self.hdl.get_subnets():
 			yield subnet
 
-	def __contains__(self, session):
+	def __contains__(self, subnet):
 		for s in self:
-			if s.id == session.id:
+			if s.id == subnet.id:
 				return True
 		return False
+
+        def __len__(self):
+                size  = 0
+                for n in self:
+                        size = size + 1
+                return size
+
+        def pop(self):
+                subnets = self.hdl.get_subnets()
+                last_subnet = subnets[-1]
+                #remove
+                return last_subnet
 
 	def append(self, subnet):
 		self.hdl.add_subnet(subnet)
@@ -91,18 +114,27 @@ class Subnets(object):
 
 class Sessions(object):
 
-	def __init__(self, hdl):
+	def __init__(self, hdl, gridref):
 		self.hdl = hdl
+                self.gridref = gridref
 
 	def __iter__(self):
-		for session in self.hdl.get_sessions():
+                sessions = self.hdl.get_sessions(self.gridref)
+		for session in sessions: 
 			yield session
+                print "end ier session"
 
 	def __contains__(self, session):
 		for s in self:
 			if s.id == session.id:
 				return True
 		return False
+
+        def __len__(self):
+                size  = 0
+                for n in self:
+                        size = size + 1
+                return size
 
 	def append(self, session):
 		self.hdl.add_session(session)
@@ -115,20 +147,25 @@ class Grid(testgrid.model.Grid):
         def __init__(self, name, dbpath="testgrid.db",
 		     script_path="testgrid/testgrid.sql", *args, **kwargs):
 		super(Grid, self).__init__(name, *args, **kwargs)
-                if (self.nodes):
-			for node in self.nodes:
-				self.add_node(node)
-                #add subnet
-		self.hdl = database.Database(dbpath = dbpath, script_path = script_path)
-		self.nodes = Nodes(hdl = self.hdl)
+                nodes = self.nodes
+                subnets = self.subnets
+                self.hdl = database.Database(dbpath = dbpath, script_path = script_path)
+                self.nodes = Nodes(hdl = self.hdl)
 		self.subnets = Subnets(hdl = self.hdl)
-		self.sessions = Sessions(hdl = self.hdl)
+		self.sessions = Sessions(hdl = self.hdl, gridref = weakref.ref(self))
+                for n in nodes:
+                        self.add_node(n)
+                if subnets:
+                        for s in subnets:
+                                self.add_subnet(s)
 		
 
-        def __add_node(self, node):
-		self.nodes = self.hdl.get_nodes()
-		super(Grid, self).add_node(node)
-		self.hdl.add_node(node)
+        def add_node(self, node):
+                #contains super no id
+		self.nodes.append(node)
+
+        def add_subnet(self, subnet):
+                self.subnets.append(subnet)
 
         def __remove_node(self, node):
 		self.nodes = self.hdl.get_nodes()
@@ -161,7 +198,10 @@ class Grid(testgrid.model.Grid):
 			name = name,
 			session_cls = Session,
 			hdl = self.hdl)
-		self.hdl.add_session(session)
+                if not hasattr(session, "id"):
+                        self.sessions.append(session)
+                else:
+                        session.update_plan()
 		return session
 
 	def __del__(self):
@@ -170,6 +210,7 @@ class Grid(testgrid.model.Grid):
 ##############
 # unit tests #
 ##############
+class FakeSubnet(testgrid.model.Subnet):pass
 
 class SelfTest(unittest.TestCase):
 
@@ -178,13 +219,14 @@ class SelfTest(unittest.TestCase):
 		if not os.path.exists("db_test"):
 			os.mkdir("db_test")
 
-	def tearDown(self):
+        def tearDown(self):
 		shutil.rmtree("db_test/")
 
 	def test_persistent_nodes(self):
 		"test add , remove node persistency"
 		#perform operation with first grid
-		pg = Grid(name="persistentGrid", dbpath="db_test/persistentNodes.db")
+                subnets = [FakeSubnet("vlan14")]
+		pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentNodes.db", subnets = subnets)
 		node = testgrid.model.FakeNode("fake node")
 		pg.add_node(node)
 		node2 = testgrid.model.FakeNode("fake node")
@@ -194,16 +236,16 @@ class SelfTest(unittest.TestCase):
 		self.assertEqual(len(pg.nodes), 1)
 		del pg
 		#perform operation with second  grid using same db
-		pg = Grid(name="persistentGridsecond", dbpath="db_test/persistentNodes.db")
+		pg = Grid(name = "persistentGridsecond", dbpath = "db_test/persistentNodes.db")
 		self.assertEqual(len(pg.nodes), 1)
 		self.assertRaises(testgrid.model.UnknownNodeError, pg.remove_node, node2)
-		#pg.remove_database()
 		del pg
 
 	def test_persistent_sessions(self):
 		"test persistent session persistency, assert anonymous session is removed after being closed"
 		#perform operation with first grid
-		pg = Grid(name="persistentGrid", dbpath="db_test/persistentSessions.db")
+                subnets = [FakeSubnet("vlan14")]
+		pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentSessions.db", subnets = subnets)
 		session = pg.open_session("persistent", "test")
 		anonymous_session = pg.open_session("anonymous")
 		sessions = pg.get_sessions()
@@ -211,33 +253,34 @@ class SelfTest(unittest.TestCase):
 		anonymous_session.close()
 		del pg
 		#perform operation with second  grid using same db
-		pg = Grid(name="persistentGridsecond", dbpath="db_test/persistentSessions.db")
+		pg = Grid(name = "persistentGridsecond", dbpath = "db_test/persistentSessions.db")
 		sessions = pg.get_sessions()
 		self.assertEqual(len(sessions), 1)
 		del pg
 
-	def test_persistent_plan(self):
+        def test_persistent_plan(self):
 		"test plan persistency associate to specific session"
 		#perform operation with first grid
-		pg = Grid(name=" persistentGrid", dbpath="db_test/persistentPlan.db")
+                subnets = [FakeSubnet("vlan14")]
+		pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db", subnets = subnets)
 		node = testgrid.model.FakeNode("fake node")
 		pg.add_node(node)
 		session = pg.open_session("persistent", "test")
 		allocated_node = session.allocate_node()
-		self.assertRaises(testgrid.model.NodePoolExhaustedError,session.allocate_node)
-		del pg
-		#perform operation with second  grid using same db
-		pg = Grid(name=" persistentGrid", dbpath="db_test/persistentPlan.db")
-		session = pg.open_session("persistent2", "test2")
-		self.assertRaises(testgrid.model.NodePoolExhaustedError, session.allocate_node)
-		pg.remove_node(allocated_node)
-		del pg
-		#check remove node persistency
-		pg = Grid(name=" persistentGrid", dbpath="db_test/persistentPlan.db")
-		self.assertEqual(len(pg.nodes), 0)
-		session = pg.open_session("persistent", "test")
-		self.assertEqual(len(session.plan), 0)
-		del pg
+	#	self.assertRaises(testgrid.model.NodePoolExhaustedError,session.allocate_node)
+        #        del pg
+	#	#perform operation with second  grid using same db
+	#	pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db")
+	#	session = pg.open_session("persistent2", "test2")
+	#	self.assertRaises(testgrid.model.NodePoolExhaustedError, session.allocate_node)
+	#	pg.remove_node(allocated_node)
+	#	del pg
+	#	#check remove node persistency
+	#	pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db")
+	#	self.assertEqual(len(pg.nodes), 0)
+	#	session = pg.open_session("persistent", "test")
+	#	self.assertEqual(len(session.plan), 0)
+	#	del pg
 
 if __name__  == "__main__": unittest.main(verbosity = 2)
 
