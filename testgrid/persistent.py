@@ -112,16 +112,18 @@ class Sessions(object):
 
 class Grid(testgrid.model.Grid):
 
-        def __init__(self, name, dbpath="testgrid.db", 
+        def __init__(self, name, dbpath="testgrid.db",
 		     script_path="testgrid/testgrid.sql", *args, **kwargs):
 		super(Grid, self).__init__(name, *args, **kwargs)
+                if (self.nodes):
+			for node in self.nodes:
+				self.add_node(node)
+                #add subnet
 		self.hdl = database.Database(dbpath = dbpath, script_path = script_path)
 		self.nodes = Nodes(hdl = self.hdl)
 		self.subnets = Subnets(hdl = self.hdl)
 		self.sessions = Sessions(hdl = self.hdl)
-		if (self.nodes):
-			for node in self.nodes:
-				self.add_node(node)
+		
 
         def __add_node(self, node):
 		self.nodes = self.hdl.get_nodes()
@@ -140,7 +142,6 @@ class Grid(testgrid.model.Grid):
 				self.hdl.remove_node(node)
 				return
 		raise testgrid.model.UnknownNodeError("%s" % node)
-		
 
         def quarantine_node(self, node, exc):
 		self.hdl.quarantine_node(node, exc)
@@ -150,7 +151,7 @@ class Grid(testgrid.model.Grid):
 
 	def is_quarantined(self, node):
 		return self.hdl.is_quarantined(node)
-	
+
 	def is_transient(self, node):
 		return self.hdl.is_transient(node)
 
@@ -198,7 +199,7 @@ class SelfTest(unittest.TestCase):
 		self.assertRaises(testgrid.model.UnknownNodeError, pg.remove_node, node2)
 		#pg.remove_database()
 		del pg
-		
+
 	def test_persistent_sessions(self):
 		"test persistent session persistency, assert anonymous session is removed after being closed"
 		#perform operation with first grid
@@ -214,7 +215,7 @@ class SelfTest(unittest.TestCase):
 		sessions = pg.get_sessions()
 		self.assertEqual(len(sessions), 1)
 		del pg
-		
+
 	def test_persistent_plan(self):
 		"test plan persistency associate to specific session"
 		#perform operation with first grid
