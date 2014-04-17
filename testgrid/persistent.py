@@ -50,6 +50,8 @@ class Session(testgrid.model.Session):
 		super(Session, self).close()
 		self.hdl.remove_session(self)
 
+        def __del__(self):pass
+
 class Nodes(object):
 
 	def __init__(self, hdl):
@@ -61,9 +63,10 @@ class Nodes(object):
 
 	def __contains__(self, node):
 		for n in self:
-			if n.id == node.id:
+                        print n
+			if n == node:
 				return True
-		return False
+                return False
 
         def __len__(self):
                 size  = 0
@@ -118,14 +121,14 @@ class Sessions(object):
 
 	def __iter__(self):
                 sessions = self.hdl.get_sessions(self.gridref)
-		for session in sessions: 
+		for session in sessions:
 			yield session
 
 	def __contains__(self, session):
-		for s in self:
-			if s.id == session.id:
-				return True
-		return False
+                if not hasattr(session, "id"):
+                        return False
+                return True
+		#self.hdl.session_exists(session.id)
 
         def __len__(self):
                 size  = 0
@@ -155,15 +158,15 @@ class Grid(testgrid.model.Grid):
                 if subnets:
                         for s in subnets:
                                 self.add_subnet(s)
-		
 
         def add_node(self, node):
                 #contains super no id
 		self.nodes.append(node)
 
         def add_subnet(self, subnet):
-                self.subnets.append(subnet)
 
+                self.subnets.append(subnet)
+        
         def __remove_node(self, node):
 		self.nodes = self.hdl.get_nodes()
 		for n in self.nodes:
@@ -195,10 +198,10 @@ class Grid(testgrid.model.Grid):
 			name = name,
 			session_cls = Session,
 			hdl = self.hdl)
-                if not hasattr(session, "id"):
-                        self.sessions.append(session)
-                else:
-                        session.update_plan()
+                #if not hasattr(session, "id"):
+                #        self.sessions.append(session)
+                #else:
+                #       session.update_plan()
 		return session
 
 	def __del__(self):
@@ -208,6 +211,15 @@ class Grid(testgrid.model.Grid):
 # unit tests #
 ##############
 class FakeSubnet(testgrid.model.Subnet):pass
+
+class FakeNode(testgrid.model.Node):
+
+        def __eq__(self, node):
+                print "eqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
+                if self.name == node.name:
+                        print "True"
+                        return True
+                return False
 
 class SelfTest(unittest.TestCase):
 

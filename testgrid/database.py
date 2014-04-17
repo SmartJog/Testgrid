@@ -31,6 +31,7 @@ class Database(object):
         "tables creation"
         try:
             self.con = sqlite3.connect(self.dbpath)
+            #fix connection fail
             self.db = self.con.cursor()
             with open(self.script_path , 'r') as f:
                 for line in f:
@@ -182,7 +183,7 @@ class Database(object):
                 raise Exception("database get session cls: %s" % e)
             session = session_cls(self, grid, str(username), str(name))
             session.id = int(index)
-            session.plan = [] #self.get_plans(session)
+            session.plan = self.get_plans(session)
             #session.get_subnet(session)
             sessions.append(session)
         return sessions
@@ -245,7 +246,6 @@ class Database(object):
             raise DatabaseError("error removing plan session username:%s, name: %s , node: %s : %s" \
                                     % (session.username, session.name, node.name, e))
 
-                                         
     def get_plans(self, session):
         plan = []
         self.db.execute("SELECT node_id, package_id FROM Plans WHERE session_id = ?", (session.id,))
@@ -285,14 +285,14 @@ class Database(object):
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
-            
+
     def remove_package(package_id):
         try:
             self.db.execute("DELETE FROM Packages WHERE id = ?", (package_id,))
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
-                            
+
 ##############
 # unit tests #
 ##############
