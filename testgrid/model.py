@@ -403,6 +403,9 @@ class Grid(object):
 	def quarantine_node(self, node, exc):
 		node.is_quarantined = exc
 
+	def set_node_transient(self, node):
+		node.is_transient = True
+
 	def rehabilitate_node(self, node):
 		node.is_quarantined = False
 
@@ -446,14 +449,13 @@ class Grid(object):
 			and node.has_support(**opts)\
 			and (not pkg or node.is_installable(pkg)):
 				break
-                        print node
 		else:
 			node = self.create_node(pkg = pkg, **opts)
 			assert\
 				not pkg or node.is_installable(pkg),\
 				"%s: node cannot install %s, please report this issue" % (node, pkg)
-			node.is_transient = True
 			self.add_node(node)
+			self.set_node_transient(node)
 		return node
 
 	def is_transient(self, node):
@@ -511,8 +513,7 @@ class Grid(object):
 		"do not use directly -- called by the session on closing"
 		assert session in self.sessions, "%s: unknown session" % session
 		self.sessions.remove(session)
-                if session.subnet: #added None issue
-                        self._release_subnet(session.subnet)
+		self._release_subnet(session.subnet)
 
 class UnknownGridError(Exception): pass
 
@@ -541,6 +542,9 @@ class Grids(Grid):
 ################
 
 class FakePackage(Package):
+
+	def get_typename(self):
+		return "fake package"
 
 	def install(self, node):
 		assert not node.terminated

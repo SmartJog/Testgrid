@@ -59,8 +59,6 @@ class LocalTest(FakeTest):
 		client.remove_node(node)
 		self.assertNotIn(node, client.get_nodes())
 		self.assertNotIn(node, secondclient.get_nodes())
-		
-		
 
 	def test_session_persistent_Grid(self):
 		"verify session persistency"
@@ -81,7 +79,7 @@ class LocalTest(FakeTest):
 		self.assertIn(node, session.get_nodes())
 		secondsession = client.create_session()
 		self.assertFalse(secondsession.is_available(node))
-		
+
 class RestTest(FakeTest):
 
 	cls = testgrid.rest.Client

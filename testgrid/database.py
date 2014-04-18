@@ -18,7 +18,7 @@ class Database(object):
         self.script_path = script_path
         self.con = None
         self.database_init()
-          
+
     def database_init(self):
         "load existing database or creates a new database using script_path"
         if os.path.exists(self.dbpath):
@@ -31,14 +31,14 @@ class Database(object):
         "tables creation"
         try:
             self.con = sqlite3.connect(self.dbpath)
-            #fix connection fail
             self.db = self.con.cursor()
             with open(self.script_path , 'r') as f:
                 for line in f:
                     self.db.execute(line)
                     self.con.commit()
         except sqlite3.Error as  e:
-            self.con.rollback()
+            if self.con:
+                self.con.rollback()
             raise DatabaseError("error creating database: %s" % e)
 
     def close(self):
@@ -50,11 +50,12 @@ class Database(object):
         self.close()
 
 # Nodes
+
     def add_node(self, node):
         try:
             self.con.isolation_level = 'EXCLUSIVE'
             self.con.execute('BEGIN EXCLUSIVE')
-            self.db.execute("INSERT INTO Nodes(typename, name) VALUES (?,?)", 
+            self.db.execute("INSERT INTO Nodes(typename, name) VALUES (?,?)",
                             (node.__class__.__name__, node.name))
             node.id = int(self.db.lastrowid)
             self.con.commit()
@@ -71,7 +72,7 @@ class Database(object):
         try:
             self.db.execute("DELETE FROM Nodes WHERE id = ?", (node.id,))
             if self.db.rowcount:
-                #delete plan from session
+                self.db.execute("DELETE FROM Plans WHERE node_id = ?", (node.id,))
                 self.db.execute("DELETE FROM NodesAttributes WHERE node_id = ?" ,(node.id,))
                 self.con.commit()
         except sqlite3.Error, e:
@@ -80,8 +81,8 @@ class Database(object):
 
     def quarantine_node(self, node, exc):
         try:
-            self.db.execute("UPDATE Nodes SET is_quarantine = ? WHERE node_id = ?",
-                            (exc, node.id))
+            self.db.execute("UPDATE Nodes SET is_quarantined = ?, error = ? WHERE id = ?",
+                            (1, str(exc), node.id))
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
@@ -89,12 +90,21 @@ class Database(object):
 
     def rehabilitate_node(self, node):
         try:
-            self.db.execute("UPDATE Nodes SET is_quarantine = ? WHERE node_id = ?",
+            self.db.execute("UPDATE Nodes SET is_quarantined = ? WHERE id = ?",
                             (False, node.id))
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
             raise DatabaseError("error rehabilitate node %s: %s" % (node.name, e))
+
+    def set_node_transient(self, node):
+        try:
+            self.db.execute("UPDATE Nodes SET is_transient = ? WHERE id = ?",
+                            (1, node.id))
+            self.con.commit()
+        except sqlite3.Error, e:
+            self.con.rollback()
+            raise DatabaseError("error setting node %s to quarantined: %s" % (node.name, e))
 
     def create_node(self, index, typename):
         "creates node object using database node row"
@@ -103,14 +113,18 @@ class Database(object):
         is_quarantined = None
         self.db.execute("SELECT key, value FROM NodesAttributes WHERE node_id = ?" , (index,))
         result = self.db.fetchall()
-        try: 
+        try:
             cls = testgrid.parser.get_subclass(typename, testgrid.model.Node)
         except Exception as e:
             raise Exception("database create node: %s" % e)
         for item in result:
             key, value = item
             arg[key] = str(value)
-        node = cls(**arg)
+        try:
+            node = cls(**arg)
+        except Exception as e:
+            args, varargs, kwargs, defaults = inspect.getargspec(cls.__init__)
+            raise(Exception("fail class %s" % str(cls)))
         node.id = int(index)
         return node
 
@@ -126,26 +140,29 @@ class Database(object):
     def is_quarantined(self, node):
         self.db.execute("SELECT is_quarantined FROM Nodes WHERE id = ?",
                         (node.id,))
-        res = self.db.fetchone()
-        return bool(res[0])
+        (is_quarantined, )  = self.db.fetchone()
+        return bool(is_quarantined)
 
     def is_transient(self, node):
-        #SET IS_TRANSIENT ISSUE GRID.find_node
         self.db.execute("SELECT is_transient FROM Nodes WHERE id = ?",
                         (node.id,))
-        res = self.db.fetchone()
-        return bool(res[0])
+        (is_transient, )  = self.db.fetchone()
+        return bool(is_transient)
 
 # Table Subnets
+
+    def create_subnet(self, id, typename, id_string):
+        cls = testgrid.parser.get_subclass(str(typename), testgrid.model.Subnet)
+        subnet = cls(id_string)
+        subnet.db_id = int(id)
+        return subnet
 
     def get_subnets(self):
         subnets = []
         self.db.execute("SELECT id, typename, id_string FROM Subnets")
         res = self.db.fetchall()
         for id, typename, id_string in res:
-            cls = testgrid.parser.get_subclass(str(typename), testgrid.model.Subnet)
-            subnet = cls(id_string)
-            subnet.db_id = int(id)
+            subnet = self.create_subnet(id, typename, id_string)
             subnets.append(subnet)
         return subnets
 
@@ -170,13 +187,29 @@ class Database(object):
             self.con.rollback()
             raise DatabaseError("error adding subnet: %s" % e)
 
+    def allocate_subnet(self):
+        try:
+            self.con.isolation_level = 'EXCLUSIVE'
+            self.con.execute('BEGIN EXCLUSIVE')
+            self.con.execute("SELECT id, typename, id_string FROM Subnets WHERE used = 0")
+            res = self.db.fetchone()
+            if not res:
+                return testgrid.model.NodePoolExhaustedError()
+            id, typename, id_string = res
+            subnet = self.create_subnet(id, typename, id_string)
+            self.db.execute("UPDATE Subnets SET used = 1 WHERE id = ?", (id,))
+            return subnet
+        except sqlite3.Error, e:
+            self.con.rollback()
+            raise DatabaseError("error allocating  subnet: %s" % e)
+
 # Table Sessions
 
     def get_sessions(self, grid):
         sessions = []
-        self.db.execute("SELECT id, typename, username, name FROM Sessions")
+        self.db.execute("SELECT id, typename, username, name, subnet_id FROM Sessions")
         res = self.db.fetchall()
-        for index, typename, username, name in res:
+        for index, typename, username, name, subnet_id in res:
             try:
                 session_cls = testgrid.parser.get_subclass(typename, testgrid.model.Session) 
             except Exception as e:
@@ -184,7 +217,10 @@ class Database(object):
             session = session_cls(self, grid, str(username), str(name))
             session.id = int(index)
             session.plan = self.get_plans(session)
-            #session.get_subnet(session)
+            if subnet_id:
+                db.execute("SELECT typename, id_string FROM Subnets WHERE id = ?", (subnet_id) )
+                subnet_typename, id_string = db.fetchone()
+                session.subnet = self.create_subnet(subnet_id, subnet_typename, id_string)
             sessions.append(session)
         return sessions
 
@@ -193,8 +229,12 @@ class Database(object):
 
             self.con.isolation_level = 'EXCLUSIVE'
             self.con.execute('BEGIN EXCLUSIVE')
-            self.db.execute("INSERT INTO Sessions(typename, username, name) VALUES(?, ?, ?)",
-                            (session.__class__.__name__, session.username, session.name))
+            if not session.subnet:
+                subnet_id = None
+            else:
+                subnet_id = session.subnet.db_id
+            self.db.execute("INSERT INTO Sessions(typename, username, name, subnet_id) VALUES(?, ?, ?, ?)",
+                            (session.__class__.__name__, session.username, session.name, subnet_id))
             session.id = int(self.db.lastrowid)
             self.con.commit()
         except sqlite3.Error, e:
@@ -204,11 +244,16 @@ class Database(object):
 
     def remove_session(self, session):
         try:
+            self.con.isolation_level = 'EXCLUSIVE'
+            self.con.execute('BEGIN EXCLUSIVE')
             res = self.db.execute("SELECT package_id FROM Plans WHERE session_id = ?", (session.id,))
             for package_id in res:
+                print package_id
                 self.remove_package(package_id)
             self.db.execute("DELETE FROM Plans WHERE session_id = ?", (session.id,))
             self.db.execute("DELETE FROM Sessions WHERE id = ?", (session.id,))
+            if session.subnet:
+                self.db.execute("UPDATE Subnets SET used = 0 WHERE id = ?", (session.subnet.db_id,))
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
@@ -230,14 +275,27 @@ class Database(object):
         except sqlite3.Error, e:
             self.con.rollback()
             raise DatabaseError("error adding plan  session username:%s, name: %s , node: %s : %s" \
+
+                                % (session.username, session.name, node.name, e))
+
+    def remove_pair(self, session, node , pkg):
+        try:
+            self.remove_package(pkg.id)
+            self.db.execute("DELETE FROM Plans WHERE session_id = ? AND node_id = ? AND package_id = ?",
+                            (session.id, node.id, pkg.id))
+            self.con.commit()
+        except sqlite3.Error, e:
+            self.con.rollback()
+            raise DatabaseError("error removing pair session username:%s, name: %s , node: %s : %s" \
                                     % (session.username, session.name, node.name, e))
 
     def remove_plan(self, session, node):
         try:
-            package_id = self.db.execute("SELECT package_id FROM Plans WHERE session_id = ? AND node_id = ?",\
-                                         (session.id, node.id))
-            if package_id:
-                self.remove_package(package_id)
+            self.db.execute("SELECT package_id FROM Plans WHERE session_id = ? AND node_id = ?",\
+                                (session.id, node.id))
+            package_id = self.db.fetchall()
+            for  id, in package_id:
+                self.remove_package(id)
             self.db.execute("DELETE FROM Plans WHERE session_id = ? AND node_id = ?",
                             (session.id, node.id))
             self.con.commit()
@@ -252,30 +310,32 @@ class Database(object):
         res = self.db.fetchall()
         for node_id, package_id in res:
             if package_id:
-                package = get_package(package_id)
+                package = self.get_package(package_id)
             else:
                 package = None
             self.db.execute("SELECT typename FROM Nodes WHERE id = ?", (node_id,))
-            typename = self.db.fetchone()
-            node = self.create_node(node_id, typename[0])
+            (typename,) =  self.db.fetchone()
+            node = self.create_node(node_id, typename)
             plan.append((package, node))
         return plan
 
 # Table Package
 
-    def get_package(package_id):
-        self.db.execute("SELECT typename, version, name WHERE id = ?", (package_id,))
+    def get_package(self, package_id):
+        self.db.execute("SELECT typename, version, name FROM Packages WHERE id = ?", (package_id,))
         res = self.db.fetchone()
-        if len(res) == 0:
+        if not res:
             return None
         typename, version, name = res
         try:
-            package_cls = testgrid.parser.get_subclass(ptype, testgrid.model.Package)
+            package_cls = testgrid.parser.get_subclass(typename, testgrid.model.Package)
         except Exception as e:
             raise Exception("database get package cls: %s" % e)
-        return package_cls(str(name), str(version))
+        pkg = package_cls(str(name), str(version))
+        pkg.id = int(package_id)
+        return pkg
 
-    def add_package(package):
+    def add_package(self, package):
         try:
             self.con.isolation_level = 'EXCLUSIVE'
             self.con.execute('BEGIN EXCLUSIVE')
@@ -286,7 +346,7 @@ class Database(object):
         except sqlite3.Error, e:
             self.con.rollback()
 
-    def remove_package(package_id):
+    def remove_package(self, package_id):
         try:
             self.db.execute("DELETE FROM Packages WHERE id = ?", (package_id,))
             self.con.commit()
