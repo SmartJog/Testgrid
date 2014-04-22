@@ -221,7 +221,10 @@ class FakePackage(testgrid.model.FakePackage):
 		return "%s(%s, %s)" % (type(self).__name__, repr(self.name), repr(self.version))
 
 	def read_installed(self):
-		return eval(open("db_test/test.dat", "r").read())
+		if not os.path.exists("db_test/test.dat"):
+			return []
+		else:
+			return eval(open("db_test/test.dat", "r").read())
 
 	def write_installed(self, installed):
 		open("db_test/test.dat", "w+").write(repr(installed))
