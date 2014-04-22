@@ -265,6 +265,8 @@ class FakePackagePersistent(testgrid.model.FakePackage):
         def get_typename(self):
                 return "FakePackagePersistent"
 
+class FakeSubnet(testgrid.model.Subnet):pass
+
 class Selftest(testgrid.model.SelfTest):
 
        timeout = 2
