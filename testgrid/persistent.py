@@ -194,7 +194,6 @@ class Grid(testgrid.model.Grid):
                         hdl = self.hdl)
                 return session
 
-
 #        def is_available(self, node):
 #                #if self.is_quarantined(node):
 #                #        return False
@@ -219,13 +218,13 @@ class Grid(testgrid.model.Grid):
 class FakePackage(testgrid.model.FakePackage):
 
 	def __repr__(self):
-		return "%s(%s, %s)" % (type(self).__name__, self.name, self.version)
+		return "%s(%s, %s)" % (type(self).__name__, repr(self.name), repr(self.version))
 
 	def read_installed(self):
-		return eval(open("/tmp/test.dat", "r").read())
+		return eval(open("db_test/test.dat", "r").read())
 
 	def write_installed(self, installed):
-		open("/tmp/test.dat", "w+").write(repr(installed))
+		open("db_test/test.dat", "w+").write(repr(installed))
 
 	def install(self, node):
 		assert not node.terminated
@@ -250,8 +249,6 @@ class FakePackage(testgrid.model.FakePackage):
 		assert not node.terminated
 		return True
 
-class FakeSubnet(testgrid.model.Subnet):pass
-
 class FakeNodePersistent(testgrid.model.FakeNode):
 
         def __init(self, name):
@@ -268,7 +265,7 @@ class FakePackagePersistent(testgrid.model.FakePackage):
         def get_typename(self):
                 return "FakePackagePersistent"
 
-class Modeltest(testgrid.model.SelfTest):
+class Selftest(testgrid.model.SelfTest):
 
        timeout = 2
 
@@ -288,17 +285,6 @@ class Modeltest(testgrid.model.SelfTest):
                grid = Grid(name = "grid", dbpath = "db_test/persistentModel.db" , subnets = subnets, nodes = nodes) # use a non-generative grid
                session = grid.open_session()
                return (nodes, packages, grid, session)
-
-class SelfTest(unittest.TestCase):
-
-        timeout = 2
-
-        def setUp(self):
-                if not os.path.exists("db_test"):
-                        os.mkdir("db_test")
-
-        def tearDown(self):
-                shutil.rmtree("db_test/")
 
         def test_persistent_nodes(self):
                 "test add , remove node persistency"
@@ -375,4 +361,3 @@ class SelfTest(unittest.TestCase):
                 self.assertNotIn(node, session)
 
 if __name__  == "__main__": unittest.main(verbosity = 2)
-
