@@ -181,7 +181,7 @@ class Grid(testgrid.model.Grid):
                 return self.hdl.is_quarantined(node)
 
         def get_quarantine_reason(self, node):
-                raise NotImplementedError()
+                return self.hdl.get_quarantine_reason(node)
 
         def is_transient(self, node):
                 return self.hdl.is_transient(node)
@@ -286,78 +286,78 @@ class Selftest(testgrid.model.SelfTest):
                session = grid.open_session()
                return (nodes, packages, grid, session)
 
-        def test_persistent_nodes(self):
-                "test add , remove node persistency"
-                #perform operation with first grid
-                subnets = [FakeSubnet("vlan14")]
-                pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentNodes.db", subnets = subnets)
-                node = testgrid.persistent.FakeNodePersistent("fake node")
-                pg.add_node(node)
-                node2 = testgrid.persistent.FakeNodePersistent("fake node2")
-                pg.add_node(node2)
-                self.assertEqual(len(pg.nodes), 2)
-                pg.remove_node(node2)
-                self.assertEqual(len(pg.nodes), 1)
-                del pg
-                #perform operation with second  grid using same db
-                pg = Grid(name = "persistentGridsecond", dbpath = "db_test/persistentNodes.db")
-                self.assertEqual(len(pg.nodes), 1)
-                self.assertRaises(testgrid.model.UnknownNodeError, pg.remove_node, node2)
-                del pg
+       def test_persistent_nodes(self):
+               "test add , remove node persistency"
+               #perform operation with first grid
+               subnets = [FakeSubnet("vlan14")]
+               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentNodes.db", subnets = subnets)
+               node = testgrid.persistent.FakeNodePersistent("fake node")
+               pg.add_node(node)
+               node2 = testgrid.persistent.FakeNodePersistent("fake node2")
+               pg.add_node(node2)
+               self.assertEqual(len(pg.nodes), 2)
+               pg.remove_node(node2)
+               self.assertEqual(len(pg.nodes), 1)
+               del pg
+               #perform operation with second  grid using same db
+               pg = Grid(name = "persistentGridsecond", dbpath = "db_test/persistentNodes.db")
+               self.assertEqual(len(pg.nodes), 1)
+               self.assertRaises(testgrid.model.UnknownNodeError, pg.remove_node, node2)
+               del pg
 
-        def test_persistent_sessions(self):
-                "test persistent session persistency, assert anonymous session is removed after being closed"
-                #perform operation with first grid
-                subnets = [FakeSubnet("vlan14")]
-                pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentSessions.db", subnets = subnets)
-                session = pg.open_session("persistent", "test")
-                anonymous_session = pg.open_session("anonymous")
-                sessions = pg.get_sessions()
-                self.assertEqual(len(sessions), 2)
-                anonymous_session.close()
-                del pg
-                #perform operation with second  grid using same db
-                pg = Grid(name = "persistentGridsecond", dbpath = "db_test/persistentSessions.db")
-                sessions = pg.get_sessions()
-                self.assertEqual(len(sessions), 1)
-                del pg
+       def test_persistent_sessions(self):
+               "test persistent session persistency, assert anonymous session is removed after being closed"
+               #perform operation with first grid
+               subnets = [FakeSubnet("vlan14")]
+               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentSessions.db", subnets = subnets)
+               session = pg.open_session("persistent", "test")
+               anonymous_session = pg.open_session("anonymous")
+               sessions = pg.get_sessions()
+               self.assertEqual(len(sessions), 2)
+               anonymous_session.close()
+               del pg
+               #perform operation with second  grid using same db
+               pg = Grid(name = "persistentGridsecond", dbpath = "db_test/persistentSessions.db")
+               sessions = pg.get_sessions()
+               self.assertEqual(len(sessions), 1)
+               del pg
 
-        def test_persistent_plan(self):
-                "test plan persistency associate to specific session"
-                #perform operation with first grid
-                subnets = [FakeSubnet("vlan14")]
-                pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db", subnets = subnets)
-                node = testgrid.persistent.FakeNodePersistent("fake node")
-                pg.add_node(node)
-                session = pg.open_session("persistent", "test")
-                allocated_node = session.allocate_node()
-                self.assertRaises(testgrid.model.NodePoolExhaustedError,session.allocate_node)
-                del pg
-                #perform operation with second  grid using same db
-                pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db")
-                session = pg.open_session("persistent2", "test2")
-                self.assertRaises(testgrid.model.NodePoolExhaustedError, session.allocate_node)
-                pg.remove_node(allocated_node)
-                del pg
-                #check remove node persistency
-                pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db")
-                self.assertEqual(len(pg.nodes), 0)
-                session = pg.open_session("persistent", "test")
-                self.assertEqual(len(session.plan), 0)
-                del pg
+       def test_persistent_plan(self):
+               "test plan persistency associate to specific session"
+               #perform operation with first grid
+               subnets = [FakeSubnet("vlan14")]
+               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db", subnets = subnets)
+               node = testgrid.persistent.FakeNodePersistent("fake node")
+               pg.add_node(node)
+               session = pg.open_session("persistent", "test")
+               allocated_node = session.allocate_node()
+               self.assertRaises(testgrid.model.NodePoolExhaustedError,session.allocate_node)
+               del pg
+               #perform operation with second  grid using same db
+               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db")
+               session = pg.open_session("persistent2", "test2")
+               self.assertRaises(testgrid.model.NodePoolExhaustedError, session.allocate_node)
+               pg.remove_node(allocated_node)
+               del pg
+               #check remove node persistency
+               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db")
+               self.assertEqual(len(pg.nodes), 0)
+               session = pg.open_session("persistent", "test")
+               self.assertEqual(len(session.plan), 0)
+               del pg
 
-        def test_deploy(self):
-                subnets = [FakeSubnet("vlan14")]
-                pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db", subnets = subnets)
-                node = testgrid.persistent.FakeNodePersistent("fake node")
-                pg.add_node(node)
-                pg.set_node_transient(node)
-                self.assertEqual(pg.is_transient(node), True)
-                session = pg.open_session("persistent", "test")
-                package = FakePackagePersistent("test")
-                plan = session.deploy((package,))
-                self.assertIn(node, session)
-                session.undeploy()
-                self.assertNotIn(node, session)
+       def test_deploy(self):
+               subnets = [FakeSubnet("vlan14")]
+               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db", subnets = subnets)
+               node = testgrid.persistent.FakeNodePersistent("fake node")
+               pg.add_node(node)
+               pg.set_node_transient(node)
+               self.assertEqual(pg.is_transient(node), True)
+               session = pg.open_session("persistent", "test")
+               package = FakePackagePersistent("test")
+               plan = session.deploy((package,))
+               self.assertIn(node, session)
+               session.undeploy()
+               self.assertNotIn(node, session)
 
 if __name__  == "__main__": unittest.main(verbosity = 2)
