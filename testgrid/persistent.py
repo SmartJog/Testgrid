@@ -53,7 +53,6 @@ class Session(testgrid.model.Session):
                                 self.hdl.add_plan(self, p)
                         return plan
                 except:
-                        print "except"
                         raise
 
 
@@ -147,7 +146,6 @@ class Sessions(object):
                 self.hdl.add_session(session)
 
         def remove(self, session):
-                print "remove"
                 self.hdl.remove_session(session)
 
 class Grid(testgrid.model.Grid):
@@ -171,7 +169,6 @@ class Grid(testgrid.model.Grid):
                 self.subnets.append(subnet)
 
         def quarantine_node(self, node, exc):
-                print "quarantine", exc
                 self.hdl.quarantine_node(node, exc)
 
         def set_node_transient(self, node):
