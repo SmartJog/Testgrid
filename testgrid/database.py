@@ -49,6 +49,26 @@ class Database(object):
     def __del__(self):
         self.close()
 
+    def dump(self):
+        self.db.execute("SELECT * FROM Nodes")
+        res = self.db.fetchall()
+        print "Nodes\n", res
+        self.db.execute("SELECT * FROM NodesAttributes")
+        res = self.db.fetchall()
+        print "NodesAttribute\n",res
+        self.db.execute("SELECT * FROM Sessions")
+        res = self.db.fetchall()
+        print "Sessions\n", res
+        self.db.execute("SELECT * FROM Plans")
+        res = self.db.fetchall()
+        print "Plans" , res
+        self.db.execute("SELECT * FROM Packages")
+        res = self.db.fetchall()
+        print "Packages\n", res
+        self.db.execute("SELECT * FROM Subnets")
+        res = self.db.fetchall()
+        print "Subnets\b", res
+
 # Nodes
 
     def add_node(self, node):

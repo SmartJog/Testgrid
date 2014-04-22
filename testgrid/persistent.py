@@ -279,6 +279,10 @@ class Selftest(testgrid.model.SelfTest):
                        os.mkdir("db_test")
 
        def tearDown(self):
+               if os.path.exists("db_test/persistentModel.db"):
+                       hdl = testgrid.database.Database(dbpath = "db_test/persistentModel.db")
+                       hdl.dump()
+                       hdl.close()
                shutil.rmtree("db_test/")
 
        @staticmethod
