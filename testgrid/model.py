@@ -252,6 +252,11 @@ class Node(object):
 	def is_installable(self, package):
 		return package.is_installable(node = self)
 
+	@abc.abstractmethod
+	def get_installed_packages(self):
+		"return the list of installed packages"
+		raise NotImplementedError()
+
 	def execute(self, args):
 		"execute args, return tuple (code, stdout, stderr)"
 		hoststring = self.get_hoststring()
@@ -395,7 +400,7 @@ class Grid(object):
 		if node in self.nodes:
 			for session in self.sessions:
 				if node in session:
-					session.remove_node(node)
+					session.release_node(node)
 			self.nodes.remove(node)
 		else:
 			raise UnknownNodeError("%s" % node)
@@ -615,6 +620,9 @@ class FakeNode(Node):
 
 	def get_hoststring(self): pass
 
+	def get_installed_packages(self):
+		return self.installed
+
 class FakeGrid(Grid):
 	"generative grid of fake nodes"
 
@@ -673,7 +681,7 @@ class SelfTest(unittest.TestCase):
 		for pkg in packages:
 			for _pkg, node in plan:
 				if _pkg == pkg:
-					self.assertEqual(node.installed, [pkg])
+					self.assertTrue(node.is_installed(pkg))
 					break
 			else:
 				raise Exception("%s: not installed" % pkg)
@@ -683,7 +691,8 @@ class SelfTest(unittest.TestCase):
 		for node in nodes:
 			assert grid.is_available(node), "%s: not available (%s)" % (node, grid.get_status(node))
 			# assert node have no package installed
-			assert not node.installed, "%s: %s not uninstalled" % (node, node.installed)
+			assert not node.get_installed_packages(),\
+				"%s: %s not uninstalled" % (node, node.get_installed_packages())
 			# assert node has left the session subnet
 			if session.subnet:
 				assert not node in session.subnet, "%s: still in %s" % (node, session.subnet)
@@ -700,6 +709,7 @@ class SelfTest(unittest.TestCase):
 
 	grid_cls = FakeGrid
 	node_cls = FakeNode
+	pkg_cls = FakePackage
 
 	def test101(self):
 		"test basic operations"
@@ -709,8 +719,7 @@ class SelfTest(unittest.TestCase):
 		self.assertIn(node, grid)
 		self.assertTrue(grid.is_available(node))
 		session = grid.open_session("session")
-		_node = session.allocate_node()
-		self.assertEqual(_node, node)
+		self.assertEqual(session.allocate_node(), node)
 		grid.remove_node(node)
 		self.assertNotIn(node, grid)
 
@@ -747,10 +756,10 @@ class SelfTest(unittest.TestCase):
 
 	def test_node_creation(self):
 		"test deployment on a generative grid"
-		grid = FakeGrid(name = "test") # empty grid
+		grid = (self.grid_cls)(name = "test") # empty grid
 		assert len(grid) == 0
-		foo = FakePackage("foo", "1.0")
-		bar = FakePackage("bar", "1.0")
+		foo = (self.pkg_cls)("foo", "1.0")
+		bar = (self.pkg_cls)("bar", "1.0")
 		packages = (foo, bar)
 		session = grid.open_session()
 		# assert nodes are created:

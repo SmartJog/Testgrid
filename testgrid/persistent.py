@@ -220,28 +220,28 @@ class FakePackage(testgrid.model.FakePackage):
 	def __repr__(self):
 		return "%s(%s, %s)" % (type(self).__name__, repr(self.name), repr(self.version))
 
-	def read_installed(self):
-		if not os.path.exists("db_test/test.dat"):
+	def read_installed(self, node):
+		if not os.path.exists("db_test/%s.dat" % node.name):
 			return []
 		else:
-			return eval(open("db_test/test.dat", "r").read())
+			return eval(open("db_test/%s.dat" % node.name, "r").read())
 
-	def write_installed(self, installed):
-		open("db_test/test.dat", "w+").write(repr(installed))
+	def write_installed(self, node, installed):
+		open("db_test/%s.dat" % node.name, "w+").write(repr(installed))
 
 	def install(self, node):
 		assert not node.terminated
 		assert not node.is_installed(self), "%s: %s: already installed" % (node, self)
-		installed = self.read_installed()
+		installed = self.read_installed(node)
 		installed.append(self)
-		self.write_installed(installed)
+		self.write_installed(node, installed)
 
 	def uninstall(self, node):
 		assert not node.terminated
 		assert node.is_installed(self), "%s: %s: not yet installed" % (node, self)
-		installed = self.read_installed()
+		installed = self.read_installed(node)
 		installed.remove(self)
-		self.write_installed(installed)
+		self.write_installed(node, installed)
 
 	def is_installed(self, node):
 		assert not node.terminated
@@ -254,12 +254,13 @@ class FakePackage(testgrid.model.FakePackage):
 
 class FakeNode(testgrid.model.FakeNode):
 
+	# store .terminated
+	# store .subnets
+
         def __init(self, name):
                 super(FakeNode, self).__init__(name = name)
 
         def __eq__(self, other):
-                print "!!!", type(self), type(other), type(self) == type(other)
-                print "!!!", self.name, other.name, self.name == other.name
                 if type(self) == type(other):
                         if self.name == other.name:
                                 return True
@@ -275,10 +276,21 @@ class FakePackagePersistent(testgrid.model.FakePackage):
 
 class FakeSubnet(testgrid.model.Subnet): pass
 
+class TempGrid(Grid):
+
+	def __init__(self, name):
+		dbpath = ...
+		super(TempGrid, self).__init__(name = name, dbpath = dbpath)
+
+	def __del__(self):
+		super(TempGrid, self).__del__()
+		# + delete database
+
 class SelfTest(testgrid.model.SelfTest):
 
-       grid_cls = Grid
+       grid_cls = TempGrid
        node_cls = FakeNode
+       pkg_cls = FakePackage
 
        timeout = 2
 
@@ -311,7 +323,7 @@ class SelfTest(testgrid.model.SelfTest):
        def test_persistent_nodes(self):
                "test add, remove node persistency"
                #perform operation with first grid
-               subnets = [FakeSubnet("vlan14")]
+               subnets = [FakeSsubnet("vlan14")]
                pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentNodes.db", subnets = subnets)
                node = testgrid.persistent.FakeNode("fake node")
                pg.add_node(node)
