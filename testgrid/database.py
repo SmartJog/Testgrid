@@ -88,6 +88,11 @@ class Database(object):
             self.con.rollback()
             raise DatabaseError("error setting node %s to quarantined: %s" % (node.name, e))
 
+    def get_quarantine_reason(self, node):
+        self.db.execute("SELECT error FROM Nodes WHERE id = ?", (node.id,))
+        (error,) = self.db.fetchone()
+        return str(error)
+
     def rehabilitate_node(self, node):
         try:
             self.db.execute("UPDATE Nodes SET is_quarantined = ? WHERE id = ?",
@@ -251,7 +256,6 @@ class Database(object):
             self.db.execute("SELECT package_id FROM Plans WHERE session_id = ?", (session.id,))
             res = self.db.fetchall()
             for package_id in res:
-                print package_id
                 self.remove_package(package_id)
             self.db.execute("DELETE FROM Plans WHERE session_id = ?", (session.id,))
             self.db.execute("DELETE FROM Sessions WHERE id = ?", (session.id,))

@@ -181,7 +181,7 @@ class Grid(testgrid.model.Grid):
                 return self.hdl.is_quarantined(node)
 
         def get_quarantine_reason(self, node):
-                raise NotImplementedError()
+                return self.hdl.get_quarantine_reason(node)
 
         def is_transient(self, node):
                 return self.hdl.is_transient(node)
