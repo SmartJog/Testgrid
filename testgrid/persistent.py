@@ -252,25 +252,33 @@ class FakePackage(testgrid.model.FakePackage):
 		assert not node.terminated
 		return True
 
-class FakeNodePersistent(testgrid.model.FakeNode):
+class FakeNode(testgrid.model.FakeNode):
 
         def __init(self, name):
                 super(FakeNode, self).__init__(name = name)
 
         def __eq__(self, other):
+                print "!!!", type(self), type(other), type(self) == type(other)
+                print "!!!", self.name, other.name, self.name == other.name
                 if type(self) == type(other):
                         if self.name == other.name:
                                 return True
                 return False
+
+	def __ne__(self, other):
+		return not (self == other)
 
 class FakePackagePersistent(testgrid.model.FakePackage):
 
         def get_typename(self):
                 return "FakePackagePersistent"
 
-class FakeSubnet(testgrid.model.Subnet):pass
+class FakeSubnet(testgrid.model.Subnet): pass
 
-class Selftest(testgrid.model.SelfTest):
+class SelfTest(testgrid.model.SelfTest):
+
+       grid_cls = Grid
+       node_cls = FakeNode
 
        timeout = 2
 
@@ -280,6 +288,7 @@ class Selftest(testgrid.model.SelfTest):
 
        def tearDown(self):
                if os.path.exists("db_test/persistentModel.db"):
+                       print "size=", len(open("db_test/persistentModel.db", "r").read())
                        hdl = testgrid.database.Database(dbpath = "db_test/persistentModel.db")
                        hdl.dump()
                        hdl.close()
@@ -288,7 +297,7 @@ class Selftest(testgrid.model.SelfTest):
        @staticmethod
        def mkenv(nb_nodes, nb_packages):
                "create test objects"
-               nodes = tuple(FakeNodePersistent("node%i" % i) for i in xrange(nb_nodes))
+               nodes = tuple(FakeNode("node%i" % i) for i in xrange(nb_nodes))
                packages = tuple(FakePackage("pkg%i" % i, "1.0") for i in xrange(nb_packages))
                subnets = [FakeSubnet("vlan14")]
                grid = Grid(
@@ -300,13 +309,13 @@ class Selftest(testgrid.model.SelfTest):
                return (nodes, packages, grid, session)
 
        def test_persistent_nodes(self):
-               "test add , remove node persistency"
+               "test add, remove node persistency"
                #perform operation with first grid
                subnets = [FakeSubnet("vlan14")]
                pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentNodes.db", subnets = subnets)
-               node = testgrid.persistent.FakeNodePersistent("fake node")
+               node = testgrid.persistent.FakeNode("fake node")
                pg.add_node(node)
-               node2 = testgrid.persistent.FakeNodePersistent("fake node2")
+               node2 = testgrid.persistent.FakeNode("fake node2")
                pg.add_node(node2)
                self.assertEqual(len(pg.nodes), 2)
                pg.remove_node(node2)
@@ -340,7 +349,7 @@ class Selftest(testgrid.model.SelfTest):
                #perform operation with first grid
                subnets = [FakeSubnet("vlan14")]
                pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db", subnets = subnets)
-               node = testgrid.persistent.FakeNodePersistent("fake node")
+               node = testgrid.persistent.FakeNode("fake node")
                pg.add_node(node)
                session = pg.open_session("persistent", "test")
                allocated_node = session.allocate_node()
@@ -362,7 +371,7 @@ class Selftest(testgrid.model.SelfTest):
        def test_deploy(self):
                subnets = [FakeSubnet("vlan14")]
                pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db", subnets = subnets)
-               node = testgrid.persistent.FakeNodePersistent("fake node")
+               node = testgrid.persistent.FakeNode("fake node")
                pg.add_node(node)
                pg.set_node_transient(node)
                self.assertEqual(pg.is_transient(node), True)

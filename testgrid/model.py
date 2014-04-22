@@ -698,6 +698,22 @@ class SelfTest(unittest.TestCase):
 		session = grid.open_session()
 		return (nodes, packages, grid, session)
 
+	grid_cls = FakeGrid
+	node_cls = FakeNode
+
+	def test101(self):
+		"test basic operations"
+		grid = (self.grid_cls)("grid")
+		node = (self.node_cls)("node")
+		grid.add_node(node)
+		self.assertIn(node, grid)
+		self.assertTrue(grid.is_available(node))
+		session = grid.open_session("session")
+		_node = session.allocate_node()
+		self.assertEqual(_node, node)
+		grid.remove_node(node)
+		self.assertNotIn(node, grid)
+
 	def test_bijective_cycle(self):
 		"deploy and undeploy packages, where |nodes| = |packages|"
 		nodes, packages, grid, session = self.mkenv(nb_nodes = 10, nb_packages = 10)
