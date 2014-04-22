@@ -216,6 +216,40 @@ class Grid(testgrid.model.Grid):
 # unit tests #
 ##############
 
+class FakePackage(testgrid.model.FakePackage):
+
+	def __repr__(self):
+		return "%s(%s, %s)" % (type(self).__name__, self.name, self.version)
+
+	def read_installed(self):
+		return eval(open("/tmp/test.dat", "r").read())
+
+	def write_installed(self, installed):
+		open("/tmp/test.dat", "w+").write(repr(installed))
+
+	def install(self, node):
+		assert not node.terminated
+		assert not node.is_installed(self), "%s: %s: already installed" % (node, self)
+		installed = self.read_installed()
+		installed.append(self)
+		self.write_installed(installed)
+
+	def uninstall(self, node):
+		assert not node.terminated
+		assert node.is_installed(self), "%s: %s: not yet installed" % (node, self)
+		installed = self.read_installed()
+		installed.remove(self)
+		self.write_installed(installed)
+
+	def is_installed(self, node):
+		assert not node.terminated
+		installed = self.read_installed()
+		return self in node.installed
+
+	def is_installable(self, node):
+		assert not node.terminated
+		return True
+
 class FakeSubnet(testgrid.model.Subnet):pass
 
 class FakeNodePersistent(testgrid.model.FakeNode):
