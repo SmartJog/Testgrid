@@ -287,7 +287,11 @@ class Selftest(testgrid.model.SelfTest):
                nodes = tuple(FakeNodePersistent("node%i" % i) for i in xrange(nb_nodes))
                packages = tuple(FakePackage("pkg%i" % i, "1.0") for i in xrange(nb_packages))
                subnets = [FakeSubnet("vlan14")]
-               grid = Grid(name = "grid", dbpath = "db_test/persistentModel.db" , subnets = subnets, nodes = nodes) # use a non-generative grid
+               grid = Grid(
+               	name = "grid",
+               	dbpath = "db_test/persistentModel.db",
+               	subnets = subnets,
+               	nodes = nodes)
                session = grid.open_session()
                return (nodes, packages, grid, session)
 
