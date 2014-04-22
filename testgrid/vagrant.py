@@ -1,5 +1,24 @@
 # copyright (c) 2014 florent claerhout, released under the MIT license.
 
+"""
+Python vagrant framework.
+
+Requires vagrant >= 1.5.1 to be installed.
+
+Tutorial
+--------
+	>> import vagrant
+	>> foo = vagrant.Guest(root = "/tmp/foo")
+	>> foo.is_initialized()
+	False
+	>> foo.init(bridge = "eth0", box_name = "wheezy64")
+	>> foo.up() # may take a while...
+	>> foo.is_running()
+	True
+	>> foo.run("uname")
+	(0, "Linux", None)
+"""
+
 import subprocess, unittest, shutil, pipes, os
 
 def run(argv, warn_only = False):

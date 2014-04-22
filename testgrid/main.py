@@ -7,7 +7,8 @@ Usage:
   tg [-m INI] [-l|-c HOST] [-g NAME] --list-nodes
   tg [-m INI] [-l|-c HOST] [-g NAME] --add-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] --remove-node NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] --repair-node NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] --quarantine-node NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] --rehabilitate-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --ping
   tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --install NAME --type NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --uninstall NAME  --type NAME
@@ -32,7 +33,8 @@ Options:
   --list-nodes                list nodes in selected container
   --add-node NAME             add node parsed from manifest
   --remove-node NAME          ...
-  --repair-node NAME          rehabilitate a quarantined node
+  --quarantine-node NAME      place a node in quarantine
+  --rehabilitate-node NAME    rehabilitate a quarantined node
   --ping                      ...
   --install NAME              ...
   --type NAME                 specify an object type
@@ -49,7 +51,7 @@ Options:
   --undeploy PKG              ...
   -m INI, --manifest INI      comma-separated list of .ini filepaths or URIs [default: ~/grid.ini]
   -l, --local                 use a local client
-  -c HOST, --controller HOST  set controller hoststring for a REST client [default: qa.lab.fr.lan:8080]
+  -c HOST, --controller HOST  set REST controller hoststring [default: qa.lab.fr.lan:8080]
   -h, --help                  show help
   --version                   show version
 
@@ -73,21 +75,20 @@ import docopt, sys
 import threading, strfmt, local, rest
 
 def grid_list_nodes(client):
+	nodes = client.get_nodes()
 	rows = [
 		("name", "type", "status", "allocation"),
 		("----", "----", "------", "----------"),
 	]
 	pool = []
-	for node in client.get_nodes():
-		def get_is_up(node = node):
-			node._is_up = node.is_up()
-		t = threading.Thread(target = get_is_up)
+	for node in nodes:
+		t = threading.Thread(target = lambda node = node: setattr(node, "_is_up", node.is_up()))
 		t.daemon = True
 		t.start()
 		pool.append(t)
 	for t in pool:
 		t.join()
-	for node in client.get_nodes():
+	for node in nodes:
 		row = [
 			"%s" % node,
 			node.get_typename(),
@@ -102,12 +103,11 @@ def grid_list_nodes(client):
 	print strfmt.strcolalign(rows)
 
 def list_sessions(client):
-	sessions = client.get_sessions()
 	rows = [
 		("username", "name"),
 		("--------", "----"),
 	]
-	for session in sessions:
+	for session in client.get_sessions():
 		row = [session.username, session.name] 
 		rows.append(row)
 	print strfmt.strcolalign(rows)
@@ -167,11 +167,13 @@ def main():
 			if args["--list-nodes"]:
 				grid_list_nodes(client)
 			elif args["--add-node"]:
-				client.add_node(name = args["--add-node"], typename = args["--type"])
+				client.add_node(name = args["--add-node"], ini = args["--manifest"])
 			elif args["--remove-node"]:
-				client.remove_node(NAME = args["--remove-node"])
-			elif args["--repair-node"]:
-				client.repair_node(client, NAME = args["--repair-node"])
+				client.remove_node(name = args["--remove-node"])
+			elif args["--quarantine-node"]:
+				client.quarantine_node(name = args["--quarantine-node"])
+			elif args["--rehabilitate-node"]:
+				client.rehabilitate_node(name = args["--rehabilitate-node"])
 			elif args["--list-sessions"]:
 				list_sessions(client)
 			elif args["--open-session"]:
@@ -180,8 +182,7 @@ def main():
 				client.close_session(args["--close-session"])
 		return 0
 	except Exception as e:
-		raise
-		sys.stderr.write(strfmt.Gray("%s: %s\n" % (type(e).__name__, e)))
+		sys.stderr.write("%s" % strfmt.Gray("%s: %s\n" % (type(e).__name__, e)))
 		return 1
 
 if __name__ == "__main__": sys.exit(main())

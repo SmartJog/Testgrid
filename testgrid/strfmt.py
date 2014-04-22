@@ -4,7 +4,8 @@
 """
 String formatting routines.
 
-API:
+API
+---
   * Red|Blue|Gray|Green|Yellow|Purple(string)
   * lookahead(iterable)
   * cutline(string, maxlen)
@@ -13,7 +14,8 @@ API:
   * strtree helper, ClassTree(obj)
   * strtree helper, ListTree(obj)
 
-Examples:
+Tutorial
+--------
   >> import strfmt
   >> class Foo(object): pass
   >> class Bar(Foo): pass

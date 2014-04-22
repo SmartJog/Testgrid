@@ -1,30 +1,36 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
 """
-Parse an .ini file and instanciate the corresponding grid object.
+Parse an .ini file and instanciate named grid or node objects.
 
-API
-===
->> import parser
->> grid = parser.parse_grid(ini, *modules).parse(name)
+Manifest Syntax:
 
-Manifest Syntax
-===============
+	See utils.get_class.__doc__ for type naming specification.
 
-See utils.get_class.__doc__ for type naming specification.
+	Node Sections
+	-------------
+	[name]
+	type = name # target class derived from testgrid.model.Node
+	extra args...
+	
+	Grid sections
+	-------------
+	[name]
+	type = name # target class derived from testgrid.model.Grid
+	nodes = ...
+	extra args...
 
-Node Sections
--------------
-[name]
-type = name # target class derived from testgrid.model.Node
-extra args...
-
-Gird sections
--------------
-[name]
-type = name # target class derived from testgrid.model.Grid
-nodes = ...
-extra args...
+Example:
+	$ cat > example.ini <<EOF
+	[mynode]
+	type = fake node
+	[mygrid]
+	type = fake grid
+	EOF
+	$ PYTHONPATH=".." python
+	>> import parser
+	>> mygrid = p.parse_grid("mygrid", ini = "example.ini")
+	>> mynode = p.parse_node("mynode", ini = "example.ini")
 """
 
 import ConfigParser, tempfile, textwrap, unittest, inspect, os, re
@@ -155,9 +161,15 @@ class Parser(object):
 				exc = ConfigurationError
 			raise (exc)("in [%s]: %s" % (section, e))
 
+	def parse_node(self, name):
+		return self._parse(name, self._parse_node)
+
 	def parse_grid(self, name):
-		"parse manifests and return a grid instance"
 		return self._parse(name, self._parse_grid)
+
+def parse_node(name, ini, *modules):
+	"parse manifests and return a node instance"
+	return Parser(ini, *modules).parse_node(name)
 
 def parse_grid(name, ini, *modules):
 	"parse manifests and return a grid instance"

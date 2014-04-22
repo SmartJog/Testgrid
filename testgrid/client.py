@@ -23,14 +23,14 @@ class Client(object):
 		cls = testgrid.parser.get_subclass(typename, testgrid.model.Package)
 		return cls(name = name, version = version)
 
-	def add_node(self, name, typename):
-		"administration -- add node to grid"
-		cls = testgrid.parser.get_subclass(typename, testgrid.model.Node, __name__)
-		node = (cls)()
+	def add_node(self, name, ini):
+		"administration -- add node to grid from manifest"
+		node = testgrid.parser.parse_node(name, ini = ini)
 		self.grid.add_node(node)
 
-	def remove_node(self, node):
+	def remove_node(self, name):
 		"administration -- remove node from grid"
+		node = self.get_node(name)
 		self.grid.remove_node(node)
 
 	def is_available(self, node):
@@ -56,10 +56,16 @@ class Client(object):
 			return "allocated"
 		elif self.is_quarantined(node):
 			return "quarantined"
-		assert False, "%s: unknown status, please report this bug" % node
+		raise Exception("%s: unknown status, please report this bug" % node)
 
-	def rehabilitate_node(self, node):
+	def quarantine_node(self, name):
+		"administration"
+		node = self.get_node(name)
+		self.grid.quarantine_node(node)
+
+	def rehabilitate_node(self, name):
 		"administration -- switch node from quarantined to available status"
+		node = self.get_node(name)
 		self.grid.rehabilitate_node(node)
 
 	def get_sessions(self):

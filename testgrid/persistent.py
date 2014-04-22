@@ -56,11 +56,9 @@ class Nodes(object):
 		self.hdl = hdl
 
 	def __iter__(self):
-                nodes =  self.hdl.get_nodes()
-                print nodes
-		for node in nodes:
+		for node in self.hdl.get_nodes():
 			yield node
-                print "end iter node"
+
 	def __contains__(self, node):
 		for n in self:
 			if n.id == node.id:
@@ -122,7 +120,6 @@ class Sessions(object):
                 sessions = self.hdl.get_sessions(self.gridref)
 		for session in sessions: 
 			yield session
-                print "end ier session"
 
 	def __contains__(self, session):
 		for s in self:
