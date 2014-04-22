@@ -75,8 +75,8 @@ class Database(object):
         try:
             self.con.isolation_level = 'EXCLUSIVE'
             self.con.execute('BEGIN EXCLUSIVE')
-            self.db.execute("INSERT INTO Nodes(typename, name) VALUES (?,?)",
-                            (node.__class__.__name__, node.name))
+            self.db.execute("INSERT INTO Nodes(typename, name, modulename) VALUES (?, ?, ?)",
+                            (type(node).__name__ , node.name, type(node).__module__))
             node.id = int(self.db.lastrowid)
             self.con.commit()
             args, varargs, kwargs, defaults = inspect.getargspec(node.__init__)
@@ -131,7 +131,7 @@ class Database(object):
             self.con.rollback()
             raise DatabaseError("error setting node %s to quarantined: %s" % (node.name, e))
 
-    def create_node(self, index, typename):
+    def create_node(self, index, typename, modulename):
         "creates node object using database node row"
         arg = {}
         is_transient = None
@@ -139,7 +139,7 @@ class Database(object):
         self.db.execute("SELECT key, value FROM NodesAttributes WHERE node_id = ?" , (index,))
         result = self.db.fetchall()
         try:
-            cls = testgrid.parser.get_subclass(typename, testgrid.model.Node)
+            cls = testgrid.parser.get_subclass(typename, testgrid.model.Node, modulename)
         except Exception as e:
             raise Exception("database create node: %s" % e)
         for item in result:
@@ -155,10 +155,10 @@ class Database(object):
 
     def get_nodes(self):
         nodes = []
-        self.db.execute("SELECT id, typename FROM Nodes")
+        self.db.execute("SELECT id, typename, modulename FROM Nodes")
         res = self.db.fetchall()
-        for index, typename in res:
-            node = self.create_node(index, typename)
+        for index, typename, modulename in res:
+            node = self.create_node(index, typename, modulename)
             nodes.append(node)
         return nodes
 
@@ -340,9 +340,9 @@ class Database(object):
                 package = self.get_package(package_id)
             else:
                 package = None
-            self.db.execute("SELECT typename FROM Nodes WHERE id = ?", (node_id,))
-            (typename,) =  self.db.fetchone()
-            node = self.create_node(node_id, typename)
+            self.db.execute("SELECT typename, modulename FROM Nodes WHERE id = ?", (node_id,))
+            typename, modulename =  self.db.fetchone()
+            node = self.create_node(node_id, typename, modulename)
             plan.append((package, node))
         return plan
 

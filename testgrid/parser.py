@@ -12,7 +12,7 @@ Manifest Syntax:
 	[name]
 	type = name # target class derived from testgrid.model.Node
 	extra args...
-	
+
 	Grid sections
 	-------------
 	[name]
