@@ -45,7 +45,7 @@ clean:
 
 ifeq ($(shell which testy),)
 test: $(addprefix testgrid/,$(MODULES))
-	@echo please install git@git.smartjog.net:florent.claerhout/testy.git
+	@echo please install http://fclaerhout.fr/testy
 else
 test: NAME :=
 test: $(addprefix testgrid/,$(MODULES))
