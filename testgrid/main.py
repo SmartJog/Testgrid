@@ -19,7 +19,7 @@ Usage:
   tg [-m INI] [-l|-c HOST] [-g NAME] --open-session NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] --close-session NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --list-nodes
-  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --allocate-node NAME --type NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --allocate-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --release-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --deploy PKG --type NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --undeploy PKG
@@ -74,7 +74,7 @@ import docopt, sys
 
 import threading, strfmt, local, rest
 
-def grid_list_nodes(client):
+def list_nodes(client, nodes):
 	rows = [
 		("name", "type", "status", "allocation"),
 		("----", "----", "------", "----------"),
@@ -82,7 +82,7 @@ def grid_list_nodes(client):
 	# get node status in parallel as it's slow
 	pool = []
 	is_up = {}
-	for node in client.get_nodes():
+	for node in nodes:
 		def f(node = node):
 			is_up[node.name] = node.is_up()
 		t = threading.Thread(target = f)
@@ -92,7 +92,7 @@ def grid_list_nodes(client):
 	for t in pool:
 		t.join(5)
 	# now display the info
-	for node in client.get_nodes():
+	for node in nodes:
 		row = [
 			node.name,
 			node.get_typename(),
@@ -167,11 +167,17 @@ def main():
 				print_res(node.execute(" ".join(args["ARGV"])))
 		# --- session-level operation ---
 		elif args["--session"]:
-			raise NotImplementedError()
+			session = client.open_session(args["--session"])
+			if args["--list-nodes"]:
+				list_nodes(client, [node for node in session])
+			elif args["--allocate-node"]:
+				raise NotImplementedError()
+			else:
+				raise NotImplementedError()
 		# --- grid-level operation ---
 		else:
 			if args["--list-nodes"]:
-				grid_list_nodes(client)
+				list_nodes(client, [node for node in client.get_nodes()])
 			elif args["--add-node"]:
 				node = client.add_node(name = args["--add-node"], ini = args["--manifest"])
 				print "added %s" % node
