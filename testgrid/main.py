@@ -114,7 +114,7 @@ def list_sessions(client):
 		("--------", "----"),
 	]
 	for session in client.get_sessions():
-		row = [session.username, session.name] 
+		row = [session.username, session.name]
 		rows.append(row)
 	print strfmt.strcolalign(rows)
 
