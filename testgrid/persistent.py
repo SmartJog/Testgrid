@@ -180,6 +180,9 @@ class Grid(testgrid.model.Grid):
         def is_quarantined(self, node):
                 return self.hdl.is_quarantined(node)
 
+        def get_quarantine_reason(self, node):
+                raise NotImplementedError()
+
         def is_transient(self, node):
                 return self.hdl.is_transient(node)
 
@@ -192,19 +195,19 @@ class Grid(testgrid.model.Grid):
                 return session
 
 
-        def is_available(self, node):
-                #if self.is_quarantined(node):
-                #        return False
-                for n in self._get_allocated_nodes():
-                        if n.id == node.id:
-                                return False
-                return True
+#        def is_available(self, node):
+#                #if self.is_quarantined(node):
+#                #        return False
+#                for n in self._get_allocated_nodes():
+#                        if n.id == node.id:
+#                                return False
+#                return True
 
-        def is_allocated(self, node):
-                for n in self._get_allocated_nodes():
-                        if n.id == node.id:
-                                return True
-                return False
+#        def is_allocated(self, node):
+#                for n in self._get_allocated_nodes():
+#                        if n.id == node.id:
+#                                return True
+#                return False
 
         def __del__(self):
                 self.hdl.close()
@@ -212,9 +215,11 @@ class Grid(testgrid.model.Grid):
 ##############
 # unit tests #
 ##############
+
 class FakeSubnet(testgrid.model.Subnet):pass
 
 class FakeNodePersistent(testgrid.model.FakeNode):
+
         def __init(self, name):
                 super(FakeNode, self).__init__(name = name)
 
@@ -230,7 +235,9 @@ class FakePackagePersistent(testgrid.model.FakePackage):
                 return "FakePackagePersistent"
 
 class Modeltest(testgrid.model.SelfTest):
+
        timeout = 2
+
        def setUp(self):
                if not os.path.exists("db_test"):
                        os.mkdir("db_test")
@@ -248,10 +255,10 @@ class Modeltest(testgrid.model.SelfTest):
                session = grid.open_session()
                return (nodes, packages, grid, session)
 
-
 class SelfTest(unittest.TestCase):
 
         timeout = 2
+
         def setUp(self):
                 if not os.path.exists("db_test"):
                         os.mkdir("db_test")

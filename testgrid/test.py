@@ -28,6 +28,7 @@ class FakeTest(unittest.TestCase):
 		#self.assertTrue(node.service.fleche.is_running(), "fleche is not running on %s" % node)
 		node.uninstall(fleche)
 
+@unittest.skip("deprecated")
 class LocalTest(FakeTest):
 
 	cls = testgrid.local.Client
@@ -80,6 +81,7 @@ class LocalTest(FakeTest):
 		secondsession = client.create_session()
 		self.assertFalse(secondsession.is_available(node))
 
+@unittest.skip("deprecated")
 class RestTest(FakeTest):
 
 	cls = testgrid.rest.Client

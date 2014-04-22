@@ -412,6 +412,9 @@ class Grid(object):
 	def is_quarantined(self, node):
 		return hasattr(node, "is_quarantined") and bool(getattr(node, "is_quarantined"))
 
+	def get_quarantine_reason(self, node):
+		return "%s" % repr(node.is_quarantined)
+
 	def _get_allocated_nodes(self):
 		"return the list of allocated nodes"
 		for session in self.sessions:
@@ -429,6 +432,15 @@ class Grid(object):
 
 	def is_allocated(self, node):
 		return node in self._get_allocated_nodes()
+
+	def get_status(self, node):
+		if self.is_available(node):
+			return "available"
+		elif self.is_allocated(node):
+			return "allocated"
+		elif self.is_quarantined(node):
+			return "quarantined: %s" % self.get_quarantine_reason(node)
+		raise Exception("%s: unknown status" % node)
 
 	def create_node(self, pkg = None, **opts):
 		"""
@@ -669,7 +681,7 @@ class SelfTest(unittest.TestCase):
 	def assertUndeployment(self, nodes, grid, session):
 		"assert undeployment is correct"
 		for node in nodes:
-			assert grid.is_available(node), "%s: not available" % node
+			assert grid.is_available(node), "%s: not available (%s)" % (node, grid.get_status(node))
 			# assert node have no package installed
 			assert not node.installed, "%s: %s not uninstalled" % (node, node.installed)
 			# assert node has left the session subnet
