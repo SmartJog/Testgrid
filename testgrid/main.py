@@ -75,30 +75,36 @@ import docopt, sys
 import threading, strfmt, local, rest
 
 def grid_list_nodes(client):
-	nodes = client.get_nodes()
 	rows = [
 		("name", "type", "status", "allocation"),
 		("----", "----", "------", "----------"),
 	]
+	# get node status in parallel as it's slow
 	pool = []
-	for node in nodes:
-		t = threading.Thread(target = lambda node = node: setattr(node, "_is_up", node.is_up()))
+	is_up = {}
+	for node in client.get_nodes():
+		def f(node = node):
+			is_up[node.name] = node.is_up()
+		t = threading.Thread(target = f)
 		t.daemon = True
 		t.start()
 		pool.append(t)
 	for t in pool:
-		t.join()
-	for node in nodes:
+		t.join(5)
+	# now display the info
+	for node in client.get_nodes():
 		row = [
-			"%s" % node,
+			node.name,
 			node.get_typename(),
-			strfmt.Green("up") if node._is_up else strfmt.Gray("unreachable")]
+			strfmt.Green("up") if is_up[node.name] else strfmt.Gray("unreachable")]
 		if client.is_available(node):
 			row.append(strfmt.Green("available"))
 		elif client.is_allocated(node):
 			row.append(strfmt.Blue("allocated"))
 		elif client.is_quarantined(node):
-			row.append(strfmt.Red("quarantined"))
+			row.append(strfmt.Yellow("quarantined"))
+		else:
+			row.append(strfmt.Red("???"))
 		rows.append(row)
 	print strfmt.strcolalign(rows)
 
@@ -167,9 +173,11 @@ def main():
 			if args["--list-nodes"]:
 				grid_list_nodes(client)
 			elif args["--add-node"]:
-				client.add_node(name = args["--add-node"], ini = args["--manifest"])
+				node = client.add_node(name = args["--add-node"], ini = args["--manifest"])
+				print "added %s" % node
 			elif args["--remove-node"]:
-				client.remove_node(name = args["--remove-node"])
+				node = client.remove_node(name = args["--remove-node"])
+				print "removed %s" % node
 			elif args["--quarantine-node"]:
 				client.quarantine_node(name = args["--quarantine-node"])
 			elif args["--rehabilitate-node"]:

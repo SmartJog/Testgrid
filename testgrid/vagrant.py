@@ -1,25 +1,29 @@
 # copyright (c) 2014 florent claerhout, released under the MIT license.
 
 """
-Python vagrant framework.
+Python API for Vagrant.
 
-Requires vagrant >= 1.5.1 to be installed.
+Requirements
+------------
+	Vagrant >= 1.5.1
 
 Tutorial
 --------
-	>> import vagrant
-	>> foo = vagrant.Guest(root = "/tmp/foo")
-	>> foo.is_initialized()
+	>>> import vagrant
+	>>> foo = vagrant.Guest(root = "/tmp/foo")
+	>>> foo.is_initialized()
 	False
-	>> foo.init(bridge = "eth0", box_name = "wheezy64")
-	>> foo.up() # may take a while...
-	>> foo.is_running()
+	>>> foo.init(bridge = "eth0", box_name = "wheezy64")
+	>>> foo.up()
+	>>> foo.is_running()
 	True
-	>> foo.run("uname")
+	>>> foo.run("uname")
 	(0, "Linux", None)
+	>>> foo.destroy()
+	>>> foo.fini()
 """
 
-import subprocess, unittest, shutil, pipes, os
+import subprocess, textwrap, unittest, shutil, pipes, os
 
 def run(argv, warn_only = False):
 	sp = subprocess.Popen(
@@ -56,11 +60,11 @@ class Guest(object):
 		cpucap = 25,
 		memory = 256,
 		provision_path = None):
-		if not os.path.exists(self.root):
-			os.mkdir(self.root)
 		assert\
 			not self.is_initialized(),\
 			"%s: guest already initialized" % self.vagrantfile_path
+		if not os.path.exists(self.root):
+			os.mkdir(self.root)
 		if not box_url:
 			assert box_name in URL, "%s: unknown url for this box" % box_name
 			box_url = URL[box_name]
@@ -77,7 +81,7 @@ class Guest(object):
 			"provision": provision,
 		}
 		with open(self.vagrantfile_path, "w+") as f:
-			f.write("""
+			f.write(textwrap.dedent("""
 				Vagrant.configure("2") do |config|
 					config.vm.box = "%(box)s"
 					config.vm.box_url = "%(box_url)s"
@@ -88,34 +92,33 @@ class Guest(object):
 					end
 					%(provision)s
 				end
-			""" % parms)
+			""" % parms))
 
 	def fini(self):
 		shutil.rmtree(self.root)
 
-	def _get_cmd(self, argv):
+	def _vagrant(self, argv, warn_only = False):
 		assert\
 			os.path.exists(self.vagrantfile_path),\
 			"%s: guest not yet initialized" % self.vagrantfile_path
-		return "VAGRANT_CWD=%s vagrant %s" % (self.root, argv)
+		return run(
+			argv = "VAGRANT_CWD=%s vagrant %s" % (self.root, argv),
+			warn_only = warn_only)
 
 	def up(self):
-		return run(self._get_cmd("up"))
+		return self._vagrant("up")
 
 	def halt(self):
-		return run(self._get_cmd("halt"))
+		return self._vagrant("halt")
 
 	def reload(self):
-		return run(self._get_cmd("reload"))
+		return self._vagrant("reload")
 
 	def destroy(self):
-		return run(self._get_cmd("destroy --force"))
-	
-	def run(self, argv, warn_only = False):
-		return run(self._get_cmd("ssh -c %s" % pipes.quote(argv)))
+		return self._vagrant("destroy --force")
 
 	def get_status(self):
-		code, stdout, stderr = run(self._get_cmd("status --machine-readable"))
+		code, stdout, stderr = self._vagrant("status --machine-readable")
 		for line in stdout.splitlines():
 			id, _, key, value = line.split(",")
 			if key == "state":
@@ -123,6 +126,9 @@ class Guest(object):
 
 	def is_running(self):
 		return self.get_status() == "running"
+
+	def run(self, argv, warn_only = False):
+		return self._vagrant("ssh -c %s" % pipes.quote(argv))
 
 	def get_inet_addresses(self):
 		# FIXME
@@ -152,6 +158,8 @@ DEFAULT_BRIDGE = "en0: Wi-Fi (AirPort)" # Macbook + WiFi
 
 class SelfTest(unittest.TestCase):
 
+	timeout = 60
+
 	def setUp(self):
 		self.guest = Guest("/tmp/foo")
 		self.guest.init(
@@ -163,8 +171,10 @@ class SelfTest(unittest.TestCase):
 
 	def test(self):
 		self.guest.up()
-		assert self.guest.is_running()
-		self.guest.destroy()
+		try:
+			assert self.guest.is_running()
+		finally:
+			self.guest.destroy()
 
 	def test_double_init(self):
 		self.assertRaises(

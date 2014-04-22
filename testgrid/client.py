@@ -24,14 +24,16 @@ class Client(object):
 		return cls(name = name, version = version)
 
 	def add_node(self, name, ini):
-		"administration -- add node to grid from manifest"
+		"administration -- instanciate and add node to grid from manifest, return instance"
 		node = testgrid.parser.parse_node(name, ini = ini)
 		self.grid.add_node(node)
+		return node
 
 	def remove_node(self, name):
-		"administration -- remove node from grid"
+		"administration -- instanciate and remove node from grid, return instance"
 		node = self.get_node(name)
 		self.grid.remove_node(node)
+		return node
 
 	def is_available(self, node):
 		"administration -- return True if the node is available"
@@ -48,15 +50,6 @@ class Client(object):
 	def is_transient(self, node):
 		"administration -- return True if the node is transient"
 		return self.grid.is_transient(node)
-
-	def get_node_status(self, node):
-		if self.is_available(node):
-			return "available"
-		elif self.is_allocated(node):
-			return "allocated"
-		elif self.is_quarantined(node):
-			return "quarantined"
-		raise Exception("%s: unknown status, please report this bug" % node)
 
 	def quarantine_node(self, name):
 		"administration"

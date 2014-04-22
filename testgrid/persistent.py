@@ -129,13 +129,8 @@ class Sessions(object):
 
         def __iter__(self):
                 sessions = self.hdl.get_sessions(self.gridref)
-<<<<<<< HEAD
-		for session in sessions:
-			yield session
-=======
                 for session in sessions:
                         yield session
->>>>>>> continue rework persistent grid, start fix model test persistent grid
 
         def __contains__(self, session):
                 if not hasattr(session, "id"):

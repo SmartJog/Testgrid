@@ -16,15 +16,15 @@ API
 
 Tutorial
 --------
-  >> import strfmt
-  >> class Foo(object): pass
-  >> class Bar(Foo): pass
-  >> class Baz(Foo): pass
-  >> strfmt.strtree(ClassTree(Foo))
+  >>> import strfmt
+  >>> class Foo(object): pass
+  >>> class Bar(Foo): pass
+  >>> class Baz(Foo): pass
+  >>> strfmt.strtree(ClassTree(Foo))
   Foo
   ├── Bar
   └── Baz
-  >> strfmt.strcolalign("a:bbbb:c\naaa:b:c")
+  >>> strfmt.strcolalign("a:bbbb:c\naaa:b:c")
   a    bbbb  c
   aaa  b     c
 """
