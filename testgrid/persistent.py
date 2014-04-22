@@ -39,18 +39,26 @@ class Session(testgrid.model.Session):
         def _release_pair(self, pkg ,node):
                 super(Session, self)._release_pair(pkg ,node)
                 self.hdl.remove_plan(self, node)
+                #release pair
+
+        def undeploy(self):
+                self.plan = self.hdl.get_plans(self)
+                super(Session, self).undeploy()
 
         def deploy(self, packages):
-                self.plan = self.hdl.get_plans(self)
-                plan = super(Session, self).deploy(packages)
-                for p in plan:
-                        self.hdl.add_plan(self, p)
-                return plan
+                #self.plan = self.hdl.get_plans(self)
+                try:
+                        plan = super(Session, self).deploy(packages)
+                        for p in plan:
+                                self.hdl.add_plan(self, p)
+                        return plan
+                except:
+                        print "except"
+                        raise
+
 
         def close(self):
                 super(Session, self).close()
-                #self.hdl.remove_plan(self, node)
-                #self.hdl.remove_session(self)
 
 class Nodes(object):
 
@@ -168,6 +176,7 @@ class Grid(testgrid.model.Grid):
                 self.subnets.append(subnet)
 
         def quarantine_node(self, node, exc):
+                print "quarantine", exc
                 self.hdl.quarantine_node(node, exc)
 
         def set_node_transient(self, node):
@@ -190,10 +199,17 @@ class Grid(testgrid.model.Grid):
                         hdl = self.hdl)
                 return session
 
+
         def is_available(self, node):
-                print "is availalbe ",node.id
-                for n in self._get_available_nodes():
-                        print "if", n.id
+                #if self.is_quarantined(node):
+                #        return False
+                for n in self._get_allocated_nodes():
+                        if n.id == node.id:
+                                return False
+                return True
+
+        def is_allocated(self, node):
+                for n in self._get_allocated_nodes():
                         if n.id == node.id:
                                 return True
                 return False
@@ -234,7 +250,7 @@ class Modeltest(testgrid.model.SelfTest):
        def mkenv(nb_nodes, nb_packages):
                "create test objects"
                nodes = tuple(FakeNodePersistent("node%i" % i) for i in xrange(nb_nodes))
-               packages = tuple(FakePackagePersistent("pkg%i" % i, "1.0") for i in xrange(nb_packages))
+               packages = tuple(testgrid.model.FakePackage("pkg%i" % i, "1.0") for i in xrange(nb_packages))
                subnets = [FakeSubnet("vlan14")]
                grid = Grid(name = "grid", dbpath = "db_test/persistentModel.db" , subnets = subnets, nodes = nodes) # use a non-generative grid
                session = grid.open_session()

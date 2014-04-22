@@ -707,6 +707,7 @@ class SelfTest(unittest.TestCase):
 		self.assertDeployment(packages, plan2, grid, session)
 		# assert everything is cleaned up:
 		session.close()
+                print "injec", session.plan
 		self.assertUndeployment(nodes, grid, session)
 
 	def test_surjective_cycle(self):

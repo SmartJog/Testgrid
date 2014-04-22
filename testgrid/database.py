@@ -22,6 +22,7 @@ class Database(object):
     def database_init(self):
         "load existing database or creates a new database using script_path"
         if os.path.exists(self.dbpath):
+            print "db exist"
             self.con = sqlite3.connect(self.dbpath)
             self.db = self.con.cursor()
         else:
@@ -246,7 +247,12 @@ class Database(object):
         try:
             self.con.isolation_level = 'EXCLUSIVE'
             self.con.execute('BEGIN EXCLUSIVE')
-            res = self.db.execute("SELECT package_id FROM Plans WHERE session_id = ?", (session.id,))
+            self.db.execute("SELECT * FROM Plans WHERE session_id = ?", (session.id,))
+            res = self.db.fetchall()
+            print res , "remov session"
+            self.db.execute("SELECT package_id FROM Plans WHERE session_id = ?", (session.id,))
+            res = self.db.fetchall()
+            print res
             for package_id in res:
                 print package_id
                 self.remove_package(package_id)
@@ -345,6 +351,7 @@ class Database(object):
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
+            raise DatabaseError(e)
 
     def remove_package(self, package_id):
         try:
@@ -352,6 +359,7 @@ class Database(object):
             self.con.commit()
         except sqlite3.Error, e:
             self.con.rollback()
+            raise DatabaseError(e)
 
 ##############
 # unit tests #
