@@ -309,19 +309,15 @@ class SelfTest(testgrid.model.SelfTest):
        node_cls = FakeNode
        pkg_cls = FakePackage
 
-       timeout = 2
+       timeout = 20
 
        def setUp(self):
                if not os.path.exists("db_test"):
                        os.mkdir("db_test")
 
        def tearDown(self):
-               if os.path.exists("db_test/persistentModel.db"):
-                       print "size=", len(open("db_test/persistentModel.db", "r").read())
-                       hdl = testgrid.database.Database(dbpath = "db_test/persistentModel.db")
-                       hdl.dump()
-                       hdl.close()
-               shutil.rmtree("db_test/")
+               if os.path.exists("db_test"):
+                       shutil.rmtree("db_test/")
 
        @staticmethod
        def mkenv(nb_nodes, nb_packages):
@@ -398,7 +394,6 @@ class SelfTest(testgrid.model.SelfTest):
                session.undeploy()
                self.assertNotIn(node, session)
 
-       @unittest.skip("test using generative grid is inappropriate")
        def test_node_creation(self):pass
 
 if __name__  == "__main__": unittest.main(verbosity = 2)
