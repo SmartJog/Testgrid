@@ -9,6 +9,14 @@ class Node(testgrid.model.Node):
 		self.hoststring = hoststring
 		self.sysname = sysname
 
+	def __eq__(self, other):
+		if self.hoststring == other.hoststring:
+			return True
+		return False
+
+	def __ne__(self, other):
+		return not (self == other)
+
 	def get_typename(self):
 		return "remote node/%s" % self.sysname
 
@@ -29,3 +37,6 @@ class Node(testgrid.model.Node):
 
 	def get_hoststring(self):
 		return testgrid.model.Hoststring(self.hoststring)
+
+	def get_installed_packages(self):
+		raise NotImplementedError()

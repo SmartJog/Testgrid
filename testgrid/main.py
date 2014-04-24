@@ -7,7 +7,7 @@ Usage:
   tg [-m INI] [-l|-c HOST] [-g NAME] --list-nodes
   tg [-m INI] [-l|-c HOST] [-g NAME] --add-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] --remove-node NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] --quarantine-node NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] --quarantine-node NAME --reason TEXT
   tg [-m INI] [-l|-c HOST] [-g NAME] --rehabilitate-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --ping
   tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --install NAME --type NAME
@@ -22,7 +22,7 @@ Usage:
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --allocate-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --release-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --deploy PKG --type NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --undeploy PKG
+  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --undeploy
   tg --version
   tg --help
 
@@ -34,6 +34,7 @@ Options:
   --add-node NAME             add node parsed from manifest
   --remove-node NAME          ...
   --quarantine-node NAME      place a node in quarantine
+  --reason TEXT               ...
   --rehabilitate-node NAME    rehabilitate a quarantined node
   --ping                      ...
   --install NAME              ...
@@ -48,7 +49,7 @@ Options:
   --allocate-node NAME        ...
   --release-node NAME         ...
   --deploy PKG                ...
-  --undeploy PKG              ...
+  --undeploy                  ...
   -m INI, --manifest INI      comma-separated list of .ini filepaths or URIs [default: ~/grid.ini]
   -l, --local                 use a local client
   -c HOST, --controller HOST  set REST controller hoststring [default: qa.lab.fr.lan:8080]
@@ -171,7 +172,20 @@ def main():
 			if args["--list-nodes"]:
 				list_nodes(client, [node for node in session])
 			elif args["--allocate-node"]:
-				raise NotImplementedError()
+				opts = client.get_node_dicionary(args["--allocate-node"], ini = args["--manifest"])
+				node = session.allocate_node(**opts)
+				print "allocated %s" % node
+			elif args["--release-node"]:
+				node = client.get_node(args["--release-node"])
+				session.release_node(node)
+			elif args["--deploy"]:
+				if args["--type"]:
+				      package = client.get_package(args["--type"], args["--deploy"])
+				      plans = session.deploy((package,))
+                                      for pkg, node in plans:
+                                              print "package %s installed on node %s" % (pkg, node)
+			elif args["--undeploy"]:
+				session.undeploy()
 			else:
 				raise NotImplementedError()
 		# --- grid-level operation ---
@@ -185,13 +199,14 @@ def main():
 				node = client.remove_node(name = args["--remove-node"])
 				print "removed %s" % node
 			elif args["--quarantine-node"]:
-				client.quarantine_node(name = args["--quarantine-node"])
+				client.quarantine_node(name = args["--quarantine-node"], reason = args["--reason"])
 			elif args["--rehabilitate-node"]:
 				client.rehabilitate_node(name = args["--rehabilitate-node"])
 			elif args["--list-sessions"]:
 				list_sessions(client)
 			elif args["--open-session"]:
-				client.open_session(args["--open-session"])
+				session = client.open_session(args["--open-session"])
+				print "opened %s" % session
 			elif args["--close-session"]:
 				client.close_session(args["--close-session"])
 		return 0

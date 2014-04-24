@@ -19,6 +19,10 @@ class Client(object):
 				return node
 		raise KeyError("%s" % name)
 
+	def get_node_dicionary(self, name, ini):
+		dic = testgrid.parser.parse_node_dicionary(name, ini)
+		return dic
+
 	def get_package(self, typename, name, version = None):
 		cls = testgrid.parser.get_subclass(typename, testgrid.model.Package)
 		return cls(name = name, version = version)
@@ -51,10 +55,10 @@ class Client(object):
 		"administration -- return True if the node is transient"
 		return self.grid.is_transient(node)
 
-	def quarantine_node(self, name):
+	def quarantine_node(self, name, reason):
 		"administration"
 		node = self.get_node(name)
-		self.grid.quarantine_node(node)
+		self.grid.quarantine_node(node, reason)
 
 	def rehabilitate_node(self, name):
 		"administration -- switch node from quarantined to available status"
@@ -64,8 +68,19 @@ class Client(object):
 	def get_sessions(self):
 		return self.grid.get_sessions()
 
+	def get_session(self, name):
+		for session in self.grid.get_sessions():
+                        if session.name == name and session.username == self.username:
+                                return session
+                raise KeyError(" %s" % name)
+
 	def open_session(self, name = None):
 		return self.grid.open_session(username = self.username, name = name)
+
+	def close_session(self, name):
+		session = self.get_session(name)
+                session.close()
+
 
 ##############
 # unit tests #

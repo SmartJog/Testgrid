@@ -38,15 +38,13 @@ class Session(testgrid.model.Session):
 
         def _release_pair(self, pkg ,node):
                 super(Session, self)._release_pair(pkg ,node)
-                self.hdl.remove_plan(self, node)
-                #release pair
+                self.hdl.remove_pair(self, node, pkg)
 
         def undeploy(self):
                 self.plan = self.hdl.get_plans(self)
                 super(Session, self).undeploy()
 
         def deploy(self, packages):
-                #self.plan = self.hdl.get_plans(self)
                 try:
                         plan = super(Session, self).deploy(packages)
                         for p in plan:
@@ -54,7 +52,6 @@ class Session(testgrid.model.Session):
                         return plan
                 except:
                         raise
-
 
         def close(self):
                 super(Session, self).close()
@@ -65,8 +62,7 @@ class Nodes(object):
                 self.hdl = hdl
 
         def __iter__(self):
-                nodes = self.hdl.get_nodes()
-                for node in nodes:
+                for node in self.hdl.get_nodes():
                         yield node
 
         def __contains__(self, node):
@@ -132,9 +128,7 @@ class Sessions(object):
                         yield session
 
         def __contains__(self, session):
-                if not hasattr(session, "id"):
-                        return False
-                return True
+                return self.hdl.session_exist(session)
 
         def __len__(self):
                 size  = 0
@@ -150,12 +144,11 @@ class Sessions(object):
 
 class Grid(testgrid.model.Grid):
 
-        def __init__(self, name, dbpath="testgrid.db",
-                     script_path="testgrid/testgrid.sql", *args, **kwargs):
+        def __init__(self, name, dbpath="testgrid.db", *args, **kwargs):
                 super(Grid, self).__init__(name, *args, **kwargs)
                 nodes = self.nodes
                 subnets = self.subnets
-                self.hdl = testgrid.database.Database(dbpath = dbpath, script_path = script_path)
+                self.hdl = testgrid.database.Database(dbpath = dbpath)
                 self.nodes = Nodes(hdl = self.hdl)
                 self.subnets = Subnets(hdl = self.hdl)
                 self.sessions = Sessions(hdl = self.hdl, gridref = weakref.ref(self))
@@ -194,20 +187,6 @@ class Grid(testgrid.model.Grid):
                         hdl = self.hdl)
                 return session
 
-#        def is_available(self, node):
-#                #if self.is_quarantined(node):
-#                #        return False
-#                for n in self._get_allocated_nodes():
-#                        if n.id == node.id:
-#                                return False
-#                return True
-
-#        def is_allocated(self, node):
-#                for n in self._get_allocated_nodes():
-#                        if n.id == node.id:
-#                                return True
-#                return False
-
         def __del__(self):
                 self.hdl.close()
 
@@ -217,45 +196,53 @@ class Grid(testgrid.model.Grid):
 
 class FakePackage(testgrid.model.FakePackage):
 
-	def __repr__(self):
-		return "%s(%s, %s)" % (type(self).__name__, repr(self.name), repr(self.version))
+        def __repr__(self):
+                return "%s(%s, %s)" % (type(self).__name__, repr(self.name), repr(self.version))
 
-	def read_installed(self, node):
-		if not os.path.exists("db_test/%s.dat" % node.name):
-			return []
-		else:
-			return eval(open("db_test/%s.dat" % node.name, "r").read())
+        def __eq__(self, other):
+                if self.name ==  other.name:
+                        return True
+                return False
 
-	def write_installed(self, node, installed):
-		open("db_test/%s.dat" % node.name, "w+").write(repr(installed))
+        def __ne__(self, other):
+                return not (self == other)
 
-	def install(self, node):
-		assert not node.terminated
-		assert not node.is_installed(self), "%s: %s: already installed" % (node, self)
-		installed = self.read_installed(node)
-		installed.append(self)
-		self.write_installed(node, installed)
+        def read_installed(self, node):
+                if not os.path.exists("db_test/installed_%s.dat" % node.name):
+                        return []
+                else:
+                        return eval(open("db_test/installed_%s.dat" % node.name, "r").read())
 
-	def uninstall(self, node):
-		assert not node.terminated
-		assert node.is_installed(self), "%s: %s: not yet installed" % (node, self)
-		installed = self.read_installed(node)
-		installed.remove(self)
-		self.write_installed(node, installed)
+        def write_installed(self, node, installed):
+                open("db_test/installed_%s.dat" % node.name, "w+").write(repr(installed))
 
-	def is_installed(self, node):
-		assert not node.terminated
-		installed = self.read_installed()
-		return self in node.installed
+        def install(self, node):
+                assert not node.terminated
+                assert not node.is_installed(self), "%s: %s: already installed" % (node, self)
+                installed = self.read_installed(node)
+                installed.append(self)
+                self.write_installed(node, installed)
 
-	def is_installable(self, node):
-		assert not node.terminated
-		return True
+        def uninstall(self, node):
+                assert not node.terminated
+                assert node.is_installed(self), "%s: %s: not yet installed" % (node, self)
+                installed = self.read_installed(node)
+                installed.remove(self)
+                self.write_installed(node, installed)
+
+        def is_installed(self, node):
+                assert not node.terminated
+                installed = self.read_installed(node)
+                return self in installed
+
+        def is_installable(self, node):
+                assert not node.terminated
+                return True
 
 class FakeNode(testgrid.model.FakeNode):
 
-	# store .terminated
-	# store .subnets
+        # store .terminated
+        # store .subnets
 
         def __init(self, name):
                 super(FakeNode, self).__init__(name = name)
@@ -266,8 +253,26 @@ class FakeNode(testgrid.model.FakeNode):
                                 return True
                 return False
 
-	def __ne__(self, other):
-		return not (self == other)
+        def __ne__(self, other):
+                return not (self == other)
+
+        def write_subnets(self, subnets):
+                open("db_test/installed_%s.dat" % self.name, "w+").write(repr(subnets))
+
+        def write_terminated(self, state):
+                open("db_test/terminated_%s.dat" % self.name, "w+").write(repr(state))
+
+        def read_terminated(self):
+                if not os.path.exists("db_test/terminated_%s.dat" % node.name):
+                        return False
+                else:
+                        return eval(open("db_test/terminated_%s.dat" % node.name, "r").read())
+
+        def read_subnets(self):
+                if not os.path.exists("db_test/subnets_%s.dat" % node.name):
+                        return []
+                else:
+                        return eval(open("db_test/subnets_%s.dat" % node.name, "r").read())
 
 class FakePackagePersistent(testgrid.model.FakePackage):
 
@@ -276,15 +281,27 @@ class FakePackagePersistent(testgrid.model.FakePackage):
 
 class FakeSubnet(testgrid.model.Subnet): pass
 
+import random
+import string
+
 class TempGrid(Grid):
 
-	def __init__(self, name):
-		dbpath = ...
-		super(TempGrid, self).__init__(name = name, dbpath = dbpath)
+        def __init__(self, name, dbpath = None):
+                if not dbpath:
+                        dbpath = "".join(random.choice(string.lowercase) for i in xrange(8)) + ".db"
+                super(TempGrid, self).__init__(name = name, dbpath = dbpath)
 
-	def __del__(self):
-		super(TempGrid, self).__del__()
-		# + delete database
+        def get_nodes(self):
+                for node in self:
+                        yield node
+
+        def get_database_path(self):
+                return self.hdl.dbpath
+
+        def __del__(self, remove = True):
+                super(TempGrid, self).__del__()
+                if remove and os.path.exists(self.hdl.dbpath):
+                        os.remove(self.hdl.dbpath)
 
 class SelfTest(testgrid.model.SelfTest):
 
@@ -312,86 +329,76 @@ class SelfTest(testgrid.model.SelfTest):
                nodes = tuple(FakeNode("node%i" % i) for i in xrange(nb_nodes))
                packages = tuple(FakePackage("pkg%i" % i, "1.0") for i in xrange(nb_packages))
                subnets = [FakeSubnet("vlan14")]
-               grid = Grid(
-               	name = "grid",
-               	dbpath = "db_test/persistentModel.db",
-               	subnets = subnets,
-               	nodes = nodes)
+               grid = TempGrid(name = "grid")
+               for node in nodes:
+                       grid.add_node(node)
+               for subnet in subnets:
+                       grid.add_subnet(subnet)
                session = grid.open_session()
                return (nodes, packages, grid, session)
 
        def test_persistent_nodes(self):
                "test add, remove node persistency"
                #perform operation with first grid
-               subnets = [FakeSsubnet("vlan14")]
-               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentNodes.db", subnets = subnets)
-               node = testgrid.persistent.FakeNode("fake node")
-               pg.add_node(node)
-               node2 = testgrid.persistent.FakeNode("fake node2")
-               pg.add_node(node2)
-               self.assertEqual(len(pg.nodes), 2)
-               pg.remove_node(node2)
-               self.assertEqual(len(pg.nodes), 1)
-               del pg
+               nodes, pkg, grid, session = self.mkenv(nb_nodes = 2, nb_packages = 0)
+               self.assertIn(nodes[0], grid.get_nodes())
+               grid.remove_node(nodes[0])
+               self.assertNotIn(nodes[0], grid.get_nodes())
+               dbpath = grid.get_database_path()
+               grid.__del__(False)
                #perform operation with second  grid using same db
-               pg = Grid(name = "persistentGridsecond", dbpath = "db_test/persistentNodes.db")
-               self.assertEqual(len(pg.nodes), 1)
-               self.assertRaises(testgrid.model.UnknownNodeError, pg.remove_node, node2)
-               del pg
+               grid = TempGrid(name = "second grid", dbpath = dbpath)
+               self.assertIn(nodes[-1], grid.get_nodes())
+               del grid
 
        def test_persistent_sessions(self):
                "test persistent session persistency, assert anonymous session is removed after being closed"
                #perform operation with first grid
-               subnets = [FakeSubnet("vlan14")]
-               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentSessions.db", subnets = subnets)
-               session = pg.open_session("persistent", "test")
-               anonymous_session = pg.open_session("anonymous")
-               sessions = pg.get_sessions()
-               self.assertEqual(len(sessions), 2)
-               anonymous_session.close()
-               del pg
-               #perform operation with second  grid using same db
-               pg = Grid(name = "persistentGridsecond", dbpath = "db_test/persistentSessions.db")
-               sessions = pg.get_sessions()
-               self.assertEqual(len(sessions), 1)
-               del pg
+               nodes, pkg, grid, session = self.mkenv(nb_nodes = 0, nb_packages = 0)
+               self.assertIn(session , grid.get_sessions())
+               session.close()
+               self.assertNotIn(session , grid.get_sessions())
+               session = grid.open_session("persistent", "test")
+               dbpath = grid.get_database_path()
+               grid.__del__(False)
+               grid = TempGrid(name = "persistentGridsecond", dbpath = dbpath)
+               self.assertIn(session, grid.get_sessions())
+               del grid
 
        def test_persistent_plan(self):
                "test plan persistency associate to specific session"
                #perform operation with first grid
-               subnets = [FakeSubnet("vlan14")]
-               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db", subnets = subnets)
-               node = testgrid.persistent.FakeNode("fake node")
-               pg.add_node(node)
-               session = pg.open_session("persistent", "test")
+               nodes, pkg, grid, session = self.mkenv(nb_nodes = 2, nb_packages = 0)
+               session_persistent = grid.open_session("persistent", "test")
                allocated_node = session.allocate_node()
+               self.assertIn(allocated_node, session)
+               grid.remove_node(allocated_node)
+               self.assertNotIn(allocated_node, session)
+               allocated_node = session_persistent.allocate_node()
                self.assertRaises(testgrid.model.NodePoolExhaustedError,session.allocate_node)
-               del pg
+               dbpath = grid.get_database_path()
+               grid.__del__(False)
                #perform operation with second  grid using same db
-               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db")
-               session = pg.open_session("persistent2", "test2")
-               self.assertRaises(testgrid.model.NodePoolExhaustedError, session.allocate_node)
-               pg.remove_node(allocated_node)
-               del pg
-               #check remove node persistency
-               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db")
-               self.assertEqual(len(pg.nodes), 0)
-               session = pg.open_session("persistent", "test")
-               self.assertEqual(len(session.plan), 0)
-               del pg
+               grid = TempGrid(name = "persistentGrid", dbpath = dbpath)
+               session_persistent = grid.open_session("persistent", "test")
+               self.assertRaises(testgrid.model.NodePoolExhaustedError, session_persistent.allocate_node)
+               self.assertIn(allocated_node , session_persistent)
+               del grid
 
        def test_deploy(self):
-               subnets = [FakeSubnet("vlan14")]
-               pg = Grid(name = "persistentGrid", dbpath = "db_test/persistentPlan.db", subnets = subnets)
+               grid = TempGrid(name = "persistentGrid")
                node = testgrid.persistent.FakeNode("fake node")
-               pg.add_node(node)
-               pg.set_node_transient(node)
-               self.assertEqual(pg.is_transient(node), True)
-               session = pg.open_session("persistent", "test")
+               grid.add_node(node)
+               grid.set_node_transient(node)
+               self.assertEqual(grid.is_transient(node), True)
+               session = grid.open_session("persistent", "test")
                package = FakePackagePersistent("test")
                plan = session.deploy((package,))
                self.assertIn(node, session)
                session.undeploy()
                self.assertNotIn(node, session)
+
+       @unittest.skip("test using generative grid is inappropriate")
+       def test_node_creation(self):pass
 
 if __name__  == "__main__": unittest.main(verbosity = 2)

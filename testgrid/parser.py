@@ -119,6 +119,12 @@ class Parser(object):
 				kwargs[key] = value
 		return self._mkobj(cls, **kwargs)
 
+	def _parse_node_dictionary(self, section):
+		kwargs = {}
+		for key, value in self.conf.items(section):
+			kwargs[key] = value
+		return kwargs
+
 	def _parse_grid(self, section):
 		cls = testgrid.model.Grid
 		kwargs = {"name": section}
@@ -167,6 +173,9 @@ class Parser(object):
 	def parse_grid(self, name):
 		return self._parse(name, self._parse_grid)
 
+	def parse_node_dicionary(self, name):
+		return self._parse(name, self._parse_node_dictionary)
+
 def parse_node(name, ini, *modules):
 	"parse manifests and return a node instance"
 	return Parser(ini, *modules).parse_node(name)
@@ -174,6 +183,10 @@ def parse_node(name, ini, *modules):
 def parse_grid(name, ini, *modules):
 	"parse manifests and return a grid instance"
 	return Parser(ini, *modules).parse_grid(name)
+
+def parse_node_dicionary(name, ini, *modules):
+	"parse manifests and return a dictionary of a node options"
+	return Parser(ini, *modules).parse_node_dicionary(name)
 
 ##############
 # unit tests #
@@ -208,13 +221,13 @@ class SelfTest(unittest.TestCase):
 		f = self.get_file("""
 			[node1]
 			type = fake node
-			
+
 			[node2]
 			type = FaKe NoDe
-			
+
 			[node3]
 			type = FAKE NODE
-			
+
 			[bar]
 			type = grid
 			nodes = node1 node2 node3

@@ -15,6 +15,9 @@ class Package(testgrid.model.Package):
 		else:
 			self.tag = self.name
 
+	def get_typename(self):
+		return "Debian Package"
+
 	def _run_apt(self, node, state):
 		"reach package state on target, raise exception on error"
 		hoststring = node.get_hoststring()
