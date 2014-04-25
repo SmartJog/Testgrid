@@ -19,13 +19,16 @@ class Client(object):
 				return node
 		raise KeyError("%s" % name)
 
-	def get_node_dicionary(self, name, ini):
-		dic = testgrid.parser.parse_node_dicionary(name, ini)
+	def get_node_dictionary(self, name, ini):
+		dic = testgrid.parser.parse_node_dictionary(name, ini)
 		return dic
 
 	def get_package(self, typename, name, version = None):
 		cls = testgrid.parser.get_subclass(typename, testgrid.model.Package)
-		return cls(name = name, version = version)
+                pkg_name, pkg_version = name.partition("=")[::2]
+                if pkg_version is "":
+                        v = None
+		return cls(name = pkg_name, version = pkg_version)
 
 	def add_node(self, name, ini):
 		"administration -- instanciate and add node to grid from manifest, return instance"
@@ -70,9 +73,15 @@ class Client(object):
 
 	def get_session(self, name):
 		for session in self.grid.get_sessions():
-                        if session.name == name and session.username == self.username:
-                                return session
-                raise KeyError(" %s" % name)
+			if session.name == name and session.username == self.username:
+				return session
+		raise KeyError(" %s" % name)
+
+	def get_node_session(self, node):
+		"return session that contains a specific node"
+		for session in self.grid.get_sessions():
+			if node in session:
+				return session
 
 	def open_session(self, name = None):
 		return self.grid.open_session(username = self.username, name = name)

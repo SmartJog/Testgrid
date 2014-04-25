@@ -1,3 +1,4 @@
+
 # copyright (c) 2014 smartjog, released under the GPL license.
 
 """
@@ -10,10 +11,10 @@ Usage:
   tg [-m INI] [-l|-c HOST] [-g NAME] --quarantine-node NAME --reason TEXT
   tg [-m INI] [-l|-c HOST] [-g NAME] --rehabilitate-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --ping
-  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --install NAME --type NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --uninstall NAME  --type NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --is-installed NAME  --type NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --is-installable NAME  --type NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME (--install --deb | --install --win) NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME (--uninstall --deb | --uninstall --win) NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME (--is-installed --deb  | --is-installed --win) NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME (--is-installable --deb | --is-installable --win) NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --execute [--] ARGV...
   tg [-m INI] [-l|-c HOST] [-g NAME] --list-sessions
   tg [-m INI] [-l|-c HOST] [-g NAME] --open-session NAME
@@ -21,7 +22,7 @@ Usage:
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --list-nodes
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --allocate-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --release-node NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --deploy PKG --type NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME (--deploy --deb | --deploy --win) PKG...
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --undeploy
   tg --version
   tg --help
@@ -49,6 +50,7 @@ Options:
   --allocate-node NAME        ...
   --release-node NAME         ...
   --deploy PKG                ...
+  --deb PKG...                ...
   --undeploy                  ...
   -m INI, --manifest INI      comma-separated list of .ini filepaths or URIs [default: ~/grid.ini]
   -l, --local                 use a local client
@@ -77,8 +79,8 @@ import threading, strfmt, local, rest
 
 def list_nodes(client, nodes):
 	rows = [
-		("name", "type", "status", "allocation"),
-		("----", "----", "------", "----------"),
+		("name", "type", "status", "allocation", "username", "session"),
+		("----", "----", "------", "----------", "--------", "-------"),
 	]
 	# get node status in parallel as it's slow
 	pool = []
@@ -94,6 +96,7 @@ def list_nodes(client, nodes):
 		t.join(5)
 	# now display the info
 	for node in nodes:
+                session = client.get_node_session(node)
 		row = [
 			node.name,
 			node.get_typename(),
@@ -106,6 +109,9 @@ def list_nodes(client, nodes):
 			row.append(strfmt.Yellow("quarantined"))
 		else:
 			row.append(strfmt.Red("???"))
+		if session:
+			row.append(session.username)
+			row.append(session.name)
 		rows.append(row)
 	print strfmt.strcolalign(rows)
 
@@ -139,30 +145,34 @@ def main():
 		# --- node-level operation ---
 		if args["--node"]:
 			if args["--session"]:
-				node = client.get_session(args["--session"]).get_node(args["--node"])
+				session = client.get_session(args["--session"])
+				node = client.get_node(args["--node"])
+				if node not in session:
+					raise Exception("user %s tries to perform an operation on  node: %s, which is unallocated or unavailable using session %s"
+							% (session.username, node, session.name))
 			else:
 				node = client.get_node(args["--node"])
 			if args["--ping"]:
 				sys.exit(0 if node.is_up() else 1)
-			elif args["--install"]:
+			elif args["--install"] and '--deb' in args["--install"]:
 				pkg = client.get_package(
-					typename = args["--type"],
-					name = args["--install"])
+					typename = "DebianPackage",
+					name = args["NAME"])
 				print_res(node.install(pkg))
-			elif args["--uninstall"]:
+			elif args["--uninstall"] and '--deb' in args["--uninstall"]:
 				pkg = client.get_package(
-					typename = args["--type"],
-					name = args["--uninstall"])
+					typename = "DebianPackage",
+					name = args["NAME"])
 				print_res(node.uninstall(pkg))
-			elif args["--is-installed"]:
+			elif args["--is-installed"] and '--deb' in args["--is-installed"]:
 				pkg = client.get_package(
-					typename = args["--type"],
-					name = args["--is-installed"])
+					typename = "DebianPackage",
+					name = args["NAME"])
 				sys.exit(0 if node.is_installed(pkg) else 1)
-			elif args["--is-installable"]:
+			elif args["--is-installable"] and '--deb' in args["--is-installable"]:
 				pkg = client.get_package(
-					typename = args["--type"],
-					name = args["--is-installable"])
+					typename = "DebianPackage",
+					name = args["NAME"])
 				sys.exit(0 if node.is_installable(pkg) else 1)
 			elif args["--execute"]:
 				print_res(node.execute(" ".join(args["ARGV"])))
@@ -172,18 +182,20 @@ def main():
 			if args["--list-nodes"]:
 				list_nodes(client, [node for node in session])
 			elif args["--allocate-node"]:
-				opts = client.get_node_dicionary(args["--allocate-node"], ini = args["--manifest"])
+				opts = client.get_node_dictionary(args["--allocate-node"], ini = args["--manifest"])
 				node = session.allocate_node(**opts)
 				print "allocated %s" % node
 			elif args["--release-node"]:
 				node = client.get_node(args["--release-node"])
 				session.release_node(node)
-			elif args["--deploy"]:
-				if args["--type"]:
-				      package = client.get_package(args["--type"], args["--deploy"])
-				      plans = session.deploy((package,))
-                                      for pkg, node in plans:
-                                              print "package %s installed on node %s" % (pkg, node)
+			elif args["--deploy"] and '--deb' in args["--deploy"]:
+				packages = []
+				for pkg in args["PKG"]:
+					package = client.get_package("DebianPackage", pkg)
+					packages.append(package)
+				plans = session.deploy(packages)
+				for p, node in plans:
+					print "package %s installed on node %s" % (p, node)
 			elif args["--undeploy"]:
 				session.undeploy()
 			else:

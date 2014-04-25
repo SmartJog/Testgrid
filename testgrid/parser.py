@@ -173,7 +173,7 @@ class Parser(object):
 	def parse_grid(self, name):
 		return self._parse(name, self._parse_grid)
 
-	def parse_node_dicionary(self, name):
+	def parse_node_dictionary(self, name):
 		return self._parse(name, self._parse_node_dictionary)
 
 def parse_node(name, ini, *modules):
@@ -184,9 +184,9 @@ def parse_grid(name, ini, *modules):
 	"parse manifests and return a grid instance"
 	return Parser(ini, *modules).parse_grid(name)
 
-def parse_node_dicionary(name, ini, *modules):
+def parse_node_dictionary(name, ini, *modules):
 	"parse manifests and return a dictionary of a node options"
-	return Parser(ini, *modules).parse_node_dicionary(name)
+	return Parser(ini, *modules).parse_node_dictionary(name)
 
 ##############
 # unit tests #
