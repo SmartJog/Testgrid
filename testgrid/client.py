@@ -25,9 +25,9 @@ class Client(object):
 
 	def get_package(self, typename, name, version = None):
 		cls = testgrid.parser.get_subclass(typename, testgrid.model.Package)
-                pkg_name, pkg_version = name.partition("=")[::2]
-                if pkg_version is "":
-                        v = None
+		pkg_name, pkg_version = name.partition("=")[::2]
+		if pkg_version is "":
+			v = None
 		return cls(name = pkg_name, version = pkg_version)
 
 	def add_node(self, name, ini):
