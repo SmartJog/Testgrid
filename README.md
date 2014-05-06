@@ -1,13 +1,12 @@
 Test Grid
 =========
 
-TestGrid (TG) is a service providing isolated, on-demand and programmable
-test environments (TE) to deploy quickly assets under test.
+TestGrid (TG) is a service providing isolated, on-demand and Programmable Test Environments (PTE) to deploy quickly assets under test. The service can be used manually or integrated with automation tools to generate easily varying test conditions: components, configuration, connections, I/O and so on.
 
-A programmable TE allows to vary easily the test conditions: components,
-configuration, connections, I/O and so on.
+* * *
 
-Features:
+Features
+--------
 
   * Sessions –
     A user interacts with the TG via persistent or transient sessions     (respectively for long-running tests and one-shot short tests.)
@@ -24,12 +23,23 @@ Features:
   * Provisioning Ecosystem Integration –
     A TG session can be fed to ansible as a dynamic inventory
 
+Requirements
+------------
+
+  * python 2.7
+  * Ubuntu 13.x | Debian 7 | OS/X Mavericks
+
+Dependencies
+------------
+
+  * python-setuptools
+  * python-ansible
+
 Installation
 ------------
 
 	$ git clone git@git.smartjog.net:qa/testgrid.git
 	$ cd testgrid
-	(...)
 	$ python setup.py install
 
 Tutorial
