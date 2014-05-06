@@ -2,25 +2,27 @@
 
 .PHONY: usage install clean test ci
 
-MODULES := strfmt.py docopt.py vagrant.py bottle.py
+MODULES := strfmt.py docopt.py vagrant.py bottle.py installsystems.py
+
 SOURCES :=\
 	client.py debian.py local.py main.py model.py parser.py persistent.py\
 	playground.py remote.py rest.py test.py testbox.py
 
-usage:
-	@echo "Usage:"
-	@echo "  make install  install testgrid command line tool and framework"
-	@echo
-	@echo "Reserved:"
-	@echo "  make clean    delete generated files"
-	@echo "  make test     run tests, you may pass a testname via NAME="
-	@echo "  make ci       check-in changes below"
-	@echo
-	@echo "Changes:"
-	@git status -s
-
 testgrid/%.py: ~/Documents/work/%.py
 	cp -p $< $@
+
+%.mk: ~/Documents/work/%.mk
+	cp -p $< $@
+
+usage::
+	@echo "Usage:"
+	@echo "  make install  install testgrid command-line tool and framework"
+	@echo "  make update   update modules (reserved)"
+	@echo
+
+include template.mk
+
+update: $(addprefix testgrid/,$(MODULES))
 
 ifeq ($(shell uname -s), Darwin)
 install:
@@ -39,20 +41,5 @@ $(error unsupported platform)
 endif
 endif
 
-clean:
+clean::
 	-rm -rf build dist testgrid.egg-info
-	-find . -name '*.pyc' -delete
-
-ifeq ($(shell which testy),)
-test: $(addprefix testgrid/,$(MODULES))
-	@echo please install http://fclaerhout.fr/testy
-else
-test: NAME :=
-test: $(addprefix testgrid/,$(MODULES))
-	testy -m test.ini $(NAME)
-endif
-
-ci:
-	git commit -a
-	git push
-	git push --tags

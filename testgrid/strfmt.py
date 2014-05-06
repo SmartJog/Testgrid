@@ -1,11 +1,10 @@
-# copyright (c) 2013-2014 florent claerhout, released under the MIT license.
+# copyright (c) 2013-2014 fclaerhout.fr, released under the MIT license.
 # coding: utf-8
 
 """
 String formatting routines.
 
-API
----
+API:
   * Red|Blue|Gray|Green|Yellow|Purple(string)
   * lookahead(iterable)
   * cutline(string, maxlen)
@@ -14,8 +13,7 @@ API
   * strtree helper, ClassTree(obj)
   * strtree helper, ListTree(obj)
 
-Tutorial
---------
+Tutorial:
   >>> import strfmt
   >>> class Foo(object): pass
   >>> class Bar(Foo): pass

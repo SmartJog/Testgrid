@@ -1,27 +1,27 @@
-# copyright (c) 2014 florent claerhout, released under the MIT license.
+# copyright (c) 2014 fclaerhout.fr, released under the MIT license.
 
 """
 Python API for Vagrant.
 
-Requirements
-------------
-	Vagrant >= 1.5.1
+Requirements:
+  Vagrant >= 1.5.1
 
-Tutorial
---------
-	>>> import vagrant
-	>>> foo = vagrant.Guest(root = "/tmp/foo")
-	>>> foo.is_initialized()
-	False
-	>>> foo.init(bridge = "eth0", box_name = "wheezy64")
-	>>> foo.up()
-	>>> foo.is_running()
-	True
-	>>> foo.run("uname")
-	(0, "Linux", None)
-	>>> foo.destroy()
-	>>> foo.fini()
+Tutorial:
+  >>> import vagrant
+  >>> foo = vagrant.Guest(root = "/tmp/foo")
+  >>> foo.is_initialized()
+  False
+  >>> foo.init(bridge = "eth0", box_name = "wheezy64")
+  >>> foo.up()
+  >>> foo.is_running()
+  True
+  >>> foo.run("uname")
+  (0, "Linux", None)
+  >>> foo.destroy()
+  >>> foo.fini()
 """
+
+__version__ = "0.1"
 
 import subprocess, textwrap, unittest, shutil, pipes, os
 
@@ -97,28 +97,28 @@ class Guest(object):
 	def fini(self):
 		shutil.rmtree(self.root)
 
-	def _vagrant(self, argv, warn_only = False):
-		assert\
-			os.path.exists(self.vagrantfile_path),\
-			"%s: guest not yet initialized" % self.vagrantfile_path
+	def vagrant(self, argv, warn_only = False):
+		vagrantfile_exists = os.path.exists(self.vagrantfile_path)
+		error_msg = "%s: guest not yet initialized" % self.vagrantfile_path
+		assert vagrantfile_exists, error_msg
 		return run(
-			argv = "VAGRANT_CWD=%s vagrant %s" % (self.root, argv),
+			"VAGRANT_CWD=%s vagrant %s" % (self.root, argv),
 			warn_only = warn_only)
 
 	def up(self):
-		return self._vagrant("up")
+		return self.vagrant("up")
 
 	def halt(self):
-		return self._vagrant("halt")
+		return self.vagrant("halt")
 
 	def reload(self):
-		return self._vagrant("reload")
+		return self.vagrant("reload")
 
 	def destroy(self):
-		return self._vagrant("destroy --force")
+		return self.vagrant("destroy --force")
 
 	def get_status(self):
-		code, stdout, stderr = self._vagrant("status --machine-readable")
+		code, stdout, stderr = self.vagrant("status --machine-readable")
 		for line in stdout.splitlines():
 			id, _, key, value = line.split(",")
 			if key == "state":
@@ -128,7 +128,7 @@ class Guest(object):
 		return self.get_status() == "running"
 
 	def run(self, argv, warn_only = False):
-		return self._vagrant("ssh -c %s" % pipes.quote(argv))
+		return self.vagrant("ssh -c %s" % pipes.quote(argv), warn_only = warn_only)
 
 	def get_inet_addresses(self):
 		# FIXME

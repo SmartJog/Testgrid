@@ -25,6 +25,6 @@ class PersistentGrid(testgrid.persistent.Grid): pass
 class Client(testgrid.client.Client):
 	"handle transient sessions only"
 
-	def __init__(self, username = None, name = "grid", ini = "~/grid.ini"):
-		grid = testgrid.parser.parse_grid(name, ini, __name__)
+	def __init__(self, username = None, gridname = "grid", ini = "~/grid.ini"):
+		grid = testgrid.parser.parse_grid(gridname, ini, __name__)
 		super(Client, self).__init__(grid = grid, username = username)
