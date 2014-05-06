@@ -31,3 +31,8 @@ Installation
 	$ cd testgrid
 	(...)
 	$ python setup.py install
+
+Tutorial
+--------
+
+Coming soon!
