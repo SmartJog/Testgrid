@@ -1,29 +1,33 @@
 Test Grid
 =========
 
-Introduction
-------------
+TestGrid (TG) is a service providing isolated, on-demand and programmable
+test environments (TE) to deploy quickly assets under test.
 
-*Testgrid* is a service designed to facilitate the validation of software deliverables by offering a flexible, programmable and user-friendly deployment environment.
+A programmable TE allows to vary easily the test conditions: components,
+configuration, connections, I/O and so on.
 
-Its usage is simple: indicate which deliverable (or set of deliverable) you wish to deploy, and possibly which version, and the service will ensure the allocation of the host(s), the installation of the deliverable independently of its type (debian package, IS image, ansible script, ...), ensure its isolation (including for interconnected hosts) and offer an interface to access it.
+Features:
 
-This environment is dedicated to testing and ensure the following properties:
-  * isolation (at most one deliverable per host (physical or virtual)
-  * subnetting for interconnected hosts)
-  * dedicated users
-  * and the possibility to install multiple versions of the same deliverable.
+  * Sessions
+    A user interacts with the TG via persistent or transient sessions     (respectively for long-running tests and one-shot short tests.)
+  * Allocation
+    The user provides nodes’ specs, TG picks the appropriate hosting platform,     and instantiates the nodes in the given session.
+  * Deployment
+    The user provides packages’ specs,
+    TG allocates appropriate nodes and installs the packages.
+  * Isolation
+    All allocated nodes are pushed in a subnet to avoid side-effects.
+  * Programmation
+    TG functions are accessible through its API to automate your work
+    (Python API, CLI tool.)
+  * Provisioning Ecosystem Integration
+    A TG session can be fed to ansible as a dynamic inventory
 
 Installation
 ------------
-Work in progress.
 
-Usage
------
-Work in progress.
-
-References
-----------
-
-* [Product Requirement Documentation](https://confluence.smartjog.net/display/QA/Test+Grid+PRD)
-* [Technical Specification Documentation](https://confluence.smartjog.net/display/QA/Test+Grid)
+	$ git clone git@git.smartjog.net:qa/testgrid.git
+	$ cd testgrid
+	(...)
+	$ python setup.py install
