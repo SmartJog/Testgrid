@@ -14,7 +14,7 @@ import client
 import vgadapter
 import database
 import persistent
-import inv
+import inventory
 
 ###########
 # clients #
