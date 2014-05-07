@@ -1,0 +1,17 @@
+task1 host=test.com
+task2 host=test2.com
+
+[group1]
+task1
+
+[group2]
+task2
+
+[group1:vars]
+var = "var group one"
+
+[group2:vars]
+var = "var group 2"
+
+[group2:children]
+group1

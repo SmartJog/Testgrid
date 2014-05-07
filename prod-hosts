@@ -1,0 +1,111 @@
+# This is the default ansible 'hosts' file.
+#
+# It should live in /etc/ansible/hosts
+#
+#   - Comments begin with the '#' character
+#   - Blank lines are ignored
+#   - Groups of hosts are delimited by [header] elements
+#   - You can enter hostnames or ip addresses
+#   - A hostname/ip can be a member of multiple groups
+
+ctl-redis host=ctl-redis.lecapitole.smartjog.wan
+ctl-cron host=ctl-cron.lecapitole.smartjog.wan
+
+ctl-worker-1 host=ctl-worker-1.lecapitole.smartjog.wan ansible_ssh_host=10.32.0.112 ip=10.32.0.112
+ctl-worker-2 host=ctl-worker-2.lecapitole.smartjog.wan ansible_ssh_host=10.32.0.113 ip=10.32.0.113
+
+ctl-mbserver-1 host=ctl-mbserver-1.lecapitole.smartjog.wan ansible_ssh_host=10.32.0.115 ip=10.32.0.115
+ctl-mbserver-2 host=ctl-mbserver-2.lecapitole.smartjog.wan ansible_ssh_host=10.32.0.116 ip=10.32.0.116
+ctl-mbserver-proxy host=ctl-mbserver-proxy.lecapitole.smartjog.wan ansible_ssh_host=10.32.0.117 ip=10.32.0.117
+
+ctl-rabbitmq-1 host=ctl-rabbitmq-1.lecapitole.smartjog.wan ansible_ssh_host=10.32.0.118 ip=10.32.0.118
+ctl-rabbitmq-2 host=ctl-rabbitmq-2.lecapitole.smartjog.wan ansible_ssh_host=10.32.0.119 ip=10.32.0.119
+
+[rabbitmq-servers:vars]
+keepalived_virtual_ip=10.32.0.120
+
+[motherbrain:vars]
+external_pool=True
+motherbrain_db_name=smartjog
+motherbrain_db_user=mb
+motherbrain_db_password=mb
+motherbrain_db_host=localhost
+motherbrain_db_port=15432
+
+
+motherbrain_db_sjg_debug=False
+motherbrain_db_schedv4_debug=False
+
+rabbitmq_proxy_uri=10.32.0.120:56720
+
+sentry_server="10.32.0.111:9001/2"
+sentry_key= "f45238aae7cb4be7b02c37d867909b25"
+sentry_secret= "6cab56aefa9841a29d98a0f3c979142a"
+
+
+###### MOTHERBRAIN  #########
+[motherbrain-scheduler]
+ctl-cron mongos_url="ctl-redis:27017"
+
+[motherbrain-notifier]
+ctl-cron mongos_url="ctl-redis:27017"
+
+[motherbrain-workers]
+ctl-worker-1 mongos_url="ctl-redis:27017"
+ctl-worker-2 mongos_url="ctl-redis:27017"
+
+[motherbrain-core]
+ctl-cron
+ctl-worker-[1:2]
+
+[motherbrain-server]
+ctl-mbserver-[1:2] mongos_url="ctl-redis:27017"
+
+[motherbrain-server:vars]
+sentry_server="10.32.0.111:9001/4"
+sentry_key="875e8b28fe5147d1a4a3c11ef0ba6e3f"
+sentry_secret="57688bae40a54615af4b38bc61fbf548"
+sentry_protocol="http"
+
+[motherbrain-api-proxy]
+ctl-mbserver-proxy mongos_url="ctl-redis:27017"
+
+###### SENTRY  #######
+[sentry-server]
+ctl-cron
+
+##### RABBITMQ #####
+[rabbitmq-servers]
+ctl-rabbitmq-1 cluster_mode=disc keepalived_mode=master
+ctl-rabbitmq-2  cluster_mode=disc keepalived_mode=backup
+
+
+###### MongoDB  ######
+[mongodb_servers]
+ctl-redis mongod_port=27017
+
+
+[stunnel4]
+ctl-worker-1
+ctl-worker-2
+ctl-cron
+ctl-mbserver-2
+ctl-mbserver-1
+
+########## GROUPS ##########
+
+# All MongoDB
+[mongo-cluster:children]
+mongodb_servers
+
+# All motherbrain nodes
+[motherbrain:children]
+motherbrain-workers
+motherbrain-server
+motherbrain-api-proxy
+motherbrain-notifier
+motherbrain-scheduler
+
+[motherbrain-api-cluster:children]
+motherbrain-server
+motherbrain-api-proxy

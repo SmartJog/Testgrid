@@ -61,7 +61,6 @@ class  Command(cmd.Cmd):
 
     def emptyline(self):
         return
-        
 
     def check_start_param(self, username):
         try:
@@ -74,7 +73,7 @@ class  Command(cmd.Cmd):
                     self.username = username
                 else:
                     print data["message"]
-                    exit()                    
+                    exit()
             else:
                 url = 'http://{0}:{1}/ping'.format(self.host, self.port)
                 print url
@@ -88,7 +87,6 @@ class  Command(cmd.Cmd):
             print "test"
             raise e
         #LocationParseError
-    
 
     @docopt_cmd
     def do_add(self, arg):
@@ -179,8 +177,6 @@ class  Command(cmd.Cmd):
         print "deployment-id\tpackageName\tversion\t\tip\t"
         for item  in responseData["deployment"]:
             print "{0}\t\t{1}\t\t{2}\t\t{3}".format(item['index'], item['packageName'], item['version'], item['host'])
-    
-    
     #def do_EOF(self, line):
      #   return True
      #print undocumented command
