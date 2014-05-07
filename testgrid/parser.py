@@ -154,13 +154,13 @@ class Parser(object):
 				kwargs[key] = value
 		return self._mkobj(cls, **kwargs)
 
-        def _parse_session(self, section):
-                for key, value in self.conf.items(section):
-                        if key.endswith("nodes"):
-                                nodes_opt = []
-                                for s in value.split():
-                                        nodes_opt.append(self.cache[s] if s in self.cache else self._parse(s, self._parse_node_dictionary))
-                                return nodes_opt
+	def _parse_session(self, section):
+		for key, value in self.conf.items(section):
+			if key.endswith("nodes"):
+				nodes_opt = []
+				for s in value.split():
+					nodes_opt.append(self.cache[s] if s in self.cache else self._parse(s, self._parse_node_dictionary))
+				return nodes_opt
 
 	def _parse(self, section, hdl):
 		assert self.conf.has_section(section), "%s: section not defined" % section
@@ -200,7 +200,7 @@ def parse_node_dictionary(name, ini, *modules):
 	return Parser(ini, *modules).parse_node_dictionary(name)
 
 def parse_session(name, ini, *modules):
-        return Parser(ini, *modules).parse_session(name)
+	return Parser(ini, *modules).parse_session(name)
 
 ##############
 # unit tests #
