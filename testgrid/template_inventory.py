@@ -24,7 +24,8 @@ hostring = None #{{ hostring }}
 inventory = {{ inventory }}
 session_ini = {{ session_ini }}
 session_name = {{ session_name }}
-client_arg = {{client_arg}}
+client_arg = {{client_arg}} #manifest or hoststring
+modules = {{modules}}
 
 if __name__ == "__main__":
     try:
@@ -32,13 +33,13 @@ if __name__ == "__main__":
         if client_is_local:
             client = testgrid.local.Client(
                 name = grid,
-                ini = client_arg)
+                ini = client_arg, modules= modules)
         else:
             client = rest.Client(client_arg)
-        nodes_opt = testgrid.parser.parse_session(session_name, session_ini)
+        nodes_opts = testgrid.parser.parse_session(session_name, session_ini)
         session = client.open_session(session_name)
         inventory_obj = testgrid.inventory.Inventory(inventory)
-        inventory_obj.update_inventory(session, nodes_opt)
+        inventory_obj.update_inventory(session, nodes_opts)
         if args["--list"]:
             print json.dumps(inventory_obj.get_inventory_group(), indent=4)
         elif args["--host"]:

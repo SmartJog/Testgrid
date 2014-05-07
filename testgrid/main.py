@@ -78,7 +78,7 @@ __version__ = "0.1"
 
 import docopt, sys
 
-import threading, strfmt, local, rest
+import threading, strfmt, local, rest, inventory
 
 def list_nodes(client, nodes):
 	rows = [
@@ -186,8 +186,7 @@ def main():
 				list_nodes(client, [node for node in session])
 			elif args["--allocate-node"]:
 				opts = client.get_node_dictionary(args["--allocate-node"], ini = args["--manifest"])
-				del opts["name"]
-				node = session.allocate_node(**opts)
+				node = session.allocate_node(**{key:opts[key] for key in opts if key!="name"})
 				print "allocated %s" % node
 			elif args["--release-node"]:
 				node = client.get_node(args["--release-node"])
@@ -204,12 +203,12 @@ def main():
 				session.undeploy()
 			elif args["--inventory"]:
 				if args["--local"]:
-					client.generate_inventory_script(args["--inventory"], 
+					inventory.generate_inventory_script(args["--inventory"], 
 									 args["--session"],  
 									 args["--session-manifest"], 
 									 True, args["--manifest"], args["--grid"])
 				else:
-					client.generate_inventory_script(args["--inventory"], 
+					inventory.generate_inventory_script(args["--inventory"], 
 									 args["--session"],  
 									 args["--session-manifest"], 
 									 False, args["--controller"])

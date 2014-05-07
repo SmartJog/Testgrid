@@ -90,19 +90,6 @@ class Client(object):
 		session = self.get_session(name)
 		session.close()
 
-	def generate_inventory_script(self, inventory, session, session_ini , is_local , client_arg, grid = None):
-		env = jinja2.Environment()
-		env.loader = jinja2.FileSystemLoader(os.path.dirname(os.path.abspath(__file__)))
-		tmpl = env.get_template('template_inventory.py')
-		script = tmpl.render(grid="\"%s\"" % grid , client_is_local=is_local,
-				     client_arg="\"%s\"" % client_arg,
-				     inventory="\"%s\"" %inventory,
-				     session_name= "\"%s\""  % session,
-				     session_ini="\"%s\"" % session_ini)
-		f = open("%s.py" % session, "w+")
-		f.write(script)
-		st = os.stat(f.name)
-		os.chmod(f.name, st.st_mode | stat.S_IEXEC)
 ##############
 # unit tests #
 ##############
