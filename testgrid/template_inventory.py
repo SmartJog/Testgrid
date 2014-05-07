@@ -31,9 +31,8 @@ if __name__ == "__main__":
     try:
         args = docopt.docopt(__doc__)
         if client_is_local:
-            client = testgrid.local.Client(
-                name = grid,
-                ini = client_arg, modules= modules)
+            client = testgrid.local.Client(name = grid,
+                                           ini = client_arg, modules= modules)
         else:
             client = rest.Client(client_arg)
         nodes_opts = testgrid.parser.parse_session(session_name, session_ini)
