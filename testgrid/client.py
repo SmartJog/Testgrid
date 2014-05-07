@@ -1,6 +1,6 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-import testgrid, unittest, getpass
+import testgrid, unittest, getpass, jinja2, os, stat
 
 class Client(object):
 
@@ -25,9 +25,9 @@ class Client(object):
 
 	def get_package(self, typename, name, version = None):
 		cls = testgrid.parser.get_subclass(typename, testgrid.model.Package)
-                pkg_name, pkg_version = name.partition("=")[::2]
-                if pkg_version is "":
-                        v = None
+		pkg_name, pkg_version = name.partition("=")[::2]
+		if pkg_version is "":
+			v = None
 		return cls(name = pkg_name, version = pkg_version)
 
 	def add_node(self, name, ini):
@@ -88,8 +88,7 @@ class Client(object):
 
 	def close_session(self, name):
 		session = self.get_session(name)
-                session.close()
-
+		session.close()
 
 ##############
 # unit tests #

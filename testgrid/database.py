@@ -13,7 +13,7 @@ class DatabaseError(Exception): pass
 
 class Database(object):
 
-    def __init__(self, dbpath = "TestGrid.db", script_path = "testgrid/testgrid.sql"):
+    def __init__(self, dbpath = "TestGrid.db", script_path = os.path.dirname(os.path.abspath(__file__)) +"/testgrid.sql"):
         self.dbpath = dbpath
         self.script_path = script_path
         self.con = None
