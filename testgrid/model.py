@@ -225,7 +225,7 @@ class Node(object):
 	def is_up(self):
 		"return True if the node is reachable, False otherwise"
 		username, password, hostname, port = self.get_hoststring().split()
-		code, stdout, stderr = local_run("ping -t 1 -c 1 %s" % hostname, warn_only = True)
+		code, stdout, stderr = local_run("ping -t 2 -c 1 %s" % hostname, warn_only = True)
 		return code == 0
 
 	def start(self, service):

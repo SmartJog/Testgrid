@@ -52,6 +52,7 @@ class Inventory(object):
                                 if node.has_support(**{key:opts[key] for key in opts if key!="name"}) and  not node in excluded:
                                         host =  self.inventory.get_host(opts["name"])
                                         host.set_variable("ansible_ssh_host", node.get_hoststring())
+                                        host.set_variable("ip", node.get_hoststring())
                                         excluded.append(node)
                                         break
                 if len(excluded) < len(nodes_opts):
