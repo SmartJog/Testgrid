@@ -40,7 +40,7 @@ class Inventory(object):
                         raise Exception("node %s hasn't been found in the inventory file %s" % (opt["name"], self.name))
                     node = session.allocate_node(**opts)
                     host.set_variable("ansible_ssh_host", node.get_hoststring())
-                    #ip
+                    host.set_variable("ip", node.get_hoststring())
                 except Exception as e:
                         session.close()
                         raise e
