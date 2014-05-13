@@ -1,4 +1,3 @@
-
 # copyright (c) 2014 smartjog, released under the GPL license.
 
 """
@@ -78,7 +77,7 @@ __version__ = "0.1"
 
 import docopt, sys
 
-import threading, strfmt, local, rest, inventory
+import threading, strfmt, local, rest, inventory, model
 
 def list_nodes(client, nodes):
 	rows = [
@@ -117,6 +116,8 @@ def list_nodes(client, nodes):
 			row.append(session.name)
 		rows.append(row)
 	print strfmt.strcolalign(rows)
+
+
 
 def list_sessions(client):
 	rows = [
@@ -217,7 +218,7 @@ def main():
 		# --- grid-level operation ---
 		else:
 			if args["--list-nodes"]:
-				list_nodes(client, [node for node in client.get_nodes()])
+                                        list_nodes(client, [node for node in client.get_nodes()])
 			elif args["--add-node"]:
 				node = client.add_node(name = args["--add-node"], ini = args["--manifest"])
 				print "added %s" % node

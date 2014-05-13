@@ -1,5 +1,5 @@
 import bottle
-from bottle import route, request, Bottle, abort 
+from bottle import route, request, Bottle, abort
 import impl
 import model
 import command
@@ -19,7 +19,6 @@ def checkSession(user, password=None):
         return True
     return False
 
-
 @app.route("/ping")
 def checkClient():
     login = request.GET.get("session")
@@ -32,7 +31,6 @@ def checkClient():
         newLogin = "testgridUser{0}".format(tg.session.maxId())
         tg.session.append(impl.Session(newLogin))
         return {"failure": 0, "newLogin": newLogin}
-    
 
 @app.route("/session")
 def createSession():
@@ -65,15 +63,14 @@ def listNode():
         abort(401, "Sorry, access denied Sorry, access denied you must be admin to perform this task.")
     listHost = list()
     for n in tg.nodes:
-        listHost.append({"hostname": n.hostname, 
-                         "username" :n.username, 
+        listHost.append({"hostname": n.hostname,
+                         "username" :n.username,
                          "userpass": n.userpass,
                          "rootpass": n.rootpass,
                          "operatingsystem": n.operatingsystem,
                          "available": n.available})
     data = json.dumps({"failure": 0, "host": listHost})
     return data
-    
 
 @app.route("/delete")
 def delete():
@@ -118,7 +115,6 @@ def listSessiondeployment():
     deploymentList = tg.deployments.listDeploymentSession(session)
     data = json.dumps({"failure": 0, "deployment": deploymentList})
     return data
-    
 
 @app.route("/user")
 def getUserNodeInfo():
@@ -134,7 +130,7 @@ if __name__ == '__main__':
     tg.hostname = LOCALHOST
     if len(sys.argv) == 2:
         tg.hostname = sys.argv[1]
-    try: 
+    try:
         app.run(host=tg.hostname, port=8080, debug=True)
     except Exception as e:
         print e
