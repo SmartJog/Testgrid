@@ -1,4 +1,4 @@
-# copyright (c) 2013-2014 smartjog, released under the GPL license.
+#copyright (c) 2013-2014 smartjog, released under the GPL license.
 
 "service for creating on-demand, isolated, programmable test environments"
 
@@ -160,6 +160,7 @@ class Hoststring(str):
 			hostname, port = hostport.split(":")
 		else:
 			hostname, port = (hostport, None)
+
 		return (username, password, hostname, port)
 
 class Node(object):
