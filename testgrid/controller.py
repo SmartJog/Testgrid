@@ -1,16 +1,20 @@
 """
 Usage:
-  my_program --host HOST --port PORT --grid NAME --manifest NAME
+  my_program --host NAME --port NAME --grid NAME --manifest INI
+
+Options:
+  -g NAME, --grid NAME       set grid section NAME in the manifest [default: grid]
+  --host NAME                ...
+  --port NAME                ...
+  -m INI, --manifest INI     comma-separated list of .ini filepaths or URIs [default: ~/grid.ini]
 
 """
 import docopt
 import bottle
 from bottle import route, request, Bottle, abort
-import parser
 import sys
-import model
-import debian
 import testgrid
+
 app = Bottle()
 grid = None
 
@@ -56,7 +60,15 @@ def is_quarantined():
     name = request.GET.get("name")
     for node in grid:
         if name == node.name:
-            return ({"result": grid.is_quarantined()})
+            return ({"result": grid.is_quarantined(node)})
+    return ({"error": "node %s doesn' exist" % name})
+
+@app.route("/is_transient")
+def is_transient():
+    name = request.GET.get("name")
+    for node in grid:
+        if name == node.name:
+            return ({"result": grid.is_transient(node)})
     return ({"error": "node %s doesn' exist" % name})
 
 @app.post("/deploy")
@@ -65,7 +77,7 @@ def deploy():
         data = request.json
         list_packages = []
         for package in data["packages"]:
-            cls = parser.get_subclass(package["type"], testgrid.model.Package ,package["module"])
+            cls = testgrid.parser.get_subclass(package["type"], testgrid.model.Package ,package["module"])
             list_packages.append(cls(name = package["name"], version = package["version"]))
         session = get_session(data["session"]["username"], data["session"]["name"])
         plans = session.deploy(list_packages)
@@ -159,11 +171,124 @@ def get_session_rest():
     except Exception as e:
         return {"error": repr(e)}
 
+@app.post('/add_node')
+def add_node():
+    try:
+        data = request.json
+        if "type" in data:
+            cls = testgrid.parser.get_subclass(testgrid.parser.normalized(data["type"]), testgrid.model.Node)
+            del data["type"]
+            node = testgrid.parser.Parser._mkobj(cls, **data)
+            grid.add_node(node)
+            return {}
+        else:
+            raise Exception("node type wasn't provided")
+    except Exception as e:
+        return {"error": repr(e)}
+
+@app.route('/remove_node')
+def remove_node():
+    try:
+        name = request.GET.get("name")
+        for node in grid:
+            if node.name == name:
+                grid.remove_node(node)
+                return {}
+        return {"error": "can't remove node %s doesn't exist" % name}
+    except Exception as e:
+        return {"error": repr(e)}
+
+@app.post('/quarantine_node')
+def quarantine_node():
+    try:
+        data = request.json
+        for node in grid:
+            if node.name == data["name"]:
+                grid.quarantine_node(node, data["reason"])
+                return {}
+        return {"error": "can't quarantine node %s doesn't exist" % name}
+    except Exception as e:
+        return {"error": repr(e)}
+
+@app.post('/rehabilitate_node')
+def rehabilitate_node():
+    try:
+        data = request.json
+        for node in grid:
+            if node.name == data["name"]:
+                grid.rehabilitate_node(node)
+                return {}
+        return {"error": "can't rehabilitate node %s doesn't exist" % name}
+    except Exception as e:
+        return {"error": repr(e)}
+
+@app.post('/install')
+def install():
+    try:
+        data = request.json
+        for node in grid:
+            if node.name == data["node"]["name"]:
+                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
+                code , stdout, stderr = node.install(cls(name = data["package"]["name"], version = data["package"]["version"]))
+                return {"code": code, "stdout": stdout, "stderr": stderr}
+        return {"error": "node %s doesn't exist" % data["node"]["name"]}
+    except Exception as e:
+        return {"error": repr(e)}
+
+@app.post('/uninstall')
+def uninstall():
+    try:
+        data = request.json
+        for node in grid:
+            if node.name == data["node"]["name"]:
+                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
+                code , stdout, stderr = node.uninstall(cls(name = data["package"]["name"], version = data["package"]["version"]))
+                return {"code": code, "stdout": stdout, "stderr": stderr}
+        return {"error": "node %s doesn't exist" % data["node"]["name"]}
+    except Exception as e:
+        return {"error": repr(e)}
+
+@app.post('/is_installed')
+def is_installed():
+    try:
+        data = request.json
+        for node in grid:
+            if node.name == data["node"]["name"]:
+                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
+                return {"result": node.is_installed(cls(name = data["package"]["name"], version = data["package"]["version"]))}
+        return {"error": "node %s doesn't exist" % data["node"]["name"]}
+    except Exception as e:
+        return {"error": repr(e)}
+
+@app.post('/is_installable')
+def is_installable():
+    try:
+        data = request.json
+        for node in grid:
+            if node.name == data["node"]["name"]:
+                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
+                return {"result":node.is_installable(cls(name = data["package"]["name"], version = data["package"]["version"]))}
+        return {"error": "node %s doesn't exist" % data["node"]["name"]}
+    except Exception as e:
+        return {"error": repr(e)}
+
+@app.route('/get_nodes_session')
+def get_nodes_session():
+    name = request.GET.get("name")
+    username = request.GET.get("username")
+    session = get_session(username, name)
+    result = {}
+    nodes = []
+    for node in session:
+        nodes.append({"name": node.name ,"typename": node.get_typename(), "hoststring": node.hoststring})
+    result["nodes"]  = nodes
+    return result
 
 if __name__ == '__main__':
-    if len(sys.argv) == 4:
-        try:
-            grid = parser.parse_grid(sys.argv[2], sys.argv[3])
-            app.run(host=sys.argv[1], port="8080", debug=True)
-        except Exception as e:
-            print e
+    try:
+        args = docopt.docopt(__doc__)
+        print args
+        grid = testgrid.parser.parse_grid(args["--grid"], args[ "--manifest"])
+        app.run(host=args["--host"], port=args["--port"], debug=True)
+    except Exception as e:
+        print e

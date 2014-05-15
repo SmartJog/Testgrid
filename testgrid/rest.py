@@ -30,12 +30,68 @@ class Node(testgrid.model.Node):
 
         def get_installed_packages(self):pass
 
+        def install(self, package):
+                url = 'http://%s/install' % self.host
+                data = {"package": {"name": package.name, "version": package.version, "type": type(package).__name__, "module": type(package).__module__}}
+                data["node"] =  {"name": self.name}
+                headers = {'content-type': 'application/json'}
+                r = requests.post(url, data=json.dumps(data), headers=headers)
+                response = r.json()
+                if "error" in response:
+                        raise Exception(response["error"])
+                return response["code"], response["stdout"], response["stderr"]
+
+        def uninstall(self, package):
+                url = 'http://%s/uninstall' % self.host
+                data = {"package": {"name": package.name, "version": package.version, "type": type(package).__name__, "module": type(package).__module__}}
+                data["node"] =  {"name": self.name}
+                headers = {'content-type': 'application/json'}
+                r = requests.post(url, data=json.dumps(data), headers=headers)
+                response = r.json()
+                if "error" in response:
+                        raise Exception(response["error"])
+                return response["code"], response["stdout"], response["stderr"]
+
+
+        def is_installed(self, package):
+                url = 'http://%s/is_installed' % self.host
+                data = {"package": {"name": package.name, "version": package.version, "type": type(package).__name__, "module": type(package).__module__}}
+                data["node"] =  {"name": self.name}
+                headers = {'content-type': 'application/json'}
+                r = requests.post(url, data=json.dumps(data), headers=headers)
+                response = r.json()
+                if "error" in response:
+                        raise Exception(response["error"])
+                return response["result"]
+
+        def is_installable(self, package):
+                url = 'http://%s/is_installable' % self.host
+                data = {"package": {"name": package.name, "version": package.version, "type": type(package).__name__, "module": type(package).__module__}}
+                data["node"] =  {"name": self.name}
+                headers = {'content-type': 'application/json'}
+                r = requests.post(url, data=json.dumps(data), headers=headers)
+                response = r.json()
+                if "error" in response:
+                        raise Exception(response["error"])
+                return response["result"]
+
+
 class Session(object):
 
         def __init__(self, host, username, name = None):
                 self.host = host
                 self.username = username
                 self.name = name
+
+        def __iter__(self):
+                url = 'http://%s/get_nodes_session?name=%s&username=%s' % (self.host, self.name, self.username)
+                r = requests.get(url)
+                r.raise_for_status()
+                response = r.json()
+                if "error" in response:
+                        raise Exception(response["error"])
+                for node in response["nodes"]:
+                        yield Node(self.host, **node)
 
         def deploy(self, packages):
                 url = 'http://%s/deploy' % self.host
@@ -47,6 +103,7 @@ class Session(object):
                 data["session"] = {"username":self.username, "name": self.name}
                 headers = {'content-type': 'application/json'}
                 r = requests.post(url, data=json.dumps(data), headers=headers)
+                r.raise_for_status()
                 response = r.json()
                 if "error" in response:
                         raise Exception(response["error"])
@@ -60,6 +117,7 @@ class Session(object):
                 data = {"session" :{"username":self.username, "name": self.name}}
                 headers = {'content-type': 'application/json'}
                 r = requests.post(url, data=json.dumps(data), headers=headers)
+                r.raise_for_status()
                 response = r.json()
                 if "error" in response:
                         raise Exception(response["error"])
@@ -70,6 +128,7 @@ class Session(object):
                 data["options"] = opts
                 headers = {'content-type': 'application/json'}
                 r = requests.post(url, data=json.dumps(data), headers=headers)
+                r.raise_for_status()
                 response = r.json()
                 if "error" in response:
                         raise Exception(response["error"])
@@ -81,6 +140,7 @@ class Session(object):
                 data["node"] = {"name": node.name}
                 headers = {'content-type': 'application/json'}
                 r = requests.post(url, data=json.dumps(data), headers=headers)
+                r.raise_for_status()
                 response = r.json()
                 if "error" in response:
                         raise Exception(response["error"])
@@ -94,6 +154,7 @@ class Client(testgrid.client.Client):
         def get_node(self, name):
                 url = 'http://%s/get_node?name=%s' % (self.host, name)
                 r = requests.get(url)
+                r.raise_for_status()
                 response = r.json()
                 if "error" in response:
                         raise Exception(response["error"])
@@ -110,29 +171,35 @@ class Client(testgrid.client.Client):
         def is_available(self, node):
                 url = 'http://%s/is_available?name=%s' % (self.host, node.name)
                 r = requests.get(url)
-                if r.status_code == 200:
-                        data = r.json()
-                        return data["result"]
+                r.raise_for_status()
+                data = r.json()
+                return data["result"]
 
         def is_allocated(self, node):
                 url = 'http://%s/is_allocated?name=%s' % (self.host, node.name)
                 r = requests.get(url)
-                if r.status_code == 200:
-                        data = r.json()
-                        return data["result"]
+                r.raise_for_status()
+                data = r.json()
+                return data["result"]
 
         def is_quarantined(self, node):
                 url = 'http://%s/is_quarantined?name=%s' % (self.host, node.name)
                 r = requests.get(url)
-                if r.status_code == 200:
-                        data = r.json()
-                        return data["result"]
+                r.raise_for_status()
+                data = r.json()
+                return data["result"]
 
-        def is_transient(self, node):pass
+        def is_transient(self, node):
+                url = 'http://%s/is_transient?name=%s' % (self.host, node.name)
+                r = requests.get(url)
+                r.raise_for_status()
+                data = r.json()
+                return data["result"]
 
         def get_node_session(self, node):
                 url = 'http://%s/get_node_session?name=%s' % (self.host, node.name)
                 r = requests.get(url)
+                r.raise_for_status()
                 data = r.json()
                 if "session" in data:
                         return Session(self.host, data["session"]["username"], data["session"]["name"])
@@ -143,6 +210,7 @@ class Client(testgrid.client.Client):
                 data["session"] = {"username": self.username, "name": name}
                 headers = {'content-type': 'application/json'}
                 r = requests.post(url, data=json.dumps(data), headers=headers)
+                r.raise_for_status()
                 response = r.json()
                 if "error" in response:
                         raise Exception(response["error"])
@@ -153,6 +221,7 @@ class Client(testgrid.client.Client):
                 data = {"session" :{"username":self.username, "name": name}}
                 headers = {'content-type': 'application/json'}
                 r = requests.post(url, data=json.dumps(data), headers=headers)
+                r.raise_for_status()
                 response = r.json()
                 if "error" in response:
                         raise Exception(response["error"])
@@ -160,6 +229,7 @@ class Client(testgrid.client.Client):
         def get_session(self, name):
                 url = 'http://%s/get_session?name=%s&username=%s' % (self.host, name, self.username)
                 r = requests.get(url)
+                r.raise_for_status()
                 response = r.json()
                 if "error" in response:
                         raise Exception(response["error"])
@@ -168,30 +238,49 @@ class Client(testgrid.client.Client):
         def get_sessions(self):
                 url = 'http://%s/get_sessions' % self.host
                 r = requests.get(url)
+                r.raise_for_status()
                 response = r.json()
                 sessions = {}
                 for session in response["sessions"]:
                         yield Session(self.host, session["username"], session["name"])
-
-
 
         def add_node(self, name, ini):
                 url = 'http://%s/add_node' % self.host
                 dic = self.get_node_dictionary(name, ini)
                 headers = {'content-type': 'application/json'}
                 r = requests.post(url, data=json.dumps(dic), headers=headers)
+                r.raise_for_status()
                 response = r.json()
                 if "error" in response:
                         raise Exception(response["error"])
 
         def remove_node(self, name):
-                url = 'http://%s/remove_node' % self.host
+                url = 'http://%s/remove_node?name=%s' % (self.host, name)
+                r = requests.get(url)
+                r.raise_for_status()
+                response = r.json()
+                if "error" in response:
+                        raise Exception(response["error"])
 
         def quarantine_node(self, name, reason):
                 url = 'http://%s/quarantine_node' % self.host
+                data = {"name": name, "reason": reason}
+                headers = {'content-type': 'application/json'}
+                r = requests.post(url, data=json.dumps(data), headers=headers)
+                r.raise_for_status()
+                response = r.json()
+                if "error" in response:
+                        raise Exception(response["error"])
 
         def rehabilitate_node(self, name):
                 url = 'http://%s/rehabilitate_node' % self.host
+                data = {"name": name}
+                headers = {'content-type': 'application/json'}
+                r = requests.post(url, data=json.dumps(data), headers=headers)
+                r.raise_for_status()
+                response = r.json()
+                if "error" in response:
+                        raise Exception(response["error"])
 
 
 
