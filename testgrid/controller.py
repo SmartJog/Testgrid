@@ -287,7 +287,6 @@ def get_nodes_session():
 if __name__ == '__main__':
     try:
         args = docopt.docopt(__doc__)
-        print args
         grid = testgrid.parser.parse_grid(args["--grid"], args[ "--manifest"])
         app.run(host=args["--host"], port=args["--port"], debug=True)
     except Exception as e:
