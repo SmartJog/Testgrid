@@ -149,11 +149,11 @@ def main():
 		# --- node-level operation ---
 		if args["--node"]:
 			if args["--session"]:
-				session = client.get_session(args["--session"])
-				node = client.get_node(args["--node"])
-				if node not in session:
+                                node = client.get_node(args["--node"])
+                                session = client.get_node_session(node)
+				if not session:
 					raise Exception("user %s tries to perform an operation on  node: %s, which is unallocated or unavailable using session %s"
-							% (session.username, node, session.name))
+							% (client.username, node, args["--session"]))
 			else:
 				node = client.get_node(args["--node"])
 			if args["--ping"]:
@@ -224,7 +224,7 @@ def main():
 				print "added %s" % node
 			elif args["--remove-node"]:
 				node = client.remove_node(name = args["--remove-node"])
-				print "removed %s" % node
+				print "removed %s" % args["--remove-node"]
 			elif args["--quarantine-node"]:
 				client.quarantine_node(name = args["--quarantine-node"], reason = args["--reason"])
 			elif args["--rehabilitate-node"]:
@@ -233,7 +233,7 @@ def main():
 				list_sessions(client)
 			elif args["--open-session"]:
 				session = client.open_session(args["--open-session"])
-				print "opened %s" % session
+				print "opened %s" % session.name
 			elif args["--close-session"]:
 				client.close_session(args["--close-session"])
 		return 0

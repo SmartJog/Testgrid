@@ -321,6 +321,7 @@ class Session(object):
 		for pkg, _node in self.plan:
 			if _node == node:
 				self._release_pair(pkg, _node)
+                                self.plan.remove((pkg, _node))
 				break
 		else:
 			raise UnknownNodeError("%s" % node)
