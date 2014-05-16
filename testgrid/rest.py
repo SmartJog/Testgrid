@@ -1,4 +1,5 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
+
 import requests
 import testgrid
 import getpass
@@ -11,6 +12,14 @@ class Node(testgrid.model.Node):
                 self.typename = typename
                 self.hoststring = hoststring
                 self.host = host
+
+        def __eq__(self, other):
+                if other.name == self.name:
+                        return True
+                return False
+
+        def __ne__(self, other):
+                return not (self == other)
 
         def get_typename(self):
                 return self.typename
@@ -93,6 +102,22 @@ class Session(object):
                 for node in response["nodes"]:
                         yield Node(self.host, **node)
 
+        def __contains__(self, node):
+                url = 'http://%s/session_contains?name=%s&username=%s&node=%s' % (self.host, self.name , self.username, node.name)
+                r = requests.get(url)
+                response = r.json()
+                if "error" in response:
+                        raise Exception(response["error"])
+                return response["result"]
+
+        def __eq__(self, other):
+                if other.name == self.name and other.username == self.username:
+                        return True
+                return False
+
+        def __ne__(self, other):
+                return not (self == other)
+
         def deploy(self, packages):
                 url = 'http://%s/deploy' % self.host
                 data = {}
@@ -145,9 +170,19 @@ class Session(object):
                 if "error" in response:
                         raise Exception(response["error"])
 
+        def close(self):
+                url = 'http://%s/close_session' % self.host
+                data = {"session" :{"username":self.username, "name": self.name}}
+                headers = {'content-type': 'application/json'}
+                r = requests.post(url, data=json.dumps(data), headers=headers)
+                r.raise_for_status()
+                response = r.json()
+                if "error" in response:
+                        raise Exception(response["error"])
+
 class Client(testgrid.client.Client):
 
-        def __init__(self, host =  "qa.lab.fr.lan:8080", username = None):
+        def __init__(self, host =  "127.0.0.1:8080", username = None):
                 self.host = host
                 self.username = username or getpass.getuser()
 
@@ -214,7 +249,7 @@ class Client(testgrid.client.Client):
                 response = r.json()
                 if "error" in response:
                         raise Exception(response["error"])
-                return Session(self.host, self.username, name)
+                return Session(self.host, self.username, response["session"]["name"])
 
         def close_session(self, name):
                 url = 'http://%s/close_session' % self.host
@@ -283,8 +318,28 @@ class Client(testgrid.client.Client):
                         raise Exception(response["error"])
 
 
+import unittest, controller
+import time
+import sys
+import multiprocessing
 
 
+class Server(multiprocessing.Process):
+        def run(self):
+                grid = testgrid.model.FakeGrid(name = "grid")
+                controller.setup_serveur("127.0.0.1", "8080", grid)
 
+class SelfTest(testgrid.client.SelfTest):
+        client_cls = Client
 
+        def setUp(self):
+                self.server = Server()
+                self.server.start()
+                time.sleep(3)
+
+        def tearDown(self):
+                self.server.terminate()
+                self.server.join()
+
+if __name__ == "__main__": unittest.main(verbosity = 2)
 

@@ -221,7 +221,7 @@ def main():
                                         list_nodes(client, [node for node in client.get_nodes()])
 			elif args["--add-node"]:
 				node = client.add_node(name = args["--add-node"], ini = args["--manifest"])
-				print "added %s" % node
+				print "added %s" % args["--add-node"]
 			elif args["--remove-node"]:
 				node = client.remove_node(name = args["--remove-node"])
 				print "removed %s" % args["--remove-node"]

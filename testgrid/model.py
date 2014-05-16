@@ -590,6 +590,7 @@ class FakeNode(Node):
 		self.terminated = False
 		self.installed = []
 		self.subnets = []
+		self.hoststring = "test@test"
 
 	def get_typename(self):
 		return "fake node"

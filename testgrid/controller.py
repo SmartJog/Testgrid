@@ -18,6 +18,11 @@ import testgrid
 app = Bottle()
 grid = None
 
+def setup_serveur(host, port, g):
+    global grid
+    grid = g
+    app.run(host=host, port=port, debug=True)
+
 def get_session(username, name):
     for session in grid.get_sessions():
         if (session.username == username and session.name == name):
@@ -103,7 +108,7 @@ def open_session():
     try:
         data = request.json
         session = grid.open_session(data["session"]["username"], data["session"]["name"])
-        return {}
+        return {"session" :{"username": session.username, "name": session.name}}
     except Exception as e:
         return {"error": repr(e)}
 
@@ -284,10 +289,21 @@ def get_nodes_session():
     result["nodes"]  = nodes
     return result
 
+@app.route('/session_contains')
+def session_contains():
+    name = request.GET.get("name")
+    username = request.GET.get("username")
+    session = get_session(username, name)
+    node_name = request.GET.get("node")
+    for node in session:
+        if node.name == node_name:
+            return {"result": True}
+    return {"result": False}
+
 if __name__ == '__main__':
     try:
         args = docopt.docopt(__doc__)
-        grid = testgrid.parser.parse_grid(args["--grid"], args[ "--manifest"])
-        app.run(host=args["--host"], port=args["--port"], debug=True)
+        g = testgrid.parser.parse_grid(args["--grid"], args["--manifest"])
+        setup_serveur(host=args["--host"], port=args["--port"], g=g)
     except Exception as e:
         print e
