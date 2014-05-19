@@ -703,7 +703,7 @@ class SelfTest(unittest.TestCase):
 	@staticmethod
 	def mkenv(nb_nodes, nb_packages):
 		"create test objects"
-		nodes = tuple(FakeNode("node%i" % i) for i in xrange(nb_nodes))
+		nodes = list(FakeNode("node%i" % i) for i in xrange(nb_nodes))
 		packages = tuple(FakePackage("pkg%i" % i, "1.0") for i in xrange(nb_packages))
 		subnets = [Subnet("vlan14")]
 		grid = Grid(name = "grid", subnets = subnets, nodes = nodes) # use a non-generative grid

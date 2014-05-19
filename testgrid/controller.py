@@ -1,22 +1,10 @@
-"""
-Usage:
-  my_program --host NAME --port NAME --grid NAME --manifest INI
-
-Options:
-  -g NAME, --grid NAME       set grid section NAME in the manifest [default: grid]
-  --host NAME                ...
-  --port NAME                ...
-  -m INI, --manifest INI     comma-separated list of .ini filepaths or URIs [default: ~/grid.ini]
-
-"""
-import docopt
 import bottle
-from bottle import route, request, Bottle, abort
 import sys
 import testgrid
 
-app = Bottle()
+
 grid = None
+app = bottle.Bottle()
 
 def setup_serveur(host, port, g):
     global grid
@@ -31,7 +19,7 @@ def get_session(username, name):
 
 @app.route("/get_node")
 def get_node():
-    name = request.GET.get("name")
+    name = bottle.request.GET.get("name")
     for node in grid:
         if node.name == name:
             return {"name": node.name ,"typename": node.get_typename(), "hoststring": node.hoststring}
@@ -46,7 +34,7 @@ def get_nodes():
 
 @app.route("/is_available")
 def is_available():
-    name = request.GET.get("name")
+    name = bottle.request.GET.get("name")
     for node in grid:
         if name == node.name:
             return ({"result": grid.is_available(node)})
@@ -54,7 +42,7 @@ def is_available():
 
 @app.route("/is_allocated")
 def is_allocated():
-    name = request.GET.get("name")
+    name = bottle.request.GET.get("name")
     for node in grid:
         if name == node.name:
             return ({"result": grid.is_allocated(node)})
@@ -62,7 +50,7 @@ def is_allocated():
 
 @app.route("/is_quarantined")
 def is_quarantined():
-    name = request.GET.get("name")
+    name = bottle.request.GET.get("name")
     for node in grid:
         if name == node.name:
             return ({"result": grid.is_quarantined(node)})
@@ -70,7 +58,7 @@ def is_quarantined():
 
 @app.route("/is_transient")
 def is_transient():
-    name = request.GET.get("name")
+    name = bottle.request.GET.get("name")
     for node in grid:
         if name == node.name:
             return ({"result": grid.is_transient(node)})
@@ -79,7 +67,7 @@ def is_transient():
 @app.post("/deploy")
 def deploy():
     try:
-        data = request.json
+        data = bottle.request.json
         list_packages = []
         for package in data["packages"]:
             cls = testgrid.parser.get_subclass(package["type"], testgrid.model.Package ,package["module"])
@@ -96,7 +84,7 @@ def deploy():
 @app.post("/undeploy")
 def undeploy():
     try:
-        data = request.json
+        data = bottle.request.json
         session = get_session(data["session"]["username"], data["session"]["name"])
         session.undeploy()
         return {}
@@ -106,7 +94,7 @@ def undeploy():
 @app.post("/open_session")
 def open_session():
     try:
-        data = request.json
+        data = bottle.request.json
         session = grid.open_session(data["session"]["username"], data["session"]["name"])
         return {"session" :{"username": session.username, "name": session.name}}
     except Exception as e:
@@ -115,7 +103,7 @@ def open_session():
 @app.post("/allocate_node")
 def allocate_node():
     try:
-        data = request.json
+        data = bottle.request.json
         session = get_session(data["session"]["username"], data["session"]["name"])
         node = session.allocate_node(**data["options"])
         return {"name": node.name,"typename": node.get_typename(), "hoststring": node.hoststring}
@@ -125,13 +113,11 @@ def allocate_node():
 @app.post("/release_node")
 def release_node():
     try:
-        data = request.json
+        data = bottle.request.json
         session = get_session(data["session"]["username"], data["session"]["name"])
         for node in grid:
-            print data["node"]["name"], node.name
             if node.name == data["node"]["name"]:
                 session.release_node(node)
-                print session.plan
                 return {}
         return ({"error": "node %s doesn' exist" % data["node"]["name"]})
     except Exception as e:
@@ -139,7 +125,7 @@ def release_node():
 
 @app.route('/get_node_session')
 def get_node_session():
-    name = request.GET.get("name")
+    name = bottle.request.GET.get("name")
     for session in grid.get_sessions():
         for node in session:
             if node.name == name:
@@ -149,7 +135,7 @@ def get_node_session():
 @app.post('/close_session')
 def close_session():
     try:
-        data = request.json
+        data = bottle.request.json
         session = get_session(data["session"]["username"], data["session"]["name"])
         session.close()
         return {}
@@ -166,8 +152,8 @@ def get_sessions():
 @app.route('/get_session')
 def get_session_rest():
     try:
-        name = request.GET.get("name")
-        uername = request.GET.get("username")
+        name = bottle.request.GET.get("name")
+        uername = bottle.request.GET.get("username")
         session = get_session(username, name)
         result = {}
         for node in session:
@@ -179,7 +165,7 @@ def get_session_rest():
 @app.post('/add_node')
 def add_node():
     try:
-        data = request.json
+        data = bottle.request.json
         if "type" in data:
             cls = testgrid.parser.get_subclass(testgrid.parser.normalized(data["type"]), testgrid.model.Node)
             del data["type"]
@@ -194,7 +180,7 @@ def add_node():
 @app.route('/remove_node')
 def remove_node():
     try:
-        name = request.GET.get("name")
+        name = bottle.request.GET.get("name")
         for node in grid:
             if node.name == name:
                 grid.remove_node(node)
@@ -206,7 +192,7 @@ def remove_node():
 @app.post('/quarantine_node')
 def quarantine_node():
     try:
-        data = request.json
+        data = bottle.request.json
         for node in grid:
             if node.name == data["name"]:
                 grid.quarantine_node(node, data["reason"])
@@ -218,7 +204,7 @@ def quarantine_node():
 @app.post('/rehabilitate_node')
 def rehabilitate_node():
     try:
-        data = request.json
+        data = bottle.request.json
         for node in grid:
             if node.name == data["name"]:
                 grid.rehabilitate_node(node)
@@ -230,7 +216,7 @@ def rehabilitate_node():
 @app.post('/install')
 def install():
     try:
-        data = request.json
+        data = bottle.request.json
         for node in grid:
             if node.name == data["node"]["name"]:
                 cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
@@ -243,7 +229,7 @@ def install():
 @app.post('/uninstall')
 def uninstall():
     try:
-        data = request.json
+        data = bottle.request.json
         for node in grid:
             if node.name == data["node"]["name"]:
                 cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
@@ -256,7 +242,7 @@ def uninstall():
 @app.post('/is_installed')
 def is_installed():
     try:
-        data = request.json
+        data = bottle.request.json
         for node in grid:
             if node.name == data["node"]["name"]:
                 cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
@@ -268,7 +254,7 @@ def is_installed():
 @app.post('/is_installable')
 def is_installable():
     try:
-        data = request.json
+        data = bottle.request.json
         for node in grid:
             if node.name == data["node"]["name"]:
                 cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
@@ -279,8 +265,8 @@ def is_installable():
 
 @app.route('/get_nodes_session')
 def get_nodes_session():
-    name = request.GET.get("name")
-    username = request.GET.get("username")
+    name = bottle.request.GET.get("name")
+    username = bottle.request.GET.get("username")
     session = get_session(username, name)
     result = {}
     nodes = []
@@ -291,19 +277,147 @@ def get_nodes_session():
 
 @app.route('/session_contains')
 def session_contains():
-    name = request.GET.get("name")
-    username = request.GET.get("username")
+    name = bottle.request.GET.get("name")
+    username = bottle.request.GET.get("username")
     session = get_session(username, name)
-    node_name = request.GET.get("node")
+    node_name = bottle.request.GET.get("node")
     for node in session:
         if node.name == node_name:
             return {"result": True}
     return {"result": False}
 
-if __name__ == '__main__':
-    try:
-        args = docopt.docopt(__doc__)
-        g = testgrid.parser.parse_grid(args["--grid"], args["--manifest"])
-        setup_serveur(host=args["--host"], port=args["--port"], g=g)
-    except Exception as e:
-        print e
+import unittest, controller
+import sys
+import multiprocessing
+import json, urllib2
+import time
+
+class Server(multiprocessing.Process):
+
+        def __init__(self, host, port, grid):
+            super(Server, self).__init__()
+            self.host = host
+            self.port = port
+            self.grid = grid
+
+        def run(self):
+                controller.setup_serveur(self.host , self.port, self.grid)
+
+class SelfTest(unittest.TestCase):
+
+        def setUp(self):
+            self.nodes, self.packages, self.grid, self.session = testgrid.model.SelfTest.mkenv(2, 2)
+            self.server = Server(host = "127.0.0.1", port = "8080", grid = self.grid)
+            self.server.start()
+            time.sleep(1)
+
+        def tearDown(self):
+                self.server.terminate()
+                self.server.join()
+
+        def request_get(self, url):
+            response = urllib2.urlopen(url)
+            response.geturl()
+            return json.loads(response.read())
+
+        def request_post(self, url, data):
+            headers = {'content-type': 'application/json'}
+            request = urllib2.Request(url, json.dumps(data), headers)
+            response = urllib2.urlopen(request)
+            return json.loads(response.read())
+
+        def test_basic_node_manipulation(self):
+            data = self.request_get('http://127.0.0.1:8080/get_node?name=fake')
+            self.assertIn("error", data)
+            data = self.request_get('http://127.0.0.1:8080/get_node?name=node0')
+            self.assertEqual(data, {'typename': 'fake node', 'hoststring': 'test@test', 'name': 'node0'})
+            data = self.request_get('http://127.0.0.1:8080/is_available?name=node0')
+            self.assertEqual(data, {"result": True})
+            data = self.request_get('http://127.0.0.1:8080/is_allocated?name=node0')
+            self.assertEqual(data, {"result": False})
+            data = self.request_get('http://127.0.0.1:8080/is_quarantined?name=node0')
+            self.assertEqual(data, {"result": False})
+            data = self.request_get('http://127.0.0.1:8080/is_transient?name=node0')
+            self.assertEqual(data, {"result": False})
+
+        def test_add_remove_node(self):
+            data = self.request_get('http://127.0.0.1:8080/get_nodes')
+            self.assertNotIn("error", data)
+            self.assertEqual(len(data), 2)
+            self.assertIn("node0", data)
+            self.assertIn("node1", data)
+            self.assertEqual(data["node0"], {'typename': 'fake node', 'hoststring': u'test@test'})
+            data = self.request_get('http://127.0.0.1:8080/remove_node?name=node0')
+            self.assertNotIn("error", data)
+            data = self.request_get('http://127.0.0.1:8080/get_nodes')
+            self.assertEqual(data, {'node1': {'typename': 'fake node', 'hoststring': 'test@test'}})
+            self.request_post('http://127.0.0.1:8080/add_node', {"name": "node", "type": "fake node"})
+            data = self.request_get('http://127.0.0.1:8080/get_nodes')
+            self.assertNotIn("error", data)
+            self.assertEqual(data, {'node1': {'typename':'fake node','hoststring':'test@test'},'node': {'typename':'fake node','hoststring':'test@test'}})
+
+        def test_node_state(self):
+            data = self.request_post('http://127.0.0.1:8080/quarantine_node', {"name": "node0", "reason": "test quarantine"})
+            self.assertNotIn("error", data)
+            data = self.request_get("http://127.0.0.1:8080/is_quarantined?name=node0")
+            self.assertEqual(data, {"result": True})
+            data = self.request_post('http://127.0.0.1:8080/rehabilitate_node', {"name": "node0"})
+            self.assertNotIn("error", data)
+            data = self.request_get("http://127.0.0.1:8080/is_quarantined?name=node0")
+            self.assertEqual(data, {"result": False})
+
+        def test_basic_session_manipulaion(self):
+            data = self.request_get("http://127.0.0.1:8080/get_sessions")
+            self.assertNotIn("error", data)
+            self.assertEqual(data, {'sessions': [{'username': self.session.username, 'name':self.session.name}]})
+            data = self.request_post("http://127.0.0.1:8080/close_session", {"session" :{"username":self.session.username, "name": self.session.name}})
+            self.assertNotIn("error", data)
+            data = self.request_get("http://127.0.0.1:8080/get_sessions")
+            self.assertNotIn("error", data)
+            self.assertEqual(data, {'sessions': []})
+            data = self.request_post("http://127.0.0.1:8080/open_session", {"session": {"username": "test", "name": "test"}})
+            self.assertNotIn("error", data)
+
+        def test_session(self):pass
+
+        def test_session_allocate(self):
+            data = self.request_get('http://127.0.0.1:8080/is_available?name=node0')
+            self.assertEqual(data, {"result": True})
+            data = self.request_post("http://127.0.0.1:8080/allocate_node", {"session" :{"username":self.session.username, "name": self.session.name}, "options": {}})
+            self.assertNotIn("error", data)
+            self.assertEqual(data, {'typename':'fake node','hoststring':'test@test', 'name': 'node0'})
+            data = self.request_get('http://127.0.0.1:8080/is_available?name=node0')
+            self.assertEqual(data, {"result": False})
+            data = self.request_post("http://127.0.0.1:8080/allocate_node", {"session" :{"username":self.session.username, "name": self.session.name}, "options": {}})
+            data = self.request_get('http://127.0.0.1:8080/is_allocated?name=node0')
+            self.assertEqual(data, {"result": True})
+            data = self.request_post("http://127.0.0.1:8080/allocate_node", {"session" :{"username":self.session.username, "name": self.session.name}, "options": {}})
+            self.assertEqual(data, {'error': 'NodePoolExhaustedError()'})
+            data = self.request_get('http://127.0.0.1:8080/get_nodes_session?name=%s&username=%s' % (self.session.name, self.session.username))
+            self.assertEqual(data, {'nodes': [{'typename': 'fake node', 'hoststring': 'test@test', 'name': 'node0'}, {'typename': 'fake node', 'hoststring': 'test@test', 'name': 'node1'}]})
+            data = self.request_post("http://127.0.0.1:8080/release_node", {"session" :{"username":self.session.username, "name": self.session.name}, "node": {"name": "node0"}})
+            self.assertNotIn("error", data)
+            data = self.request_post("http://127.0.0.1:8080/release_node", {"session" :{"username":self.session.username, "name": self.session.name}, "node": {"name":"node1"}})
+            self.assertNotIn("error", data)
+            data = self.request_get('http://127.0.0.1:8080/get_nodes_session?name=%s&username=%s' % (self.session.name, self.session.username))
+            self.assertEqual(data, {'nodes': []})
+
+        def test_deployment(self):
+            list_packages = []
+            data =  {}
+            for pkg in self.packages:
+                list_packages.append({"name": pkg.name, "version": pkg.version, "type": type(pkg).__name__, "module": type(pkg).__module__})
+            data["packages"] = list_packages
+            data["session"] = {"username":self.session.username, "name": self.session.name}
+            res = self.request_post("http://127.0.0.1:8080/deploy", data)
+            self.assertNotIn("error", res)
+            self.assertEqual(res, {'node1': {'args': {'typename': 'fake node', 'hoststring': 'test@test'}, 'pkg': {'version': u'1.0', 'name': 'pkg1'}}, 'node0': {'args': {'typename': 'fake node', 'hoststring': 'test@test'}, 'pkg': {'version': '1.0', 'name': 'pkg0'}}})
+            res = self.request_post("http://127.0.0.1:8080/deploy", data)
+            self.assertEqual(res, {'error': 'NodePoolExhaustedError()'})
+            res = self.request_post("http://127.0.0.1:8080/undeploy", {"session" :{"username":self.session.username, "name": self.session.name}})
+            self.assertNotIn("error", res)
+            data = self.request_get('http://127.0.0.1:8080/get_nodes_session?name=%s&username=%s' % (self.session.name, self.session.username))
+            self.assertEqual(data, {'nodes': []})
+
+#install, uninstall
+if __name__ == "__main__": unittest.main(verbosity = 2)

@@ -319,7 +319,6 @@ class Client(testgrid.client.Client):
 
 
 import unittest, controller
-import time
 import sys
 import multiprocessing
 
