@@ -34,7 +34,7 @@ if __name__ == "__main__":
             client = testgrid.local.Client(name = grid,
                                            ini = client_arg, modules= modules)
         else:
-            client = rest.Client(client_arg)
+            client = testgrid.rest.Client(client_arg)
         nodes_opts = testgrid.parser.parse_session(session_name, session_ini)
         session = client.open_session(session_name)
         inventory_obj = testgrid.inventory.Inventory(inventory)

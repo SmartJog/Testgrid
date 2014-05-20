@@ -149,8 +149,8 @@ def main():
 		# --- node-level operation ---
 		if args["--node"]:
 			if args["--session"]:
-                                node = client.get_node(args["--node"])
-                                session = client.get_node_session(node)
+				node = client.get_node(args["--node"])
+				session = client.get_node_session(node)
 				if not session:
 					raise Exception("user %s tries to perform an operation on  node: %s, which is unallocated or unavailable using session %s"
 							% (client.username, node, args["--session"]))
@@ -218,7 +218,7 @@ def main():
 		# --- grid-level operation ---
 		else:
 			if args["--list-nodes"]:
-                                        list_nodes(client, [node for node in client.get_nodes()])
+					list_nodes(client, [node for node in client.get_nodes()])
 			elif args["--add-node"]:
 				node = client.add_node(name = args["--add-node"], ini = args["--manifest"])
 				print "added %s" % args["--add-node"]

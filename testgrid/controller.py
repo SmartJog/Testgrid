@@ -263,6 +263,14 @@ def is_installable():
     except Exception as e:
         return {"error": repr(e)}
 
+@app.post('/has_support')
+def has_support():
+    data = bottle.request.json
+    for node in grid:
+        if node.name == data["node"]:
+            return {"result": node.has_support(**data["opts"])}
+    return {"error": "node %s doesn't exist" % data["node"]}
+
 @app.route('/get_nodes_session')
 def get_nodes_session():
     name = bottle.request.GET.get("name")
@@ -287,7 +295,6 @@ def session_contains():
     return {"result": False}
 
 import unittest, controller
-import sys
 import multiprocessing
 import json, urllib2
 import time
@@ -307,6 +314,7 @@ class SelfTest(unittest.TestCase):
 
         def setUp(self):
             self.nodes, self.packages, self.grid, self.session = testgrid.model.SelfTest.mkenv(2, 2)
+            self.grid.nodes = list(self.grid.nodes)
             self.server = Server(host = "127.0.0.1", port = "8080", grid = self.grid)
             self.server.start()
             time.sleep(1)
@@ -316,15 +324,10 @@ class SelfTest(unittest.TestCase):
                 self.server.join()
 
         def request_get(self, url):
-            response = urllib2.urlopen(url)
-            response.geturl()
-            return json.loads(response.read())
+            return testgrid.rest.request_get(url)
 
         def request_post(self, url, data):
-            headers = {'content-type': 'application/json'}
-            request = urllib2.Request(url, json.dumps(data), headers)
-            response = urllib2.urlopen(request)
-            return json.loads(response.read())
+            return testgrid.rest.request_post(url, data)
 
         def test_basic_node_manipulation(self):
             data = self.request_get('http://127.0.0.1:8080/get_node?name=fake')
@@ -377,8 +380,9 @@ class SelfTest(unittest.TestCase):
             self.assertEqual(data, {'sessions': []})
             data = self.request_post("http://127.0.0.1:8080/open_session", {"session": {"username": "test", "name": "test"}})
             self.assertNotIn("error", data)
-
-        def test_session(self):pass
+            data = self.request_get('http://127.0.0.1:8080/get_sessions')
+            self.assertNotIn("error", data)
+            self.assertEqual(data, {'sessions': [{'username': 'test', 'name': 'test'}]})
 
         def test_session_allocate(self):
             data = self.request_get('http://127.0.0.1:8080/is_available?name=node0')
@@ -391,6 +395,10 @@ class SelfTest(unittest.TestCase):
             data = self.request_post("http://127.0.0.1:8080/allocate_node", {"session" :{"username":self.session.username, "name": self.session.name}, "options": {}})
             data = self.request_get('http://127.0.0.1:8080/is_allocated?name=node0')
             self.assertEqual(data, {"result": True})
+            data = self.request_get('http://127.0.0.1:8080/session_contains?name=%s&username=%s&node=node0' % (self.session.name, self.session.username))
+            self.assertEqual(data, {"result": True})
+            data = self.request_get('http://127.0.0.1:8080/get_node_session?name=node0')
+            self.assertEqual(data, {'session': {'username': self.session.username , 'name': self.session.name}})
             data = self.request_post("http://127.0.0.1:8080/allocate_node", {"session" :{"username":self.session.username, "name": self.session.name}, "options": {}})
             self.assertEqual(data, {'error': 'NodePoolExhaustedError()'})
             data = self.request_get('http://127.0.0.1:8080/get_nodes_session?name=%s&username=%s' % (self.session.name, self.session.username))
