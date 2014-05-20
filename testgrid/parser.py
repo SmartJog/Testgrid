@@ -184,8 +184,8 @@ class Parser(object):
 	def parse_node_dictionary(self, name):
 		return self._parse(name, self._parse_node_dictionary)
 
-        def parse_session(self, name):
-                return self._parse(name, self._parse_session)
+	def parse_session(self, name):
+		return self._parse(name, self._parse_session)
 
 def parse_node(name, ini, *modules):
 	"parse manifests and return a node instance"

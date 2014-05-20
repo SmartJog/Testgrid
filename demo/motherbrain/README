@@ -8,11 +8,11 @@ sudo apt-get install motherbrain-deploy
 
 - session.ini: description all the machine required in ordr to deply mother brain, each section shuld match the inventory file
 
-tg -m demo/motherbrain/motherbrain.ini -l -s test --inventory  prod-hosts --session-manifest  demo/motherbrain/session.ini
+tg -m demo/motherbrain/motherbrain.ini -l -s mother-brain --inventory  prod-hosts --session-manifest  demo/motherbrain/session.ini
 
-test.py will be generated
+mother-brain.py will be generated
 
-ansible-playbook -i test.py  /usr/share/motherbrain-deploy/site.yml  -e mb_version=1.13.450c-1
+ansible-playbook -i mother-brain.py  /usr/share/motherbrain-deploy/site.yml  -e mb_version=1.13.450c-1
 
 more information regarding motherbrain:
 https://confluence.arkena.net/display/SJTP/Ansible+commands

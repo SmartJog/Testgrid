@@ -294,7 +294,6 @@ class Database(object):
             return False
         self.db.execute("SELECT * FROM Sessions WHERE id = ?", (session.id,))
         res = self.db.fetchone();
-        #print "sessison exist",  res, not res
         if res:
             return True
         return False

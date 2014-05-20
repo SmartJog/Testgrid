@@ -1,4 +1,4 @@
-# copyright (c) 2013-2014 smartjog, released under the GPL license.
+#copyright (c) 2013-2014 smartjog, released under the GPL license.
 
 "service for creating on-demand, isolated, programmable test environments"
 
@@ -160,6 +160,7 @@ class Hoststring(str):
 			hostname, port = hostport.split(":")
 		else:
 			hostname, port = (hostport, None)
+
 		return (username, password, hostname, port)
 
 class Node(object):
@@ -320,6 +321,7 @@ class Session(object):
 		for pkg, _node in self.plan:
 			if _node == node:
 				self._release_pair(pkg, _node)
+				self.plan.remove((pkg, _node))
 				break
 		else:
 			raise UnknownNodeError("%s" % node)
@@ -588,6 +590,7 @@ class FakeNode(Node):
 		self.terminated = False
 		self.installed = []
 		self.subnets = []
+		self.hoststring = "test@test"
 
 	def get_typename(self):
 		return "fake node"
