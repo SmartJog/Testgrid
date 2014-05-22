@@ -211,6 +211,10 @@ class Node(testgrid.model.Node):
 		self.guest.destroy()
 		self.guest.fini()
 
+	def get_installed_packages(self):
+		"return the list of installed packages"
+		raise NotImplementedError()
+
 class Grid(testgrid.model.Grid):
 
 	def __init__(self, name, root, nodes = None, subnets = None, sessions = None):
