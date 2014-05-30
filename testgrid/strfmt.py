@@ -5,7 +5,7 @@
 String formatting routines.
 
 API:
-  * Red|Blue|Gray|Green|Yellow|Purple(string)
+  * red|green|yellow|blue|purple|cyan|white(string)
   * lookahead(iterable)
   * cutline(string, maxlen)
   * strtree(iterable, use_ascii = False, maxlen = 80, is_prunable = False)
@@ -27,52 +27,31 @@ Tutorial:
   aaa  b     c
 """
 
-__version__ = "20140408"
-
 import unittest, re
 
-class Color(object):
-	"ANSI-escaped SGR string — see http://en.wikipedia.org/wiki/ANSI_escape_code"
+def gray(string):
+	return "\033[0;90m%s\033[0m" % string
 
-	def __init__(self, string, code = None):
-		if not code:
-			m = re.search("\033\[0;(.*)m(.*)\033\[0m", string)
-			assert m, "%s: expected escaped string" % string
-			self.code = int(m.group(1))
-			self.string = m.group(2)
-		else:
-			self.string = string
-			self.code = code
+def red(string):
+	return "\033[0;91m%s\033[0m" % string
 
-	def __str__(self):
-		return "\033[0;%im%s\033[0m" % (self.code, self.string)
+def green(string):
+	return "\033[0;92m%s\033[0m" % string
 
-	def __len__(self):
-		return len(self.string)
+def yellow(string):
+	return "\033[0;93m%s\033[0m" % string
 
-	def __add__(self, other):
-		return Color(self.string + other, code = self.code)
+def blue(string):
+	return "\033[0;94m%s\033[0m" % string
 
-	def __getattr__(self, key):
-		return getattr(self.string, key)
+def purple(string):
+	return "\033[0;95m%s\033[0m" % string
 
-def Red(string):
-	return Color(string, code = 91)
+def cyan(string):
+	return "\033[0;96m%s\033[0m" % string
 
-def Blue(string):
-	return Color(string, code = 94)
-
-def Gray(string):
-	return Color(string, code = 90)
-
-def Green(string):
-	return Color(string, code = 92)
-
-def Yellow(string):
-	return Color(string, code = 93)
-
-def Purple(string):
-	return Color(string, code = 95)
+def white(string):
+	return "\033[0;97m%s\033[0m" % string
 
 def lookahead(iterable):
 	"""
@@ -177,17 +156,11 @@ class ListTree(object):
 			else:
 				yield [item]
 
-##############
-# unit tests #
-##############
+#########
+# tests #
+#########
 
 class SelfTest(unittest.TestCase):
-
-	def test_color(self):
-		s = "hello"
-		assert len(s) == len(Red(s))
-		lst = (Red("foo"), Green("bar"))
-		" ".join("%s" for c in lst)
 
 	def test_cutline(self):
 		self.assertEqual(cutline("a" * 5, 5), "a" * 5)
@@ -211,14 +184,14 @@ class SelfTest(unittest.TestCase):
 └── F
     └── G""")
 
-	def test_strcolalign_txt(self):
-		txt = "a:bbbbbb:c\naaa:b:c"
+	def test_strcolalign_with_text(self):
+		text = "a:bbbbbb:c\naaa:b:c"
 		out = "a    bbbbbb  c\naaa  b       c"
-		self.assertEqual(strcolalign(txt), out)
+		self.assertEqual(strcolalign(text), out)
 
-	def test_strcolalign_tbl(self):
-		tbl = (("a", "bbbbbb", "c"), ("aaa", "b", Green("c")))
-		out = "a    bbbbbb  c\naaa  b       %s" % Green("c")
+	def test_strcolalign_with_table(self):
+		tbl = (("a", "bbbbbb", "c"), ("aaa", "b", "c"))
+		out = "a    bbbbbb  c\naaa  b       c"
 		self.assertEqual(strcolalign(tbl), out)
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

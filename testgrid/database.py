@@ -1,415 +1,981 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-"handle sqlite3 database management"
+"database helper"
 
-import sqlite3
-import sys
-import os
-import unittest
-import inspect
-import testgrid
+import unittest, inspect, sqlite3, time, abc, sys, os
+
+from testgrid import model, parser
 
 class DatabaseError(Exception): pass
 
+SCHEMA = """
+create table Nodes (
+	id integer primary key autoincrement,
+	modulename text not null,
+	typename text not null,
+	name text not null,
+	is_transient INT default 0,
+	is_quarantined INT default 0,
+	quarantine_reason text,
+	data text not null,
+	unique(modulename, typename, data)
+);
+
+create table Subnets (
+	id integer primary key autoincrement,
+	modulename text not null,
+	typename text not null,
+	netid text not null,
+	data text not null,
+	is_allocated integer default 0,
+	unique(modulename, typename, data)
+);
+
+create table Users (
+	id integer primary key autoincrement,
+	modulename text not null,
+	typename text not null,
+	data text not null,
+	unique(modulename, typename, data)
+);
+
+create table Sessions (
+	id integer primary key autoincrement,
+	modulename text not null,
+	typename text not null,
+	name text not null,
+	user_id integer not null references Users(id) on delete restrict,
+	subnet_id integer not null references Subnets(id) on delete restrict,
+	data text not null,
+	unique(name)
+);
+
+create table Packages (
+	id integer primary key autoincrement,
+	modulename text not null,
+	typename text not null,
+	name text not null,
+	version text,
+	data text not null,
+	unique(name, version)
+);
+
+-- a node can be allocated only once (node <1-1> package)
+create table Pairs (
+	id integer primary key autoincrement,
+	session_id integer not null references Sessions(id) on delete cascade,
+	package_id integer not null references Packages(id) on delete restrict,
+	node_id integer not null references Nodes(id) on delete restrict,
+	unique(session_id, node_id)
+);
+"""
+
+class Storable(object):
+
+	__metaclass__ = abc.ABCMeta
+
+	@abc.abstractmethod
+	def marshall(self):
+		"convert memory representation to storage representation"
+		pass
+
+	@classmethod
+	@abc.abstractmethod
+	def unmarshall(cls, data):
+		"convert storage representation to memory representation"
+		pass
+
+	def __eq__(self, other):
+		return type(self) is type(other) and self.marshall() == other.marshall()
+
+	def __ne__(self, other):
+		return not (self == other)
+
 class Database(object):
 
-    def __init__(self, dbpath = "TestGrid.db", script_path = "testgrid/testgrid.sql"):
-        self.dbpath = dbpath
-        self.script_path = script_path
-        self.con = None
-        self.database_init()
+	def __init__(self, dbpath = "testgrid.db"):
+		self.dbpath = os.path.expanduser(dbpath)
+		if not os.path.exists(self.dbpath):
+			self.con = sqlite3.connect(self.dbpath)
+			self.con.executescript(SCHEMA)
+		else:
+			self.con = sqlite3.connect(self.dbpath)
+		self.con.isolation_level = 'EXCLUSIVE'
+		self.cur = self.con.cursor()
+		self.cur.execute("PRAGMA foreign_keys = ON")
+	
+	def close(self, delete_storage = False):
+		"close database connection, delete backend file if requested"
+		if self.con:
+			self.con.close()
+			self.con = None
+		if delete_storage and os.path.exists(self.dbpath):
+			os.remove(self.dbpath)
 
-    def database_init(self):
-        "load existing database or creates a new database using script_path"
-        if os.path.exists(self.dbpath):
-            self.con = sqlite3.connect(self.dbpath)
-            self.db = self.con.cursor()
-        else:
-            self.create_database()
+	def __del__(self):
+		self.close()
 
-    def create_database(self):
-        "tables creation"
-        try:
-            self.con = sqlite3.connect(self.dbpath)
-            self.db = self.con.cursor()
-            with open(self.script_path , 'r') as f:
-                for line in f:
-                    self.db.execute(line)
-                    self.con.commit()
-        except sqlite3.Error as  e:
-            if self.con:
-                self.con.rollback()
-            raise DatabaseError("error creating database: %s" % e)
+	#########
+	# nodes #
+	#########
 
-    def close(self):
-        "close database connection"
-        if self.con:
-            self.con.close()
+	def add_node(self, node):
+		self.cur.execute(
+			"""
+				INSERT INTO Nodes(modulename, typename, name, data)
+				VALUES (?, ?, ?, ?)
+			""", (
+				type(node).__module__,
+				type(node).__name__,
+				node.name,
+				node.marshall()))
+		self.con.commit()
+		return self.cur.lastrowid
 
-    def __del__(self):
-        self.close()
+	def remove_node(self, obj):
+		self.cur.execute(
+			"""
+				DELETE FROM Nodes
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Nodes")
+		self.con.commit()
 
-    def dump(self):
-        self.db.execute("SELECT * FROM Nodes")
-        res = self.db.fetchall()
-        print "Nodes\n", res
-        self.db.execute("SELECT * FROM NodesAttributes")
-        res = self.db.fetchall()
-        print "NodesAttribute\n",res
-        self.db.execute("SELECT * FROM Sessions")
-        res = self.db.fetchall()
-        print "Sessions\n", res
-        self.db.execute("SELECT * FROM Plans")
-        res = self.db.fetchall()
-        print "Plans" , res
-        self.db.execute("SELECT * FROM Packages")
-        res = self.db.fetchall()
-        print "Packages\n", res
-        self.db.execute("SELECT * FROM Subnets")
-        res = self.db.fetchall()
-        print "Subnets\n", res
+	def _get_node_id(self, obj, force = False):
+		"add node if it's not stored yet, return node id"
+		self.cur.execute(
+			"""
+				SELECT id
+				FROM Nodes
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		for id, in self.cur.fetchall():
+			return id
+		else:
+			if force:
+				return self.add_node(obj)
+			else:
+				raise model.NoSuchItemError(obj, "table Nodes")
 
-# Nodes
+	def _get_node(self, id):
+		self.cur.execute(
+			"""
+				SELECT modulename, typename, data
+				FROM Nodes WHERE id = ?
+			""",
+			(id,))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(id, "table Nodes")
+		modulename, typename, data  = self.cur.fetchone()
+		return parser.get_subclass(
+			typename,
+			model.Node,
+			modulename).unmarshall(data)
 
-    def add_node(self, node):
-        try:
-            self.con.isolation_level = 'EXCLUSIVE'
-            self.con.execute('BEGIN EXCLUSIVE')
-            self.db.execute("INSERT INTO Nodes(typename, name, modulename) VALUES (?, ?, ?)",
-                            (type(node).__name__ , node.name, type(node).__module__))
-            node.id = int(self.db.lastrowid)
-            self.con.commit()
-            args, varargs, kwargs, defaults = inspect.getargspec(node.__init__)
-            for arg in args[1:]:
-                self.db.execute("INSERT INTO NodesAttributes(key, value, node_id) VALUES(?, ?, ?)", 
-                                (arg, str(getattr(node, arg)), node.id))
-            self.con.commit()
-        except sqlite3.Error as e:
-            self.con.rollback()
-            raise DatabaseError("error while adding node %s: %s" % (node.name, e))
+	def get_nodes(self):
+		self.cur.execute("SELECT modulename, typename, data FROM Nodes")
+		return tuple(
+			parser.get_subclass(
+				typename,
+				model.Node,
+				modulename).unmarshall(data)
+			for modulename, typename, data in self.cur.fetchall())
 
-    def remove_node(self, node):
-        try:
-            self.db.execute("DELETE FROM Nodes WHERE id = ?", (node.id,))
-            if self.db.rowcount:
-                self.db.execute("DELETE FROM Plans WHERE node_id = ?", (node.id,))
-                self.db.execute("DELETE FROM NodesAttributes WHERE node_id = ?" ,(node.id,))
-                self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error while removing node %s: %s" % (node.name, e))
+	def count_nodes(self):
+		self.cur.execute("SELECT count(*) FROM Nodes")
+		cnt, = self.cur.fetchone()
+		return cnt
 
-    def quarantine_node(self, node, exc):
-        try:
-            self.db.execute("UPDATE Nodes SET is_quarantined = ?, error = ? WHERE id = ?",
-                            (1, str(exc), node.id))
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error setting node %s to quarantined: %s" % (node.name, e))
+	def quarantine_node(self, obj, reason):
+		self.cur.execute(
+			"""
+				UPDATE Nodes
+				SET is_quarantined = 1, quarantine_reason = ?
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				"%s" % reason,
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Nodes")
+		self.con.commit()
 
-    def get_quarantine_reason(self, node):
-        self.db.execute("SELECT error FROM Nodes WHERE id = ?", (node.id,))
-        (error,) = self.db.fetchone()
-        return str(error)
+	def get_quarantine_reason(self, obj):
+		self.cur.execute(
+			"""
+				SELECT quarantine_reason
+				FROM Nodes
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Nodes")
+		reason, = self.cur.fetchone()
+		return reason
 
-    def rehabilitate_node(self, node):
-        try:
-            self.db.execute("UPDATE Nodes SET is_quarantined = ? WHERE id = ?",
-                            (False, node.id))
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error rehabilitate node %s: %s" % (node.name, e))
+	def rehabilitate_node(self, obj):
+		self.cur.execute(
+			"""
+				UPDATE Nodes
+				SET is_quarantined = 0, quarantine_reason = NULL
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Nodes")
+		self.con.commit()
 
-    def set_node_transient(self, node):
-        try:
-            self.db.execute("UPDATE Nodes SET is_transient = ? WHERE id = ?",
-                            (1, node.id))
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error setting node %s to quarantined: %s" % (node.name, e))
+	def set_node_transient(self, obj):
+		self.cur.execute(
+			"""
+				UPDATE Nodes
+				SET is_transient = 1
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Nodes")
+		self.con.commit()
 
-    def create_node(self, index, typename, modulename):
-        "creates node object using table Nodes row"
-        arg = {}
-        is_transient = None
-        is_quarantined = None
-        self.db.execute("SELECT key, value FROM NodesAttributes WHERE node_id = ?" , (index,))
-        result = self.db.fetchall()
-        try:
-            cls = testgrid.parser.get_subclass(typename, testgrid.model.Node, modulename)
-        except Exception as e:
-            raise Exception("database create node: %s" % e)
-        for item in result:
-            key, value = item
-            arg[key] = str(value)
-        try:
-            node = cls(**arg)
-        except Exception as e:
-            args, varargs, kwargs, defaults = inspect.getargspec(cls.__init__)
-            raise(Exception("fail class %s" % str(cls)))
-        node.id = int(index)
-        return node
+	def is_quarantined(self, obj):
+		self.cur.execute(
+			"""
+				SELECT is_quarantined
+				FROM Nodes
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Nodes")
+		is_quarantined, = self.cur.fetchone()
+		return bool(is_quarantined)
 
-    def get_nodes(self):
-        nodes = []
-        self.db.execute("SELECT id, typename, modulename FROM Nodes")
-        res = self.db.fetchall()
-        for index, typename, modulename in res:
-            node = self.create_node(index, typename, modulename)
-            nodes.append(node)
-        return nodes
+	def is_transient(self, obj):
+		self.cur.execute(
+			"""
+				SELECT is_transient
+				FROM Nodes
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Nodes")
+		is_transient, = self.cur.fetchone()
+		return bool(is_transient)
 
-    def is_quarantined(self, node):
-        self.db.execute("SELECT is_quarantined FROM Nodes WHERE id = ?",
-                        (node.id,))
-        (is_quarantined, )  = self.db.fetchone()
-        return bool(is_quarantined)
+	###########
+	# subnets #
+	###########
 
-    def is_transient(self, node):
-        self.db.execute("SELECT is_transient FROM Nodes WHERE id = ?",
-                        (node.id,))
-        (is_transient, )  = self.db.fetchone()
-        return bool(is_transient)
+	def add_subnet(self, subnet):
+		self.cur.execute(
+			"""
+				INSERT INTO Subnets(modulename, typename, netid, data)
+				VALUES (?, ?, ?, ?)
+			""", (
+				type(subnet).__module__,
+				type(subnet).__name__,
+				subnet.id,
+				subnet.marshall()))
+		self.con.commit()
+		return self.cur.lastrowid
 
-# Table Subnets
+	def remove_subnet(self, obj):
+		self.cur.execute(
+			"""
+				DELETE FROM Subnets
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Subnets")
+		self.con.commit()
 
-    def create_subnet(self, id, typename, id_string, modulename):
-        "creates subnet object using table Subnets row"
-        cls = testgrid.parser.get_subclass(str(typename), testgrid.model.Subnet, modulename)
-        subnet = cls(id_string)
-        subnet.db_id = int(id)
-        return subnet
+	def _get_subnet_id(self, obj, force = False):
+		"add subnet if it's not stored yet, return subnet id"
+		self.cur.execute(
+			"""
+				SELECT id
+				FROM Subnets
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		for id, in self.cur.fetchall():
+			return id
+		else:
+			if force:
+				return self.add_subnet(obj)
+			else:
+				raise model.NoSuchItemError(obj, "table Subnets")
 
-    def get_subnets(self):
-        subnets = []
-        self.db.execute("SELECT id, typename, id_string, modulename FROM Subnets")
-        res = self.db.fetchall()
-        for id, typename, id_string, modulename in res:
-            subnet = self.create_subnet(id, typename, id_string, modulename)
-            subnets.append(subnet)
-        return subnets
+	def _get_subnet(self, id):
+		self.cur.execute(
+			"""
+				SELECT modulename, typename, data
+				FROM Subnets WHERE id = ?
+			""",
+			(id,))
+		if not self.cur.rowcount:
+			raise model.NoSuchItemError(obj, "table Subnets")
+		modulename, typename, data  = self.cur.fetchone()
+		return parser.get_subclass(
+			typename,
+			model.Subnet,
+			modulename).unmarshall(data)
 
-    def add_subnet(self, subnet):
-        try:
-            self.con.isolation_level = 'EXCLUSIVE'
-            self.con.execute('BEGIN EXCLUSIVE')
-            self.db.execute("INSERT INTO Subnets(typename, id_string, modulename) VALUES(?, ?, ?)", (type(subnet).__name__, subnet.id, type(subnet).__module__))
-            subnet.db_id = int(self.db.lastrowid)
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error adding subnet: %s" % e)
+	def get_subnets(self):
+		self.cur.execute("SELECT modulename, typename, data FROM Subnets")
+		return tuple(
+			parser.get_subclass(
+				typename,
+				model.Subnet,
+				modulename).unmarshall(data)
+			for modulename, typename, data in self.cur.fetchall())
 
-    def remove_subnet(self, subnet):
-        try:
-            self.con.isolation_level = 'EXCLUSIVE'
-            self.con.execute('BEGIN EXCLUSIVE')
-            self.con.execute("DELETE FROM Subnets WHERE id = ?", (subnet.db_id,))
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error adding subnet: %s" % e)
+	def count_subnets(self):
+		self.cur.execute("SELECT count(*) FROM Subnets")
+		cnt, = self.cur.fetchone()
+		return cnt
 
-    def allocate_subnet(self):
-        try:
-            self.con.isolation_level = 'EXCLUSIVE'
-            self.con.execute('BEGIN EXCLUSIVE')
-            self.con.execute("SELECT id, typename, id_string, modulename FROM Subnets WHERE used = 0")
-            res = self.db.fetchone()
-            if not res:
-                return testgrid.model.SubnetPoolExhaustedError()
-            id, typename, id_string, modulename = res
-            subnet = self.create_subnet(id, typename, id_string, modulename)
-            self.db.execute("UPDATE Subnets SET used = 1 WHERE id = ?", (id,))
-            return subnet
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error allocating  subnet: %s" % e)
+	def allocate_subnet(self, obj):
+		self.cur.execute(
+			"""
+				UPDATE Subnets
+				SET is_allocated = 1
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Subnets")
+		self.con.commit()
 
-# Table Sessions
+	def is_subnet_allocated(self, obj):
+		self.cur.execute(
+			"""
+				SELECT is_allocated
+				FROM Subnets
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Subnets")
+		is_transient, = self.cur.fetchone()
+		return bool(is_transient)
 
-    def get_sessions(self, grid):
-        sessions = []
-        self.db.execute("SELECT id, typename, username, name, subnet_id, modulename FROM Sessions")
-        res = self.db.fetchall()
-        for index, typename, username, name, subnet_id, modulename in res:
-            try:
-                session_cls = testgrid.parser.get_subclass(typename, testgrid.model.Session, modulename) 
-            except Exception as e:
-                raise Exception("database get session cls: %s" % e)
-            session = session_cls(self, grid, str(username), str(name))
-            session.id = int(index)
-            session.plan = self.get_plans(session)
-            if subnet_id:
-                db.execute("SELECT typename, id_string, modulename FROM Subnets WHERE id = ?", (subnet_id) )
-                subnet_typename, id_string, modulename_subnet = db.fetchone()
-                session.subnet = self.create_subnet(subnet_id, subnet_typename, id_string, modulename_subnet)
-            sessions.append(session)
-        return sessions
+	def release_subnet(self, obj):
+		self.cur.execute(
+			"""
+				UPDATE Subnets
+				SET is_allocated = 0
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Subnets")
+		self.con.commit()
 
-    def add_session(self, session):
-        try:
+	#########
+	# users #
+	#########
 
-            self.con.isolation_level = 'EXCLUSIVE'
-            self.con.execute('BEGIN EXCLUSIVE')
-            if not session.subnet:
-                subnet_id = None
-            else:
-                subnet_id = session.subnet.db_id
-            self.db.execute("INSERT INTO Sessions(typename, username, name, subnet_id, modulename) VALUES(?, ?, ?, ?, ?)",
-                            (type(session).__name__, session.username, session.name, subnet_id, type(session).__module__))
-            session.id = int(self.db.lastrowid)
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error opening session username: %s, name: %s :%s" \
-                                    % (session.username, session.name, e))
+	def add_user(self, obj):
+		self.cur.execute(
+			"""
+				INSERT INTO Users(modulename, typename, data)
+				VALUES (?, ?, ?)
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		self.con.commit()
+		return self.cur.lastrowid
 
-    def remove_session(self, session):
-        try:
-            self.con.isolation_level = 'EXCLUSIVE'
-            self.con.execute('BEGIN EXCLUSIVE')
-            self.db.execute("SELECT * FROM Plans WHERE session_id = ?", (session.id,))
-            res = self.db.fetchall()
-            self.db.execute("SELECT package_id FROM Plans WHERE session_id = ?", (session.id,))
-            res = self.db.fetchall()
-            for package_id in res:
-                self.remove_package(package_id)
-            self.db.execute("DELETE FROM Plans WHERE session_id = ?", (session.id,))
-            self.db.execute("DELETE FROM Sessions WHERE id = ?", (session.id,))
-            if session.subnet:
-                self.db.execute("UPDATE Subnets SET used = 0 WHERE id = ?", (session.subnet.db_id,))
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error closing session username: %s, name: %s :%s" \
+	def remove_user(self, obj):
+		self.cur.execute(
+			"""
+				DELETE FROM Users
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Users")
+		self.con.commit()
 
-                                % (session.username, session.name, e))
+	def _get_user_id(self, obj, force = False):
+		"add user if it's not stored yet, return user id"
+		self.cur.execute(
+			"""
+				SELECT id
+				FROM Users
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		for id, in self.cur.fetchall():
+			return id
+		else:
+			if force:
+				return self.add_user(obj)
+			else:
+				raise model.NoSuchItemError(obj, "table Users")
 
-    def session_exist(self, session):
-        if not hasattr(session, "id"):
-            return False
-        self.db.execute("SELECT * FROM Sessions WHERE id = ?", (session.id,))
-        res = self.db.fetchone();
-        #print "sessison exist",  res, not res
-        if res:
-            return True
-        return False
+	def _get_user(self, id):
+		self.cur.execute(
+			"""
+				SELECT modulename, typename, data
+				FROM Users WHERE id = ?
+			""",
+			(id,))
+		if not self.cur.rowcount:
+			raise model.NoSuchItemError(obj, "table Users")
+		modulename, typename, data  = self.cur.fetchone()
+		return parser.get_subclass(
+			typename,
+			model.User,
+			modulename).unmarshall(data)
 
-# Table Plans
+	def get_users(self):
+		self.cur.execute("SELECT modulename, typename, data FROM Users")
+		return tuple(
+			parser.get_subclass(
+				typename,
+				model.User,
+				modulename).unmarshall(data)
+			for modulename, typename, data in self.cur.fetchall())
 
-    def add_plan(self, session, plan):
-        try:
-            pkg, node = plan
-            if not pkg:
-                self.db.execute("INSERT INTO Plans(session_id, node_id, package_id) VALUES(?, ?, ?)", \
-                                    (session.id, node.id, None))
-            else:
-                self.add_package(pkg)
-                self.db.execute("INSERT INTO Plans(session_id, node_id, package_id) VALUES(?, ?, ?)", \
-                                    (session.id, node.id, pkg.id))
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error adding plan  session username:%s, name: %s , node: %s : %s" \
+	def count_users(self):
+		self.cur.execute("SELECT count(*) FROM Users")
+		cnt, = self.cur.fetchone()
+		return cnt
 
-                                % (session.username, session.name, node.name, e))
+	############
+	# packages #
+	############
 
-    def remove_pair(self, session, node , pkg):
-        try:
-            if (pkg):
-                self.remove_package(pkg.id)
-                self.db.execute("DELETE FROM Plans WHERE session_id = ? AND node_id = ? AND package_id = ?",
-                                (session.id, node.id, pkg.id))
-            else:
-                self.db.execute("DELETE FROM Plans WHERE session_id = ? AND node_id = ?",
-                                (session.id, node.id))
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error removing pair session username:%s, name: %s , node: %s : %s" \
-                                    % (session.username, session.name, node.name, e))
+	def add_package(self, package):
+		self.cur.execute(
+			"""
+				INSERT INTO Packages(modulename, typename, name, version, data)
+				VALUES (?, ?, ?, ?, ?)
+			""", (
+				type(package).__module__,
+				type(package).__name__,
+				package.name,
+				package.version,
+				package.marshall()))
+		self.con.commit()
+		return self.cur.lastrowid
 
-    def remove_plan(self, session, node):
-        try:
-            self.db.execute("SELECT package_id FROM Plans WHERE session_id = ? AND node_id = ?",\
-                                (session.id, node.id))
-            package_id = self.db.fetchall()
-            for  id, in package_id:
-                self.remove_package(id)
-            self.db.execute("DELETE FROM Plans WHERE session_id = ? AND node_id = ?",
-                            (session.id, node.id))
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError("error removing plan session username:%s, name: %s , node: %s : %s" \
-                                    % (session.username, session.name, node.name, e))
+	def remove_package(self, obj):
+		self.cur.execute(
+			"""
+				DELETE FROM Packages
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Packages")
+		self.con.commit()
 
-    def get_plans(self, session):
-        plan = []
-        self.db.execute("SELECT node_id, package_id FROM Plans WHERE session_id = ?", (session.id,))
-        res = self.db.fetchall()
-        for node_id, package_id in res:
-            if package_id:
-                package = self.get_package(package_id)
-            else:
-                package = None
-            self.db.execute("SELECT typename, modulename FROM Nodes WHERE id = ?", (node_id,))
-            typename, modulename =  self.db.fetchone()
-            node = self.create_node(node_id, typename, modulename)
-            plan.append((package, node))
-        return plan
+	def _get_package_id(self, obj, force = False):
+		"add package if it's not stored yet, return package id"
+		self.cur.execute(
+			"""
+				SELECT id
+				FROM Packages
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		for id, in self.cur.fetchall():
+			return id
+		else:
+			if force:
+				return self.add_package(obj)
+			else:
+				raise model.NoSuchItemError(obj, "table Packages")
 
-# Table Package
+	def _get_package(self, id):
+		self.cur.execute(
+			"""
+				SELECT modulename, typename, data
+				FROM Packages WHERE id = ?
+			""",
+			(id,))
+		if not self.cur.rowcount:
+			raise model.NoSuchItemError(obj, "table Packages")
+		modulename, typename, data  = self.cur.fetchone()
+		return parser.get_subclass(
+			typename,
+			model.Package,
+			modulename).unmarshall(data)
 
-    def get_package(self, package_id):
-        self.db.execute("SELECT typename, version, name, modulename FROM Packages WHERE id = ?", (package_id,))
-        res = self.db.fetchone()
-        if not res:
-            return None
-        typename, version, name, modulename = res
-        try:
-            package_cls = testgrid.parser.get_subclass(typename, testgrid.model.Package, modulename)
-        except Exception as e:
-            raise Exception("database get package cls: %s" % e)
-        if version:
-            pkg = package_cls(str(name), str(version))
-        else:
-            pkg = package_cls(str(name), None)
-        pkg.id = int(package_id)
-        return pkg
+	def get_packages(self):
+		self.cur.execute(
+			"""
+				SELECT modulename, typename, data
+				FROM Packages
+			""")
+		return tuple(
+			parser.get_subclass(
+				typename,
+				model.Package,
+				modulename).unmarshall(data)
+			for modulename, typename, data in self.cur.fetchall())
 
-    def add_package(self, package):
-        try:
-            self.con.isolation_level = 'EXCLUSIVE'
-            self.con.execute('BEGIN EXCLUSIVE')
-            self.db.execute("INSERT INTO Packages(typename, name, version, modulename) VALUES(?, ?, ?, ?) ", 
-                            (type(package).__name__, package.name, package.version, type(package).__module__))
-            package.id = int(self.db.lastrowid)
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError(e)
+	def count_packages(self):
+		self.cur.execute("SELECT count(*) FROM Packages")
+		cnt, = self.cur.fetchone()
+		return cnt
 
-    def remove_package(self, package_id):
-        try:
-            self.db.execute("DELETE FROM Packages WHERE id = ?", (package_id,))
-            self.con.commit()
-        except sqlite3.Error, e:
-            self.con.rollback()
-            raise DatabaseError(e)
+	#########
+	# pairs #
+	#########
 
-##############
-# unit tests #
-##############
+	def _add_pair(self, session_id, pair):
+		package, node = pair
+		package_id = self._get_package_id(package, force = True) # add package
+		node_id = self._get_node_id(node, force = True) # add node
+		self.cur.execute(
+			"""
+				INSERT INTO Pairs(session_id, node_id, package_id)
+				VALUES (?, ?, ?)
+			""", (
+				session_id,
+				node_id,
+				package_id))
+		# no commit!
 
-class TestDatabase(Database):
-     def __init__(self):
-          super(TestDatabase, self).__init__()
+	def remove_pair(self, session_id, pair):
+		session_id = self._get_session_id(session)
+		_, node = pair
+		node_id = self._get_node_id(node)
+		self.cur.execute(
+			"""
+				DELETE FROM Pairs
+				WHERE session_id = ? AND node_id = ?
+			""", (
+				session_id,
+				node_id))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Users")
+		self.con.commit()
 
-class SelfTest(unittest.TestCase):
-     def test_table_creation(self):
-          hdl = Database()
+	def _get_pairs(self, session_id):
+		self.cur.execute(
+			"""
+				SELECT package_id, node_id
+				FROM Pairs
+				WHERE session_id = ?
+			""",
+			(session_id,))
+		pairs = []
+		for package_id, node_id in self.cur.fetchall():
+			pair = (self._get_package(package_id), self._get_node(node_id))
+			pairs.append(pair)
+		return tuple(pairs)
+
+	############
+	# sessions #
+	############
+
+	def add_session(self, session):
+		user_id = self._get_user_id(session.user, force = True) # add user
+		if session.subnet:
+			subnet_id = self._get_subnet_id(session.subnet, force = True) # add subnet
+		else:
+			subnet_id = None
+		self.cur.execute(
+			"""
+				INSERT INTO Sessions(modulename, typename, name, user_id, subnet_id, data)
+				VALUES (?, ?, ?, ?, ?, ?)
+			""", (
+				type(session).__module__,
+				type(session).__name__,
+				session.name,
+				user_id,
+				subnet_id,
+				session.marshall()))
+		session_id = self.cur.lastrowid
+		for pair in session.plan:
+			self._add_pair(session_id, pair)
+		self.con.commit()
+		return session_id
+
+	def remove_session(self, obj):
+		self.cur.execute(
+			"""
+				DELETE FROM Sessions
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		if self.cur.rowcount < 1:
+			raise model.NoSuchItemError(obj, "table Sessions")
+		self.con.commit()
+
+	def _get_session_id(self, obj, force = False):
+		"add session if it's not stored yet, return session id"
+		self.cur.execute(
+			"""
+				SELECT id
+				FROM Sessions
+				WHERE modulename = ? AND typename = ? AND data = ?
+			""", (
+				type(obj).__module__,
+				type(obj).__name__,
+				obj.marshall()))
+		for id, in self.cur.fetchall():
+			return id
+		else:
+			if force:
+				return self.add_session(obj)
+			else:
+				raise model.NoSuchItemError(obj, "table Sessions")
+
+	def get_sessions(self, gridref = None):
+		self.cur.execute(
+			"""
+				SELECT id, modulename, typename, user_id, subnet_id, data
+				FROM Sessions
+			""")
+		sessions = []
+		for session_id, modulename, typename, user_id, subnet_id, data in self.cur.fetchall():
+			session = parser.get_subclass(
+				typename,
+				model.Session,
+				modulename).unmarshall(data)
+			session.gridref = gridref
+			session.user = self._get_user(user_id)
+			session.plan = self._get_pairs(session_id)
+			session.subnet = self._get_subnet(subnet_id)
+			sessions.append(session)
+		return tuple(sessions)
+
+	def count_sessions(self):
+		self.cur.execute("SELECT count(*) FROM Sessions")
+		cnt, = self.cur.fetchone()
+		return cnt
+
+#################
+# tests doubles #
+#################
+
+class FakeNode(model.Node, Storable):
+	"node implementing storable interface"
+
+	def __repr__(self):
+		return "FakeNode %s" % self.marshall()
+
+	def get_hoststring(self): pass
+
+	def get_installed_packages(self): pass
+
+	def get_load(self): pass
+
+	def get_subnets(self): pass
+
+	def has_support(self, **opts): pass
+
+	def join(self, subnet): pass
+
+	def leave(self, subnet): pass
+
+	def marshall(self):
+		return "%s" % {"name": self.name}
+
+	@classmethod
+	def unmarshall(cls, data):
+		return (cls)(**eval(data))
+
+class FakePackage(model.Package, Storable):
+	"package implementing storable interface"
+
+	def __repr__(self):
+		return "FakePackage %s" % self.marshall()
+
+	def install(self, node): pass
+
+	def uninstall(self, node): pass
+
+	def is_installed(self, node): pass
+
+	def is_installable(self, node): pass
+
+	def marshall(self):
+		return "%s" % {
+			"name": self.name,
+			"version": self.version,
+		}
+
+	@classmethod
+	def unmarshall(cls, data):
+		return (cls)(**eval(data))
+
+class FakeSubnet(model.Subnet, Storable):
+	"subnet implementing storable interface"
+
+	def __repr__(self):
+		return "FakeSubnet %s" % self.marshall()
+
+	def marshall(self):
+		return "%s" % {"id": self.id}
+
+	@classmethod
+	def unmarshall(cls, data):
+		return (cls)(**eval(data))
+
+class FakeSession(model.Session, Storable):
+	"session implementing storable interface"
+
+	def marshall(self):
+		return "%s" % {
+			"gridref": repr(None), # filled-in by get_sessions()
+			"name": self.name,
+			"user": repr(None), # filled-in by get_sessions()
+			"plan": repr(None), # filled-in by get_sessions()
+			"subnet": repr(None), # filled-in by get_sessions()
+		}
+
+	@classmethod
+	def unmarshall(cls, data):
+		return (cls)(**eval(data))
+
+	def __eq__(self, other):
+		return\
+			self.name == other.name\
+			and self.user == other.user\
+			and self.plan == other.plan\
+			and self.subnet == other.subnet
+
+class FakeUser(model.User, Storable):
+
+	def __repr__(self):
+		return "FakeUser %s" % self.marshall()
+
+	def marshall(self):
+		return ""
+
+	@classmethod
+	def unmarshall(cls, data):
+		return (cls)()
+
+#########
+# tests #
+#########
+
+class CrudTest(object):
+
+	__metaclass__ = abc.ABCMeta
+
+	@abc.abstractmethod
+	def Object(self): pass
+
+	@abc.abstractmethod
+	def get_objects(self): pass
+
+	@abc.abstractmethod
+	def add_object(self, obj): pass
+
+	@abc.abstractmethod
+	def remove_object(self, obj): pass
+
+	def setUp(self):
+		dbpath = "/tmp/%s.db" % time.strftime("%Y%m%d%H%M%S", time.localtime())
+		self.db = Database(dbpath = dbpath)
+
+	def tearDown(self):
+		self.db.close(delete_storage = True)
+		self.assertFalse(os.path.exists(self.db.dbpath))
+
+	def test_add_remove_object(self):
+		self.assertEqual(self.count_objects(), 0)
+		self.assertEqual(self.get_objects(), ())
+		obj = self.Object()
+		self.add_object(obj)
+		self.assertEqual(self.count_objects(), 1)
+		self.assertEqual(self.get_objects(), (obj,))
+		self.remove_object(obj)
+		self.assertEqual(self.count_objects(), 0)
+		self.assertEqual(self.get_objects(), ())
+
+	def test_add_object_twice(self):
+		obj = self.Object()
+		self.add_object(obj)
+		self.assertRaises(Exception, self.add_object, obj)
+
+	def test_remove_object_twice(self):
+		obj = self.Object()
+		self.add_object(obj)
+		self.remove_object(obj)
+		self.assertRaises(model.NoSuchItemError, self.remove_object, obj)
+
+class NodeTest(CrudTest, unittest.TestCase):
+
+	def Object(self):
+		return FakeNode(name = "node")
+
+	def get_objects(self):
+		return self.db.get_nodes()
+
+	def add_object(self, obj):
+		return self.db.add_node(obj)
+
+	def remove_object(self, obj):
+		return self.db.remove_node(obj)
+
+	def count_objects(self):
+		return self.db.count_nodes()
+
+	def test_quarantine_rehabilitate_node(self):
+		node = FakeNode(name = "node")
+		self.db.add_node(node = node)
+		self.assertIn(node, self.db.get_nodes())
+		self.assertFalse(self.db.is_quarantined(node))
+		self.db.quarantine_node(node, "test")
+		self.assertTrue(self.db.is_quarantined(node))
+		self.assertEqual(self.db.get_quarantine_reason(node), "test")
+		self.db.rehabilitate_node(node)
+		self.assertFalse(self.db.is_quarantined(node))
+
+	def test_set_transient_node(self):
+		node = FakeNode(name = "node")
+		self.db.add_node(node = node)
+		self.assertFalse(self.db.is_transient(node))
+		self.db.set_node_transient(node)
+		self.assertTrue(self.db.is_transient(node))
+
+class PackageTest(CrudTest, unittest.TestCase):
+
+	def Object(self):
+		return FakePackage(name = "package", version = "1.0")
+
+	def get_objects(self):
+		return self.db.get_packages()
+
+	def add_object(self, obj):
+		return self.db.add_package(obj)
+
+	def remove_object(self, obj):
+		return self.db.remove_package(obj)
+
+	def count_objects(self):
+		return self.db.count_packages()
+
+class SubnetTest(CrudTest, unittest.TestCase):
+
+	def Object(self):
+		return FakeSubnet(id = "subnet")
+
+	def get_objects(self):
+		return self.db.get_subnets()
+
+	def add_object(self, obj):
+		return self.db.add_subnet(obj)
+
+	def remove_object(self, obj):
+		return self.db.remove_subnet(obj)
+
+	def count_objects(self):
+		return self.db.count_subnets()
+
+	def test_allocate_release_subnet(self):
+		sn = self.Object()
+		self.add_object(sn)
+		self.assertFalse(self.db.is_subnet_allocated(sn))
+		self.db.allocate_subnet(sn)
+		self.assertTrue(self.db.is_subnet_allocated(sn))
+		self.db.release_subnet(sn)
+		self.assertFalse(self.db.is_subnet_allocated(sn))
+
+class UserTest(CrudTest, unittest.TestCase):
+
+	def Object(self):
+		return FakeUser()
+
+	def get_objects(self):
+		return self.db.get_users()
+
+	def add_object(self, obj):
+		return self.db.add_user(obj)
+
+	def remove_object(self, obj):
+		return self.db.remove_user(obj)
+
+	def count_objects(self):
+		return self.db.count_users()
+
+class SessionTest(CrudTest, unittest.TestCase):
+
+	def Object(self):
+		return FakeSession(
+			gridref = None,
+			name = "session",
+			user = FakeUser(),
+			plan = ((FakePackage("pkg"), FakeNode("node")),),
+			subnet = FakeSubnet(id = "subnet"))
+
+	def get_objects(self):
+		return self.db.get_sessions()
+
+	def add_object(self, obj):
+		return self.db.add_session(obj)
+
+	def remove_object(self, obj):
+		return self.db.remove_session(obj)
+
+	def count_objects(self):
+		return self.db.count_sessions()
+
+	def test_user_removal_constraint(self):
+		"assert a user cannot be removed if used by a session"
+		session = self.Object()
+		self.db.add_session(session)
+		self.assertRaises(sqlite3.IntegrityError, self.db.remove_user, session.user)
+		self.db.remove_session(session)
+		self.db.remove_user(session.user)
+
+	def test_subnet_removal_constraint(self):
+		"assert a subnet cannot be removed if used by a session"
+		session = self.Object()
+		self.db.add_session(session)
+		self.assertRaises(sqlite3.IntegrityError, self.db.remove_subnet, session.subnet)
+		self.db.remove_session(session)
+		self.db.remove_subnet(session.subnet)
+
+if __name__ == "__main__": unittest.main(verbosity = 2)

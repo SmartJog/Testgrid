@@ -1,11 +1,13 @@
 # copyright (c) 2014 smartjog, released under the GPL license.
 
-import ansible.inventory, ansible.runner, testgrid
+import ansible.inventory, ansible.runner, unittest
+
+from testgrid import model
 
 def noninteractive(string):
 	return "DEBIAN_FRONTEND=noninteractive %s" % string
 
-class Package(testgrid.model.Package):
+class Package(model.Package):
 	"debian package management commands"
 
 	def __init__(self, *args, **kwargs):
@@ -14,9 +16,6 @@ class Package(testgrid.model.Package):
 			self.tag = "%s=%s" % (self.name, self.version)
 		else:
 			self.tag = self.name
-
-	def get_typename(self):
-		return "Debian Package"
 
 	def _run_apt(self, node, state):
 		"reach package state on target, raise exception on error"
@@ -44,8 +43,19 @@ class Package(testgrid.model.Package):
 
 	def is_installable(self, node):
 		args = noninteractive("apt-get -qqy --force-yes --dry-run install %s" % self.name)
-		res = testgrid.model.ansible_run(
+		res = model.ansible_run(
 			hoststring = node.get_hoststring(),
 			modname = "shell",
 			modargs = args)
 		return res["rc"] == 0
+
+#########
+# tests #
+#########
+
+class SelfTest(unittest.TestCase):
+
+	def test_FIXME(self):
+		pkg = Package(name = "foo", version = "1.0")
+
+if __name__ == "__main__": unittest.main(verbosity = 2)

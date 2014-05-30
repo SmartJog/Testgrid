@@ -7,9 +7,9 @@
 #   * create a Makefile, add "include template.mk"
 #   * you'll need testy to run tests.
 
-VERSION := "1.0"
+VERSION := "1.2"
 
-.PHONY: usage clean test ci
+.PHONY: usage version clean test log ci
 
 #########
 # usage #
@@ -17,14 +17,27 @@ VERSION := "1.0"
 
 usage::
 	@echo "Development:"
+	@echo "  make version  show compiler and interpreter versions"
 	@echo "  make clean    remove generated objects"
-	@echo "  make test     run unit tests"
+	@echo "  make test     run tests"
+	@echo "  make log      show ci history"
 	@echo "  make ci       check-in: commit and push"
 ifeq ($(shell test -d .git && echo ok || echo ko),ok)
 	@echo
 	@echo "Changes:"
 	@git status -s
 endif
+
+############
+# versions #
+############
+
+version:
+	@bash --version
+	@javac -version
+	@node --version
+	@go version
+	@cc --version
 
 #########
 # clean #
@@ -43,15 +56,22 @@ test: $(addprefix testgrid/,$(MODULES))
 else
 test: NAME :=
 test: test.ini
-	testy -m test.ini $(NAME)
+	@testy -m test.ini $(NAME)
 endif
+
+#######
+# log #
+#######
+
+log:
+	@git log --graph --pretty=format:'%Cred%h%Creset:%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --
 
 ############
 # check-in #
 ############
 
-ci: TAG :=
-ci: clean
+ci:: TAG :=
+ci:: clean
 	-git commit -a
 	git push
 ifeq ($(TAG),)

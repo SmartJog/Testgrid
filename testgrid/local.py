@@ -2,21 +2,23 @@
 
 "client managing sessions for a controller-less grid"
 
-import unittest, testgrid
+import unittest
+
+from testgrid import debian, remote, client, persistent, vgadapter
 
 ############################################
 # concrete types availables for the parser #
 ############################################
 
+class PersistentGrid(testgrid.persistent.Grid): pass
+
 class DebianPackage(testgrid.debian.Package): pass
 
-class RemoteNode(testgrid.remote.Node): pass
-
-#class TestboxGrid(testgrid.testbox.Grid): pass
+class VagrantNode(testgrid.vgadapter.Node): pass
 
 class VagrantGrid(testgrid.vgadapter.Grid): pass
 
-class PersistentGrid(testgrid.persistent.Grid): pass
+class RemoteNode(testgrid.remote.Node): pass
 
 ##########
 # client #

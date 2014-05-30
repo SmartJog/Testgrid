@@ -1,36 +1,29 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-.PHONY: usage install clean test ci
-
-MODULES := strfmt.py docopt.py vagrant.py bottle.py installsystems.py
-
-SOURCES :=\
-	client.py debian.py local.py main.py model.py parser.py persistent.py\
-	playground.py remote.py rest.py test.py testbox.py
-
-testgrid/%.py: ~/Documents/work/%.py
-	cp -p $< $@
-
-%.mk: ~/Documents/work/%.mk
-	cp -p $< $@
+.PHONY: install loc
 
 usage::
+	@echo "Testgrid build utility."
+	@echo
 	@echo "Usage:"
 	@echo "  make install  install testgrid command-line tool and framework"
-	@echo "  make update   update modules (reserved)"
+	@echo "  make loc      return the number of lines of code"
 	@echo
 
 include template.mk
 
-update: $(addprefix testgrid/,$(MODULES))
-
+#
+# install for OS/X
+#
 ifeq ($(shell uname -s), Darwin)
 install:
 	easy_install pip
 	CFLAGS=-Qunused-arguments CPPFLAGS=-Qunused-arguments pip install ansible
 	python setup.py install
-else
-ifeq ($(shell uname -s), Linux) # FIXME (Debian/Ubuntu only)
+#
+# install for Debian
+#
+else ifeq ($(shell uname -s), Linux) # FIXME (Debian/Ubuntu only)
 install:
 	apt-get install -qqy python-setuptools
 	apt-get install python-pip
@@ -39,7 +32,10 @@ install:
 else
 $(error unsupported platform)
 endif
-endif
 
 clean::
 	-rm -rf build dist testgrid.egg-info
+
+loc:
+	find . \( -name '*.py' -o -name '*.sql' \) -a -not \( -name bottle.py -o -name docopt.py \) | xargs wc -l | sort -n
+	

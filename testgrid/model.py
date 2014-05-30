@@ -1,18 +1,24 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-"service for creating on-demand, isolated, programmable test environments"
+"Ansible-based Programmable Test Environments - PTE - management framework"
 
-__version__ = "20140407-2"
+import ansible.inventory, ansible.runner, subprocess, unittest, weakref, time, abc
 
-import\
-	ansible.inventory, ansible.runner, subprocess,\
-	unittest, weakref, getpass, time, abc
+class UnreachableHostError(Exception):
 
-class UnreachableHostError(Exception): pass
+	def __init__(self, host):
+		super(UnreachableHostError, self).__init__("%s: host unreachable" % host)
 
-class OperationError(Exception): pass
+class OperationError(Exception):
+
+	def __init__(self, operation, target, *args):
+		super(OperationError, self).__init__("@%s, %s: operation failed with %s" % (
+			target,
+			op,
+			" ".join("%s" % arg for arg in args) if args else "no details"))
 
 def ansible_run(hoststring, modname, modargs, sudo = False):
+	"execute ansible module with specified arguments"
 	res = ansible.runner.Runner(
 		inventory = ansible.inventory.Inventory("%s," % hoststring),
 		module_name = modname,
@@ -20,13 +26,14 @@ def ansible_run(hoststring, modname, modargs, sudo = False):
 		sudo = sudo,
 		forks = 0).run()
 	if not hoststring in res["contacted"]:
-		raise UnreachableHostError("%s: unreachable" % hoststring)
+		raise UnreachableHostError(hoststring)
 	res = res["contacted"][hoststring]
 	if "failed" in res:
-		raise OperationError("%s: module %s: %s" % (hoststring, modname, res["msg"]))
+		raise OperationError(modname, hoststring, res["msg"])
 	return res
 
 def local_run(argv, warn_only = False):
+	"execute local command"
 	sp = subprocess.Popen(
 		args = argv,
 		shell = isinstance(argv, str), # use shell if $argv is a string
@@ -35,10 +42,11 @@ def local_run(argv, warn_only = False):
 	stdout, stderr = sp.communicate()
 	code = sp.returncode
 	if code and not warn_only:
-		raise OperationError("%s: command (%i): %s" % (argv, code, stderr.strip()))
+		raise OperationError(argv, "localhost", code, stderr.strip())
 	return (code, stdout, stderr)
 
 class Package(object):
+	"a package abstracts anything installable on & removable from a node"
 
 	__metaclass__ = abc.ABCMeta
 
@@ -49,9 +57,6 @@ class Package(object):
 	def __str__(self):
 		return "%s%s" % (self.name, ("-%s" % self.version) if self.version else "")
 
-	def __repr__(self):
-		return "%s(%s)" % (type(self).__name__, self)
-
 	def __eq__(self, other):
 		return self.name == other.name and self.version == other.version
 
@@ -59,39 +64,32 @@ class Package(object):
 		return not (self == other)
 
 	@abc.abstractmethod
-	def get_typename(self):
-		"return human-friendly type string"
-		raise NotImplementedError()
-
-	@abc.abstractmethod
 	def install(self, node):
 		"install package on $node, raise exception on error"
-		raise NotImplementedError()
+		pass
 
 	@abc.abstractmethod
 	def uninstall(self, node):
 		"uninstall package from $node, raise exception on error"
-		raise NotImplementedError()
+		pass
 
 	@abc.abstractmethod
 	def is_installed(self, node):
 		"return True if the package is installed on $node, False otherwise"
-		raise NotImplementedError()
+		pass
 
 	@abc.abstractmethod
 	def is_installable(self, node):
 		"return True if the package is installable on $node, False otherwise"
-		raise NotImplementedError()
+		pass
 
 class Service(object):
+	"a service abstracts anything startable & stoppable on a node"
 
 	__metaclass__ = abc.ABCMeta
 
 	def __init__(self, name):
 		self.name = name
-
-	def __repr__(self):
-		return "%s(%s)" % (type(self).__name__, self.name)
 
 	def __str__(self):
 		return self.name
@@ -121,20 +119,15 @@ class Service(object):
 		return self._run(node, state = "reloaded")
 
 	@abc.abstractmethod
-	def is_started(self, node):
-		raise NotImplementedError()
+	def is_started(self, node): pass
 
 	@abc.abstractmethod
-	def get_version(self, node):
-		raise NotImplementedError()
+	def get_version(self, node): pass
 
 class Subnet(object):
 
 	def __init__(self, id):
 		self.id = id
-
-	def __repr__(self):
-		return "%s(%s)" % (type(self).__name__, self.id)
 
 	def __eq__(self, other):
 		return self.id == other.id
@@ -163,52 +156,48 @@ class Hoststring(str):
 		return (username, password, hostname, port)
 
 class Node(object):
-	"abstract interface to an object able to install packages and hosting services"
+	"a node abstracts any object supporting packages & services"
 
 	__metaclass__ = abc.ABCMeta
 
 	def __init__(self, name):
 		self.name = name
 
-	def __repr__(self):
-		return "%s(%s)" % (type(self).__name__, self.name)
-
 	def __str__(self):
 		return self.name
 
-	@abc.abstractmethod
-	def get_typename(self):
-		"return human-readable type string"
-		return "node"
+	def get_info(self):
+		return "no details"
 
 	@abc.abstractmethod
 	def has_support(self, **opts):
 		"return True if all specified options are supported"
-		raise NotImplementedError()
+		pass
 
 	@abc.abstractmethod
 	def get_load(self):
-		"return a float abstracting the overall node load"
-		raise NotImplementedError()
+		"return a float as a composition of load measures"
+		pass
 
 	@abc.abstractmethod
 	def join(self, subnet):
 		"setup a network interface on the specified subnet"
-		raise NotImplementedError()
+		pass
 
 	@abc.abstractmethod
 	def leave(self, subnet):
 		"remove the network interface on the specified subnet"
-		raise NotImplementedError()
+		pass
 
 	@abc.abstractmethod
 	def get_subnets(self):
 		"return the list of subnets the node belongs to"
-		raise NotImplementedError()
+		pass
 
 	@abc.abstractmethod
 	def get_hoststring(self):
-		raise NotImplementedError()
+		"return node hoststring as [user[:pass]@]hostname[:port]"
+		pass
 
 	# clean but too slow on unreachable nodes and no timeout parameter...
 	def _disabled_is_up(self):
@@ -253,9 +242,7 @@ class Node(object):
 		return package.is_installable(node = self)
 
 	@abc.abstractmethod
-	def get_installed_packages(self):
-		"return the list of installed packages"
-		raise NotImplementedError()
+	def get_installed_packages(self): pass
 
 	def execute(self, args):
 		"execute args, return tuple (code, stdout, stderr)"
@@ -266,26 +253,36 @@ class Node(object):
 			modargs = args)
 		return (res["rc"], res["stdout"], res["stderr"])
 
-class UnknownNodeError(Exception): pass
+class SessionNotEmptyError(Exception):
+
+	def __init__(self, session):
+		super(SessionNotEmptyError, self).__init__("%s: session not empty" % session)
+
+class NoSuchItemError(Exception):
+
+	def __init__(self, item, container):
+		super(NoSuchItemError, self).__init__("%s: no such %s in %s" % (
+			item,
+			type(item).__name__.lower(),
+			container))
+
+class User(object): pass
 
 class Session(object):
-	"a session holds a deployment plan and the associated subnet"
+	"""
+	A session holds a deployment plan and an associated subnet.
+	As long as a session is not terminated, it can be re-opened through the grid.
+	"""
 
-	def __init__(self, gridref, username, name = None, plan = None, subnet = None):
+	def __init__(self, gridref, name, user, plan = None, subnet = None):
 		self.gridref = gridref
-		self.username = username
 		self.name = name
+		self.user = user
 		self.plan = plan or [] # list of pairs (package, node)
-		self.subnet = subnet
-		if not self.name:
-			self.name = "%s@%s" % (self.username, time.strftime("%Y%m%d%H%M%S", time.localtime()))
-			self.is_anonymous = True
-		else:
-			self.is_anonymous = False
+		self.subnet = subnet # optional, maybe None
 
-	def __repr__(self): return "%s(%s)" % (type(self).__name__, self.name)
-
-	def __str__(self): return self.name
+	def __str__(self):
+		return self.name
 
 	def __iter__(self):
 		for _, node in self.plan:
@@ -297,7 +294,6 @@ class Session(object):
 	def allocate_node(self, pkg = None, **opts):
 		"fetch a node available and compatible with $pkg and map it to the session"
 		node = self.gridref().find_node(pkg = pkg, **opts)
-		assert not node in self, "%s: node already allocated, please report this bug" % node
 		if self.subnet:
 			node.join(self.subnet)
 		self.plan.append((None, node))
@@ -305,24 +301,24 @@ class Session(object):
 
 	def _release_pair(self, pkg, node):
 		try:
-			if self.gridref().is_transient(node):
-				self.gridref().terminate_node(node)
+			if self.gridref()._is_transient(node):
+				self.gridref()._terminate(node)
 			else:
 				if pkg:
 					node.uninstall(pkg)
 				if self.subnet:
 					node.leave(self.subnet)
 		except Exception as e:
-			self.gridref().quarantine_node(node = node, exc = e)
+			self.gridref().quarantine_node(node = node, reason = e)
 
-	def release_node(self, node):
+	def release(self, node):
 		"release the node from the session"
 		for pkg, _node in self.plan:
 			if _node == node:
 				self._release_pair(pkg, _node)
 				break
 		else:
-			raise UnknownNodeError("%s" % node)
+			raise NoSuchItemError(node, self)
 
 	def deploy(self, packages):
 		"get, apply, register and return a named plan"
@@ -346,39 +342,68 @@ class Session(object):
 			self._release_pair(pkg, node)
 		self.plan = []
 
-	def __del__(self):
-		if self.gridref()\
-		and self in self.gridref().get_sessions()\
-		and self.is_anonymous:
-			self.close()
+	def close(self, force = False):
+		if self.plan and not force:
+			raise SessionNotEmptyError(self)
+		else:
+			self.undeploy()
+			self.gridref()._remove_session(self)
 
-	def close(self):
-		self.undeploy()
-		self.gridref()._close_session(self)
+class SubnetPoolExhaustedError(Exception):
 
-class DuplicatedNodeError(Exception): pass
+	def __init__(self):
+		super(SubnetPoolExhaustedError, self).__init__("subnet pool exhausted")
 
-class NodePoolExhaustedError(Exception): pass
+class NodePoolExhaustedError(Exception):
 
-class SubnetPoolExhaustedError(Exception): pass
+	def __init__(self):
+		super(NodePoolExhaustedError, self).__init__("node pool exhausted")
+
+class DuplicatedSubnetError(Exception):
+
+	def __init__(self, subnet, container):
+		super(DuplicatedSubnetError, self).__init__("%s: subnet already in %s" % (
+			subnet,
+			container))
+
+class DuplicatedNodeError(Exception):
+
+	def __init__(self, node, container):
+		super(DuplicatedNodeError, self).__init__("%s: node already in %s" % (
+			node,
+			container))
+
+class SubnetInUseError(Exception):
+
+	def __init__(self, subnet, referrer):
+		super(SubnetInUseError, self).__init__("%s: subnet used by %s" % (
+			subnet,
+			referrer))
+
+class NodeInUseError(Exception):
+
+	def __init__(self, node, referrer):
+		super(NodeInUseError, self).__init__("%s: node used by %s" % (
+			node,
+			referrer))
+
+class AccessViolation(Exception):
+
+	def __init__(self, user, resource):
+		super(AccessViolation, self).__init__("%s: user cannot access %s" % (
+			user,
+			resource))
 
 class Grid(object):
 	"handle nodes and packages"
 
+	__metaclass__ = abc.ABCMeta
+
 	def __init__(self, name, nodes = None, subnets = None, sessions = None):
 		self.name = name
 		self.nodes = nodes or []
-		self.subnets = subnets # may be None
+		self.subnets = subnets or []
 		self.sessions = sessions or []
-
-	def __del__(self):
-		"cleanup transient nodes -- to be overloaded for a persistent grid"
-		for node in self.nodes:
-			if self.is_transient(node):
-				self.terminate_node(node)
-
-	def __repr__(self):
-		return "%s(%s)" % (type(self).__name__, self.name)
 
 	def __str__(self):
 		return self.name
@@ -394,31 +419,64 @@ class Grid(object):
 		if not node in self.nodes:
 			self.nodes.append(node)
 		else:
-			raise DuplicatedNodeError("%s" % node)
+			raise DuplicatedNodeError(node, self)
 
-	def remove_node(self, node):
+	def remove_node(self, node, force = False):
 		if node in self.nodes:
 			for session in self.sessions:
 				if node in session:
-					session.release_node(node)
+					if force:
+						session.release(node)
+						break
+					else:
+						raise NodeInUseError(node, session)
 			self.nodes.remove(node)
 		else:
-			raise UnknownNodeError("%s" % node)
+			raise NoSuchItemError(node, self)
 
-	def quarantine_node(self, node, exc):
-		node.is_quarantined = exc
+	def add_subnet(self, subnet):
+		if not subnet in self.subnets:
+			self.subnets.append(subnet)
+		else:
+			raise DuplicatedSubnetError(subnet, self)
 
-	def set_node_transient(self, node):
-		node.is_transient = True
+	def remove_subnet(self, subnet, force = False):
+		if subnet in self.subnets:
+			for session in self.sessions:
+				if session.subnet == subnet:
+					if force:
+						raise NotImplementedError("cannot force subnet removal yet")
+					else:
+						raise SubnetInUseError(subnet, session)
+			self.subnets.remove(subnet)
+		else:
+			raise NoSuchItemError(subnet, self)
 
-	def rehabilitate_node(self, node):
+	def quarantine(self, node, reason):
+		"make a node unavailable for allocation"
+		assert not self.is_quarantined(node), "%s: already quarantined" % node
+		assert not self.is_allocated(node), "%s: node allocated, release it first" % node
+		node.is_quarantined = reason
+
+	def rehabilitate(self, node):
+		"remove a node from quarantine"
 		node.is_quarantined = False
 
 	def is_quarantined(self, node):
 		return hasattr(node, "is_quarantined") and bool(getattr(node, "is_quarantined"))
 
 	def get_quarantine_reason(self, node):
-		return "%s" % repr(node.is_quarantined)
+		assert self.is_quarantined(node), "%s: not quarantined" % node
+		res = "%s" % node.is_quarantined
+		if isinstance(Exception, self.is_quarantined):
+			res = "%s, %s" % (type(self.is_quarantined).__name__, res)
+		return res
+
+	def _set_transient(self, node):
+		node._is_transient = True
+
+	def _is_transient(self, node):
+		return hasattr(node, "_is_transient") and getattr(node, "_is_transient")
 
 	def _get_allocated_nodes(self):
 		"return the list of allocated nodes"
@@ -445,38 +503,32 @@ class Grid(object):
 			return "allocated"
 		elif self.is_quarantined(node):
 			return "quarantined: %s" % self.get_quarantine_reason(node)
-		raise Exception("%s: unknown status" % node)
 
-	def create_node(self, pkg = None, **opts):
+	def _create_node(self, pkg = None, **opts):
 		"""
-		Create a new node (hereafter called a "transient node"):
+		Override to create a new node (hereafter called a "transient node"):
 		  * compatible with package $pkg
 		  * supporting specified options $opts
+		Warning: do not call this directly, it's invoked by find_node on demand.
 		"""
 		raise NodePoolExhaustedError()
 
-	def terminate_node(self, node):
-		"destroy a transient node (created with create_node())"
-		raise NotImplementedError()
+	def _terminate(self, node):
+		"destroy a transient node created with _create_node()"
+		assert False, "%s: _terminate invoked on non-generative grid" % node
 
 	def find_node(self, pkg = None, excluded = (), **opts):
-		"find a node available and compatible with $pkg or create one"
+		"find a node available and compatible with $pkg - or - create one"
 		for node in self._get_available_nodes():
 			if not node in excluded\
 			and node.has_support(**opts)\
 			and (not pkg or node.is_installable(pkg)):
 				break
 		else:
-			node = self.create_node(pkg = pkg, **opts)
-			assert\
-				not pkg or node.is_installable(pkg),\
-				"%s: node cannot install %s, please report this issue" % (node, pkg)
+			node = self._create_node(pkg = pkg, **opts)
 			self.add_node(node)
-			self.set_node_transient(node)
+			self._set_transient(node)
 		return node
-
-	def is_transient(self, node):
-		return hasattr(node, "is_transient") and getattr(node, "is_transient")
 
 	def get_deployment_plan(self, packages):
 		"""
@@ -491,68 +543,58 @@ class Grid(object):
 			plan.append((pkg, node))
 		return plan
 
-	def _allocate_subnet(self):
+	def _get_available_subnet(self):
+		"return a subnet not already allocated for a session"
 		if self.subnets:
-			try:
-				return self.subnets.pop()
-			except IndexError:
-				raise SubnetPoolExhaustedError("%s" % self)
+			for subnet in self.subnets:
+				for session in self.sessions:
+					if session.subnet == subnet:
+						continue
+				return subnet
+			else:
+				raise SubnetPoolExhaustedError()
 		else:
 			return None
 
-	def _release_subnet(self, subnet):
-		if self.subnets:
-			assert\
-				not subnet in self.subnets,\
-				"%s: already has %s, please report this issue" % (self, subnet)
-			self.subnets.append(subnet)
-
-	def get_sessions(self):
-		return self.sessions
-
-	def open_session(self, username = None, name = None, session_cls = Session, **opts):
-		username = username or getpass.getuser()
+	def open_session(self, name, user, session_cls = Session, **opts):
+		# reopen session if it exists...
 		for session in self.sessions:
 			if session.name == name:
-				assert session.username == username, "%s: access violation" % name
+				if not session.user == user:
+					raise AccessViolation(user, session)
 				break
+		# ...create new session otherwise
 		else:
 			session = (session_cls)(
 				gridref = weakref.ref(self),
-				username = username,
 				name = name,
-				subnet = self._allocate_subnet(),
+				user = user,
+				subnet = self._get_available_subnet(),
 				**opts)
 			self.sessions.append(session)
 		return session
 
-	def _close_session(self, session):
+	def _remove_session(self, session):
 		"do not use directly -- called by the session on closing"
-		assert session in self.sessions, "%s: unknown session" % session
+		assert session in self.sessions, "session '%s' unknown" % session
 		self.sessions.remove(session)
-		self._release_subnet(session.subnet)
 
-class UnknownGridError(Exception): pass
+	def reset(self):
+		"terminate all sessions, remove all nodes"
+		for session in tuple(session for session in self.sessions):
+			session.close(force = True)
+		for node in tuple(node for node in self.nodes):
+			self.remove_node(node)
 
-class DuplicatedGridError(Exception): pass
+	def _get_node_session(self, node):
+		"return session associated to node or None"
+		for session in self.sessions:
+			if node in session:
+				return session
 
-class Grids(Grid):
-
-	def __init__(self, *grids):
-		raise NotImplementedError("!!! work in progress !!!")
-		self.grids = grids or []
-
-	def add_grid(self, grid):
-		if not grid in self.grids:
-			self.grids.append(grid)
-		else:
-			raise DuplicatedGridError("%s" % grid)
-
-	def remove_grid(self, grid):
-		if grid in self.grids:
-			self.grids.remove(grid)
-		else:
-			raise UnknownGridError("%s" % grid)
+	def node_equal(self, lnode, rnode):
+		return self._get_node_session(lnode) == self._get_node_session(rnode)\
+			and lnode == rnode
 
 ################
 # test doubles #
@@ -565,12 +607,16 @@ class FakePackage(Package):
 
 	def install(self, node):
 		assert not node.terminated
-		assert not node.is_installed(self), "%s: %s: already installed" % (node, self)
+		assert\
+			not node.is_installed(self),\
+			"package '%s' already installed on node '%s', cannot install" % (self, node)
 		node.installed.append(self)
 
 	def uninstall(self, node):
 		assert not node.terminated
-		assert node.is_installed(self), "%s: %s: not yet installed" % (node, self)
+		assert\
+			node.is_installed(self),\
+			"package '%s' not yet installed on node '%s', cannot uninstall" % (self, node)
 		node.installed.remove(self)
 
 	def is_installed(self, node):
@@ -589,9 +635,6 @@ class FakeNode(Node):
 		self.installed = []
 		self.subnets = []
 
-	def get_typename(self):
-		return "fake node"
-
 	def has_support(self, **opts):
 		return True
 
@@ -604,13 +647,13 @@ class FakeNode(Node):
 
 	def join(self, subnet):
 		assert not self.terminated
-		assert subnet, "%s: cannot join null subnet" % self
+		assert subnet, "node '%s' cannot join null subnet" % self
 		assert not subnet in self.subnets
 		self.subnets.append(subnet)
 
 	def leave(self, subnet):
 		assert not self.terminated
-		assert subnet, "%s: cannot leave null subnet" % self
+		assert subnet, "node '%s' cannot leave null subnet" % self
 		assert subnet in self.subnets
 		self.subnets.remove(subnet)
 
@@ -623,21 +666,24 @@ class FakeNode(Node):
 	def get_installed_packages(self):
 		return self.installed
 
-class FakeGrid(Grid):
+	def terminate(self):
+		self.terminated = True
+
+class FakeGenerativeGrid(Grid):
 	"generative grid of fake nodes"
 
 	ref = 0
 
-	def create_node(self, **opts):
-		node = FakeNode("tnode%i" % FakeGrid.ref)
-		FakeGrid.ref += 1
+	def _create_node(self, **opts):
+		node = FakeNode("tnode%i" % self.ref)
+		FakeGenerativeGrid.ref += 1
 		return node
 
-	def terminate_node(self, node):
-		node.terminated = True
+	def _terminate(self, node):
+		node.terminate()
 
 def unzip(pairs):
-	"support function to split a list of pairs into two lists with first and second elements"
+	"split a list of pairs into two lists with first and second elements"
 	firsts = ()
 	seconds = ()
 	for x, y in pairs:
@@ -649,15 +695,24 @@ def unzip(pairs):
 	res.seconds = seconds
 	return res
 
-##############
-# unit tests #
-##############
+#########
+# tests #
+#########
 
 class SelfTest(unittest.TestCase):
+	"all grid subclasses must pass those tests, derive and adapt $cls below"
 
-	def test_fake_node(self):
-		node = FakeNode(name = "node")
-		pkg = FakePackage(name = "pkg", version = "1.0")
+	cls = {
+		"gengrid": FakeGenerativeGrid, # generative grid
+		"grid": Grid, # non-generative grid
+		"node": FakeNode,
+		"pkg": FakePackage,
+	}
+
+	def test_mocks(self):
+		"test mocks"
+		node = self.cls["node"](name = "node")
+		pkg = self.cls["pkg"](name = "pkg", version = "1.0")
 		node.install(pkg)
 		assert node.is_installed(pkg)
 		node.uninstall(pkg)
@@ -668,71 +723,104 @@ class SelfTest(unittest.TestCase):
 		node.leave(subnet)
 		assert not node in subnet
 
-	def assertDeployment(self, packages, plan, grid, session):
+	def test_add_remove_node(self):
+		"test node management operations"
+		grid = self.cls["grid"]("grid")
+		node = self.cls["node"]("node")
+		grid.add_node(node)
+		self.assertIn(node, grid)
+		self.assertRaises(DuplicatedNodeError, grid.add_node, node)
+		grid.remove_node(node)
+		self.assertNotIn(node, grid)
+		self.assertRaises(NoSuchItemError, grid.remove_node, node)
+
+	def test_add_remove_subnet(self):
+		"test subnet management operations"
+		grid = self.cls["grid"]("grid")
+		self.assertIs(grid._get_available_subnet(), None)
+		subnet = Subnet("subnet")
+		grid.add_subnet(subnet)
+		self.assertEqual(grid._get_available_subnet(), subnet)
+		self.assertRaises(DuplicatedSubnetError, grid.add_subnet, subnet)
+		grid.remove_subnet(subnet)
+		self.assertIs(grid._get_available_subnet(), None)
+		self.assertRaises(NoSuchItemError, grid.remove_subnet, subnet)
+
+	def test_open_close_session(self):
+		grid = self.cls["grid"]("grid")
+		session = grid.open_session(name = "session", user = "user")
+		self.assertIn(session, grid.sessions)
+		self.assertEqual(len(grid.sessions), 1)
+		grid.open_session(name ="session", user = "user").close()
+		self.assertEqual(len(grid.sessions), 0)
+
+	def test_grid_closing(self):
+		"test grid closing on a generative grid"
+		grid = self.cls["gengrid"]("grid")
+		for i in xrange(10):
+			session = grid.open_session(name = "session%i" % i, user = "user%i" % i)
+			node = session.allocate_node()
+		grid.reset()
+		self.assertEquals(len(grid), 0)
+		self.assertEquals(len(grid.sessions), 0)
+
+	def assert_deployment(self, packages, plan, grid, session):
 		"assert deployment is correct"
 		# assert each allocated nodes is allocated once
 		self.assertEqual(len(set(unzip(plan).seconds)), len(plan))
 		# assert all nodes are in the session subnet
 		if session.subnet:
 			for _, node in plan:
-				assert node in session.subnet, "%s: not in %s" % (node, session.subnet)
-				assert grid.is_allocated(node), "%s: not allocated" % node
+				assert\
+					node in session.subnet,\
+					"node '%s' not in subnet '%s'" % (node, session.subnet)
+				assert\
+					grid.is_allocated(node),\
+					"node '%s' not allocated" % node
 		# assert all packages are installed
-		for pkg in packages:
-			for _pkg, node in plan:
-				if _pkg == pkg:
-					self.assertTrue(node.is_installed(pkg))
+		for src_pkg in packages:
+			for tgt_pkg, node in plan:
+				if src_pkg == tgt_pkg:
+					self.assertTrue(node.is_installed(src_pkg))
 					break
 			else:
-				raise Exception("%s: not installed" % pkg)
+				raise Exception("package '%s' not installed" % src_pkg)
 
-	def assertUndeployment(self, nodes, grid, session):
+	def assert_undeployment(self, nodes, grid, session):
 		"assert undeployment is correct"
 		for node in nodes:
-			assert grid.is_available(node), "%s: not available (%s)" % (node, grid.get_status(node))
+			assert\
+				grid.is_available(node),\
+				"node '%s' not available (status=%s)" % (node, grid.get_status(node))
 			# assert node have no package installed
-			assert not node.get_installed_packages(),\
-				"%s: %s not uninstalled" % (node, node.get_installed_packages())
+			assert\
+				not node.get_installed_packages(),\
+				"packages '%s' not uninstalled from node '%s'" % (node.get_installed_packages(), node)
 			# assert node has left the session subnet
 			if session.subnet:
-				assert not node in session.subnet, "%s: still in %s" % (node, session.subnet)
+				assert\
+					not node in session.subnet,\
+					"node '%s' still in subnet '%s'" % (node, session.subnet)
 
-	@staticmethod
-	def mkenv(nb_nodes, nb_packages):
-		"create test objects"
-		nodes = tuple(FakeNode("node%i" % i) for i in xrange(nb_nodes))
-		packages = tuple(FakePackage("pkg%i" % i, "1.0") for i in xrange(nb_packages))
+	def mkenv(self, nb_nodes, nb_packages):
+		"create test objects, use non-generative grid"
+		nodes = [self.cls["node"]("node%i" % i) for i in xrange(nb_nodes)]
+		packages = tuple(self.cls["pkg"]("pkg%i" % i, "1.0") for i in xrange(nb_packages))
 		subnets = [Subnet("vlan14")]
-		grid = Grid(name = "grid", subnets = subnets, nodes = nodes) # use a non-generative grid
-		session = grid.open_session()
+		grid = self.cls["grid"](name = "grid", subnets = subnets, nodes = nodes)
+		session = grid.open_session(name = "session", user = "user")
 		return (nodes, packages, grid, session)
-
-	grid_cls = FakeGrid
-	node_cls = FakeNode
-	pkg_cls = FakePackage
-
-	def test101(self):
-		"test basic operations"
-		grid = (self.grid_cls)("grid")
-		node = (self.node_cls)("node")
-		grid.add_node(node)
-		self.assertIn(node, grid)
-		self.assertTrue(grid.is_available(node))
-		session = grid.open_session("session")
-		self.assertEqual(session.allocate_node(), node)
-		grid.remove_node(node)
-		self.assertNotIn(node, grid)
 
 	def test_bijective_cycle(self):
 		"deploy and undeploy packages, where |nodes| = |packages|"
 		nodes, packages, grid, session = self.mkenv(nb_nodes = 10, nb_packages = 10)
 		plan = session.deploy(packages)
-		self.assertDeployment(packages, plan, grid, session)
+		self.assert_deployment(packages, plan, grid, session)
 		# assert we cannot deploy again:
 		self.assertRaises(Exception, session.deploy, packages = packages)
 		# assert everything is cleaned up:
-		session.close()
-		self.assertUndeployment(nodes, grid, session)
+		session.close(force = True)
+		self.assert_undeployment(nodes, grid, session)
 
 	def test_injective_cycle(self):
 		"deploy and undeploy packages, where |nodes| > |packages|"
@@ -740,11 +828,11 @@ class SelfTest(unittest.TestCase):
 		plan1 = session.deploy(packages)
 		plan2 = session.deploy(packages)
 		# assert the deployments are correct:
-		self.assertDeployment(packages, plan1, grid, session)
-		self.assertDeployment(packages, plan2, grid, session)
+		self.assert_deployment(packages, plan1, grid, session)
+		self.assert_deployment(packages, plan2, grid, session)
 		# assert everything is cleaned up:
-		session.close()
-		self.assertUndeployment(nodes, grid, session)
+		session.close(force = True)
+		self.assert_undeployment(nodes, grid, session)
 
 	def test_surjective_cycle(self):
 		"deploy and undeploy packages, where |nodes| < |packages|"
@@ -752,23 +840,23 @@ class SelfTest(unittest.TestCase):
 		# assert deployment fails:
 		self.assertRaises(Exception, session.deploy, packages = packages)
 		# assert everything is cleaned up:
-		self.assertUndeployment(nodes, grid, session)
+		self.assert_undeployment(nodes, grid, session)
 
 	def test_node_creation(self):
 		"test deployment on a generative grid"
-		grid = (self.grid_cls)(name = "test") # empty grid
+		grid = self.cls["gengrid"](name = "test") # empty grid
 		assert len(grid) == 0
-		foo = (self.pkg_cls)("foo", "1.0")
-		bar = (self.pkg_cls)("bar", "1.0")
-		packages = (foo, bar)
-		session = grid.open_session()
-		# assert nodes are created:
+		foo = self.cls["pkg"]("foo", "1.0")
+		bar = self.cls["pkg"]("bar", "1.0")
+		packages = [foo, bar]
+		session = grid.open_session(name = "session", user = "user")
+		# assert nodes are created and are transient:
 		plan = session.deploy(packages = packages)
 		for pkg, node in plan:
-			self.assertTrue(grid.is_transient(node), "%s: not transient" % node)
-		self.assertDeployment(packages, plan, grid, session)
-		session.close()
+			self.assertTrue(grid._is_transient(node), "node '%s' not transient" % node)
+		self.assert_deployment(packages, plan, grid, session)
+		session.close(force = True)
 		for pkg, node in plan:
-			self.assertFalse(node.is_up(), "%s: still up" % node)
+			self.assertFalse(node.is_up(), "node '%s' still up" % node)
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

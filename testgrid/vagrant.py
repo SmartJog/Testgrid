@@ -21,8 +21,6 @@ Tutorial:
   >>> foo.fini()
 """
 
-__version__ = "0.1"
-
 import subprocess, textwrap, unittest, shutil, pipes, os
 
 def run(argv, warn_only = False):
@@ -38,9 +36,12 @@ def run(argv, warn_only = False):
 	return (code, stdout, stderr)
 
 URL = {
-	"centos63-64": "https://dl.dropbox.com/u/7225008/Vagrant/CentOS-6.3-x86_64-minimal.box",
-	"squeeze64": "http://www.emken.biz/vagrant-boxes/debsqueeze64.box",
-	"wheezy64": "https://dl.dropboxusercontent.com/s/xymcvez85i29lym/vagrant-debian-wheezy64.box",
+	"centos63-64":\
+	"https://dl.dropbox.com/u/7225008/Vagrant/CentOS-6.3-x86_64-minimal.box",
+	"squeeze64":\
+	"http://www.emken.biz/vagrant-boxes/debsqueeze64.box",
+	"wheezy64":\
+	"https://dl.dropboxusercontent.com/s/xymcvez85i29lym/vagrant-debian-wheezy64.box",
 }
 
 class Guest(object):
@@ -95,6 +96,8 @@ class Guest(object):
 			""" % parms))
 
 	def fini(self):
+		if self.is_running():
+			self.destroy()
 		shutil.rmtree(self.root)
 
 	def vagrant(self, argv, warn_only = False):
@@ -105,30 +108,30 @@ class Guest(object):
 			"VAGRANT_CWD=%s vagrant %s" % (self.root, argv),
 			warn_only = warn_only)
 
-	def up(self):
-		return self.vagrant("up")
+	def up(self, **kwargs):
+		return self.vagrant("up", **kwargs)
 
-	def halt(self):
-		return self.vagrant("halt")
+	def halt(self, **kwargs):
+		return self.vagrant("halt", **kwargs)
 
-	def reload(self):
-		return self.vagrant("reload")
+	def reload(self, **kwargs):
+		return self.vagrant("reload", **kwargs)
 
-	def destroy(self):
-		return self.vagrant("destroy --force")
+	def destroy(self, **kwargs):
+		return self.vagrant("destroy --force", **kwargs)
 
-	def get_status(self):
-		code, stdout, stderr = self.vagrant("status --machine-readable")
+	def get_status(self, **kwargs):
+		code, stdout, stderr = self.vagrant("status --machine-readable", **kwargs)
 		for line in stdout.splitlines():
 			id, _, key, value = line.split(",")
 			if key == "state":
 				return value
 
-	def is_running(self):
-		return self.get_status() == "running"
+	def is_running(self, **kwargs):
+		return self.get_status(**kwargs) == "running"
 
-	def run(self, argv, warn_only = False):
-		return self.vagrant("ssh -c %s" % pipes.quote(argv), warn_only = warn_only)
+	def run(self, argv, **kwargs):
+		return self.vagrant("ssh -c %s" % pipes.quote(argv), **kwargs)
 
 	def get_inet_addresses(self):
 		# FIXME
@@ -150,15 +153,13 @@ class Guest(object):
 		# 2. find the matching guest interface
 		return "eth1"
 
-##############
-# unit tests #
-##############
+#########
+# tests #
+#########
 
 DEFAULT_BRIDGE = "en0: Wi-Fi (AirPort)" # Macbook + WiFi
 
 class SelfTest(unittest.TestCase):
-
-	timeout = 60
 
 	def setUp(self):
 		self.guest = Guest("/tmp/foo")

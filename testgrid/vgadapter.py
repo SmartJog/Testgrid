@@ -153,26 +153,34 @@ class Node(testgrid.model.Node):
 		self.root = root
 		self.guest = testgrid.vagrant.Guest(root = root)
 
+	def __eq__(self, other):
+		return isinstance(other, Node)\
+			and self.name == other.name\
+			and self.root == other.root
+
+	def __ne__(self, other):
+		return not (self == other)
+
 	def get_subnets(self):
-		raise NotImplementedError()
+		raise NotImplementedError("vgadapter.Node.get_subnets() not implemented yet")
 
 	def get_typename(self):
 		return "vagrant box"
 
 	def has_support(self, **opts):
-		raise NotImplementedError()
+		raise NotImplementedError("vgadapter.Node.has_support() not implemented yet")
 
 	def is_up(self):
 		return self.guest.is_running()
 
 	def get_load(self):
-		raise NotImplementedError()
+		raise NotImplementedError("vgadapter.Node.get_load() not implemented yet")
 
 	def join(self, subnet):
-		raise NotImplementedError()
+		raise NotImplementedError("vgadapter.Node.join() not implemented yet")
 
 	def leave(self, subnet):
-		raise NotImplementedError()
+		raise NotImplementedError("vgadapter.Node.leave() not implemented yet")
 
 	def get_hoststring(self):
 		ifname = self.guest.get_bridged_interface_name()
@@ -211,21 +219,23 @@ class Node(testgrid.model.Node):
 		self.guest.destroy()
 		self.guest.fini()
 
-class Grid(testgrid.model.Grid):
+	def get_installed_packages(self):
+		raise NotImplementedError("vgadapter.Node.get_installed_packages() not implemented yet")
 
-	def __init__(self, name, root, nodes = None, subnets = None, sessions = None):
-		nodes = nodes or []
+class Grid(testgrid.persistent.Grid):
+
+	def __init__(self, name, root, *args, **kwargs):
+		super(Grid, self).__init__(name = name, *args, **kwargs)
+		self.root = root
+		assert os.path.exists(root), "%s: no such directory" % root
+
+	def __unused__update(self):
+		"lookup root directory and append existing nodes"
 		for name in os.listdir(root):
 			vagrantfile_path = os.path.join(root, name, "Vagrantfile")
 			if os.path.exists(vagrantfile_path):
 				node = Node(name = name, root = os.path.join(root, name))
 				nodes.append(node)
-		super(Grid, self).__init__(
-			name = name,
-			nodes = nodes,
-			subnets = subnets,
-			sessions = sessions)
-		self.root = root
 
 	def create_node(self, pkg = None, **opts):
 		name = opts.get("name", "node-%i" % int(time.time()))
@@ -236,20 +246,26 @@ class Grid(testgrid.model.Grid):
 	def terminate_node(self, node):
 		node.terminate()
 
-##############
-# unit tests #
-##############
+#########
+# tests #
+#########
 
 class SelfTest(unittest.TestCase):
 
 	timeout = 70
 
 	def test(self):
-		grid = Grid(name = "test", root = "/tmp")
-		session = grid.open_session(name = "test")
-		node = session.allocate_node(
-			box_name = "wheezy64",
-			bridge = os.getenv("BRIDGE", testgrid.vagrant.DEFAULT_BRIDGE))
-		assert node.is_up()
+		grid = Grid(name = "test", root = "/tmp", dbpath = "/tmp/vgtest.db")
+		try:
+			session = grid.open_session(name = "test")
+			node = session.allocate_node(
+				box_name = "wheezy64",
+				bridge = os.getenv("BRIDGE", testgrid.vagrant.DEFAULT_BRIDGE))
+			self.assertTrue(node.is_up())
+			del session
+			session = grid.open_session(name = "test")
+			self.assertIn(node, session)
+		finally:
+			grid.close()
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

@@ -10,7 +10,7 @@ API:
   * Hypervisor(shell)
     - res = list_images(repo = None, ...)
     - res = list_domains(...)
-    - res = create_domain(hostname, image_name, profile_name
+    - res = create_domain(hostname, image_parms, ...)
     - res = start_domain(name, ...)
     - res = stop_domain(name, force = False, ...)
     - res = restart_domain(name, force = False, ...)
@@ -19,51 +19,39 @@ API:
     - res = disk(...)
 
 Tutorial:
-  >>> import installsystems
-  >>> hv = installsystems.Hypervisor(...)
-  >>> (to be continued) 
+  >>> import installsystems, myrunner
+  >>> hv = installsystems.Hypervisor(myrunner.run)
+  >>> image_parms = DebianSJProfile.get_profile("pg")
+  >>> hv.create_domain(image_parms.image_name, image_parms)
+  >>> ...
 
 Requirements:
-  on a domain creation, this framework expects a REST service at 127.0.0.1:9876
-  able to deliver the --interfaces configuration on /<pf>/allocate.
-  You may override {allocate, release}_address() if it doesn't suit your needs.
+  on a domain creation, a REST service is expected at 10.69.0.2:9876:
+  1/ deliver the --interfaces configuration at /<store_name>/allocate,
+  2/ deliver the internal_gw value at /<store_name>/gateway
+  3/ deliver the dns value at /<store_name>/dns
+  4/ deliver the dns_search value at /<store_name>/dns_search
+  5/ deliver the list of store names at /names.
+
+Developers -- ading parms class/profiles:
+  * the constructor lists required parameters
+  * .profiles is a dict of constructors func(hostname[, store_name])
+  * fill-in get_list() with the new parameters
 """
 
-__version__ = "0.1"
-
-import unittest, getpass, httplib, abc, re
-
-WAN = {
-	"dns": "10.10.255.3",
-	"dns_search": "wan",
-	"ntp": "ntp.core.tvr.wan",
-	"smtp": "smtp.core.tvr.wan",
-	"mail_root": "root@smartjog.com",
-	"mail_domain": "smartjog.com",
-	"debian_repository": "debian",
-	"is_repository": "isrepo.adm.wan",
-	"ldap": "wantvr",
-	"cc_server": "10.15.255.42",
-}
-
-LAN = {
-	"dns": "192.168.11.253",
-	"dns_search": "fr.lan",
-	"ntp": "ntp.fr.lan",
-	"smtp": "smtp.fr.lan",
-	"debian_repository": "debian.fr.smartjog.net",
-}
+import unittest, getpass, httplib, inspect, abc, re
 
 ###########
 # helpers #
 ###########
 
 def normalized_playground_hostname(hostname):
-	"normalize playground hkvm domain name"
-	# REF: https://confluence.smartjog.net/display/INFRA/Playground#Playground-Rules"
-	username = getpass.getuser()
+	"""
+	Normalize playground hkvm domain name.
+	See https://confluence.smartjog.net/display/INFRA/Playground#Playground-Rules
+	"""
 	if len(hostname.split("-")) < 2:
-		name = "%s-%s" % (username, hostname)
+		hostname = "%s-%s" % (getpass.getuser(), hostname)
 	comps = hostname.split(".")
 	if len(comps) == 1:
 		hostname += ".pg.fr.lan"
@@ -74,225 +62,392 @@ def normalized_playground_hostname(hostname):
 		"%s: invalid playground domain name" % hostname
 	return hostname
 
-def assert_ipv4(string):
-	assert re.match("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", string), "%s: expected ipv4" % string
+def parse_interface(interface):
+	"return dict of interface as <address>/<mask>@<gateway>?<iface>:<vlan>"
+	res = {"address": interface}
+	if ":" in res["address"]:
+		res["address"], res["vlan"] = res["address"].split(":")
+	if "?" in res["address"]:
+		res["address"], res["iface"] = res["address"].split("?")
+	if "@" in res["address"]:
+		res["address"], res["gateway"] = res["address"].split("@")
+	if "/" in res["address"]:
+		res["address"], res["mask"] = res["address"].split("/")
+	assert\
+		res["address"] == "dhcp"\
+		or re.match("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", res["address"]),\
+		"%s: expected 'dhcp' or ip4 address" % res["address"]
+	return res
 
-def assert_interfaces(lst):
-	assert isinstance(lst, (list, tuple))
-	for item in lst:
-		head = item
-		if ":" in head:
-			head, vlan = head.split(":")
-		if "?" in head:
-			head, iface = head.split("?")
-		if "@" in head:
-			head, gateway = head.split("@")
-		if "/" in item:
-			head, mask = head.split("/")
-		if not head == "dhcp":
-			assert_ipv4(head)
+STORE_HOSTNAME = "10.69.0.2"
 
-def allocate_address(key):
-	cnx = httplib.HTTPConnection(host = "10.69.0.2", port = 9876)
-	cnx.request("GET", "/%s/allocate" % key)
-	res = cnx.getresponse()
-	assert res.status == 200, res.reason
-	addr = res.read()
-	assert_ipv4(addr)
-	return addr
+STORE_PORT = 9876
 
-def release_address(key, addr):
-	cnx = httplib.HTTPConnection(host = "10.69.0.2", port = 9876)
-	cnx.request("GET", "/%s/release/%s" % (key, addr))
-	res = cnx.getresponse()
-	assert res.status == 200, res.reason
+class Stores(object):
 
-class ImageParms(object):
+	_instance = None # singleton
+
+	def __new__(cls):
+		if not cls._instance:
+			cls._instance = super(Stores, cls).__new__(cls)
+		return cls._instance
+
+	def __getattr__(self, key):
+		if key == "cnx":
+			self.cnx = httplib.HTTPConnection(host = STORE_HOSTNAME, port = STORE_PORT)
+			return self.cnx
+		raise AttributeError(key)
+
+	@staticmethod
+	def get_names():
+		return ("cdn", "cw", "vp", "tg", "srv", "pub")
+
+	def get(self, path):
+		try:
+			self.cnx.request("GET", path)
+			res = self.cnx.getresponse()
+			assert res.status == 200, "%i, %s" % (res.status, res.reason)
+			return res.read()
+		except Exception as e:
+			raise Exception("IPStore GET %s:%s%s: %s" % (
+				STORE_HOSTNAME,
+				STORE_PORT,
+				path,
+				e))
+
+class Store(object):
+
+	_instances = {} # one instance per store name
+
+	def __new__(cls, name):
+		if not name in Store._instances:
+			Store._instances[name] = super(Store, cls).__new__(cls, name)
+		return Store._instances[name]
+
+	def __init__(self, name):
+		self.name = name
+
+	def get(self, path):
+		return Stores().get("/%s%s" % (self.name, path))
+
+class LazyStoreValue(object):
+
+	store_method_name = None
+
+	def __init__(self, store_name):
+		self.store_name = store_name
+
+	def __getattr__(self, key):
+		if key == "value":
+			self.value = Store(self.store_name).get(self.path)
+			return self.value
+		super(Address, self).__getattr__(key)
+
+	def __str__(self):
+		return "%s" % self.value
+
+class DnsSearch(LazyStoreValue):
+
+	path = "/dns_search"
+
+class Gateway(LazyStoreValue):
+
+	path = "/gateway"
+
+class Address(LazyStoreValue):
+
+	path = "/allocate"
+
+class Dns(LazyStoreValue):
+
+	path = "/dns"
+
+class Profile(object):
+	"profile abstract class"
 
 	__metaclass__ = abc.ABCMeta
 
 	def __init__(self, **kwargs):
-		self.kwargs = kwargs
+		for key in kwargs:
+			setattr(self, key, kwargs[key])
 
-	def __str__(self):
-		return self.kwargs
+	profiles = {} # dict of func(hostname[, store_name])
 
-	def __getitem__(self, key):
-		return self.kwargs[key]
+	@classmethod
+	def get_profile_names(cls):
+		"generator, yield all profile names"
+		for key in cls.profiles:
+			args, _, _, _ = inspect.getargspec(cls.profiles[key])
+			if "store_name" in args:
+				for store_name in Stores().get_names():
+					yield "%s:%s" % (store_name, key)
+			elif "in_store_name" in args and "out_store_name" in args:
+				store_names = Stores().get_names()
+				for in_store_name in store_names:
+					for out_store_name in store_names:
+						if in_store_name != out_store_name:
+							yield "%s:%s:%s" % (in_store_name, out_store_name, key)
+			else:
+				yield key
 
-	def __setitem__(self, key, value):
-		self.kwargs[key] = value
+	@classmethod
+	def get_profile(cls, hostname, profile_name):
+		"instanciate named profile"
+		if ":" in profile_name:
+			lst = profile_name.split(":")
+			if len(lst) == 2:
+				store_name, key = lst
+				kwargs = {"store_name": store_name}
+			elif len(lst) == 3:
+				in_store_name, out_store_name, key = lst
+				kwargs = {
+					"in_store_name": in_store_name,
+					"out_store_name": out_store_name,
+				}
+		else:
+			key = profile_name
+			kwargs = {}
+		assert key in cls.profiles, "%s: unsupported profile" % key
+		return cls.profiles[key](hostname = hostname, **kwargs)
 
-	def __contains__(self, key):
-		return key in self.kwargs
-
-	@abc.abstractmethod
-	def get_profile(self, hostname, profile_name):
-		raise NotImplementedError()
-
-	def get_raid_list(self):
+	def _get_raid_list(self):
+		"return I.S. raid-specific parameter list from current object"
 		lst = []
-		if "raid" in self:
+		if hasattr(self, "raid"):
 			assert\
-				self["raid"] in (0, 1, 4, 5, 6, 10),\
-				"%i: illegal raid level" % self["raid"]
-			lst += ["--raid", "%i" % self["raid"]]
-		if "raid_devices" in self:
-			lst += ["--raid-devices", self["raid_devices"]]
-		if "raid_limit" in self and self["raid_limit"]:
+				self.raid in (0, 1, 4, 5, 6, 10),\
+				"%i: illegal raid level" % self.raid
+			lst += ["--raid", "%i" % self.raid]
+		if hasattr(self, "raid_devices"):
+			lst += ["--raid-devices", self.raid_devices]
+		if hasattr(self, "raid_limit") and self.raid_limit:
 			lst += ["--raid-limit"]
-		if "raid_wait" in self and self["raid_wait"]:
+		if hasattr(self, "raid_wait") and self.raid_wait:
 			lst += ["--raid-wait"]
 		return lst
 
-	def get_bond_list(self):
-		"handle bond-specific parameters"
+	def _get_bond_list(self):
+		"return I.S. bond-specific parameter list from current object"
 		lst = []
-		if "bond" in self:
-			lst += ["--bond", self["bond"]]
-		if "bond_slaves" in self:
-			lst += ["--bond-slaves", " ".join(self["bond_slaves"])]
-		if "bond_mode" in self:
-			lst += ["--bond-mode", self["bond_mode"]]
-		if "bond_hash" in self:
-			lst += ["--bond-hash", self["bond_hash"]]
+		if hasattr(self, "bond"):
+			lst += ["--bond", self.bond]
+		if hasattr(self, "bond_slaves"):
+			lst += ["--bond-slaves", " ".join(self.bond_slaves)]
+		if hasattr(self, "bond_mode"):
+			lst += ["--bond-mode", self.bond_mode]
+		if hasattr(self, "bond_hash"):
+			lst += ["--bond-hash", self.bond_hash]
 		return lst
 
-	def get_cc_list(self):
-		"handle cc-specific parameters"
+	def _get_mail_list(self):
+		"return I.S. mail-specific parameter list from current object"
 		lst = []
-		if "cc_enable" in self and self["cc_enable"]:
+		if hasattr(self, "smtp"):
+			lst += ["--smtp", self.smtp]
+		if hasattr(self, "mail_root"):
+			lst += ["--mail-root", self.mail_root]
+		if hasattr(self, "mail_domain"):
+			lst += ["--mail-domain", self.kwargs.mail_domain]
+		return lst
+
+	def _get_cc_list(self):
+		"return I.S. cc-specific parameter list from current object"
+		lst = []
+		if hasattr(self, "cc_enable") and self.cc_enable:
 			lst += ["--cc-enable"]
-		if "cc_server" in self:
-			lst += ["--cc-server", self["cc_server"]]
-		if "cc_port" in self:
-			lst += ["--cc-port", self["cc_port"]]
-		if "cc_login" in self:
-			lst += ["--cc-login", self["cc_login"]]
-		if "cc_password" in self:
-			lst += ["--cd-password", self["cc_password"]]
+		if hasattr(self, "cc_server"):
+			lst += ["--cc-server", self.cc_server]
+		if hasattr(self, "cc_port"):
+			lst += ["--cc-port", self.cc_port]
+		if hasattr(self, "cc_login"):
+			lst += ["--cc-login", self.cc_login]
+		if hasattr(self, "cc_password"):
+			lst += ["--cd-password", self.cc_password]
 		return lst
 
-class DebianSJParms(ImageParms):
-	"helper class to build the debian-smartjog image parameter list"
+	@abc.abstractmethod
+	def get_list(self):
+		"return I.S. parameter list from current object"
+		raise NotImplementedError()
+
+class DebianSJProfile(Profile):
+	"helper class to build the debian-smartjog image I.S. parameter list"
+
+	image_name = "debian-smartjog"
 
 	def __init__(self, hostname, disks, **kwargs):
 		kwargs["hostname"] = hostname
 		kwargs["disks"] = disks
-		super(DebianSJParms, self).__init__(**kwargs)
+		super(DebianSJProfile, self).__init__(**kwargs)
 
-	@staticmethod
-	def get_profile(hostname, profile_name):
-		if ":" in profile_name:
-			pf, cfg = profile_name.split(":")
-		else:
-			cfg = profile_name
-		d = {
-			"pg": lambda: DebianSJParms(
-				hostname = normalized_playground_hostname(hostname),
-				kvm = True,
-				cpu = 1,
-				memory = 512,
-				interfaces = ("dhcp:2006",),
-				password = "arkena",
-				disks = ("rootfs:2048@vg",),
-				dns = ("192.168.11.253",),
-				ntp = "ntp.fr.lan",
-				start = True,
-				autostart = True),
-			"std": lambda: DebianSJParms(
-				hostname = hostname,
-				kvm = True,
-				cpu = 1,
-				memory = 512,
-				interfaces = (allocate_address(pf),),
-				password = "arkena",
-				disks = ("rootfs:2048@vg",),
-				start = True,
-				autostart = True),
-		}
-		assert cfg in d, "unsupported profile, '%s' not in %s" % (cfg, d.keys())
-		return d[cfg]()
+	profiles = {
+		"pg": lambda hostname: DebianSJProfile(
+			interfaces = ("dhcp:2006",),
+			dns_search = ("fr.lan",),
+			hostname = normalized_playground_hostname(hostname),
+			password = "arkena",
+			memory = 512,
+			disks = ("rootfs:2048@vg",),
+			start = True,
+			dns = ("192.168.11.253",),
+			ntp = ("ntp.fr.lan",),
+			kvm = True,
+			cpu = 1),
+		"basic": lambda hostname, store_name: DebianSJProfile(
+			interfaces = (Address(store_name = store_name),),
+			hostname = hostname,
+			password = "arkena",
+			memory = 512,
+			disks = ("rootfs:2048@vg",),
+			start = True,
+			kvm = True,
+			cpu = 1),
+	}
 
+	# !!! parameter order matters for I.S. !!!
 	def get_list(self):
-		if "hostname" in self:
-			lst = ["--hostname", self["hostname"]]
-		if "domainname" in self:
-			lst += ["--domainname", self["domainname"]]
-		if "kvm" in self and self["kvm"]:
+		if hasattr(self, "hostname"):
+			lst = ["--hostname", self.hostname]
+		if hasattr(self, "domainname"):
+			lst += ["--domainname", self.domainname]
+		if hasattr(self, "kvm") and self.kvm:
 			lst += ["--kvm"]
-		if "disks" in self:
-			for item in self["disks"]:
+		if hasattr(self, "disks"):
+			for item in map(str, self.disks):
 				head = item
 				if ":" in head:
 					fs, head = item.split(":")
 				if "@" in head:
 					size, vgname = head.split("@")
 					assert int(size) >= 2048, "%s: disk size must be >= 2048" % item
-			lst += ["--disks", " ".join(self["disks"])]
-		if "root_part_size" in self:
-			lst += ["--root-part-size", self["root_part_size"]]
-		if "cpu" in self:
-			lst += ["--cpu", "%i" % self["cpu"]]
-		if "memory" in self:
-			lst += ["--memory", "%i" % self["memory"]]
-		if "start" in self and self["start"]:
+			lst += ["--disks", " ".join(self.disks)]
+		if hasattr(self, "root_part_size"):
+			lst += ["--root-part-size", self.root_part_size]
+		if hasattr(self, "cpu"):
+			lst += ["--cpu", "%i" % self.cpu]
+		if hasattr(self, "memory"):
+			lst += ["--memory", "%i" % self.memory]
+		if hasattr(self, "start") and self.start:
 			lst += ["--start"]
-		if "autostart" in self and self["autostart"]:
+		if hasattr(self, "autostart") and self.autostart:
 			lst += ["--autostart"]
-		lst += self.get_raid_list()
-		if "interfaces" in self:
-			assert_interfaces(self["interfaces"])
-			lst += ["--interfaces", " ".join(self["interfaces"])]
-		if "dns" in self:
-			lst += ["--dns", " ".join(self["dns"])]
-		if "dns_search" in self:
-			lst += ["--dns-search", " ".join(self["dns_search"])]
-		if "debian_repository" in self:
-			lst += ["--debian-repository", self["debian_repository"]]
-		if "ldap" in self:
+		lst += self._get_raid_list()
+		if hasattr(self, "interfaces"):
+			interfaces = tuple("%s" % obj for obj in self.interfaces)
+			for interface in interfaces:
+				parse_interface(interface)
+			lst += ["--interfaces", " ".join(interfaces)]
+		if hasattr(self, "dns"):
+			lst += ["--dns", " ".join("%s" % obj for obj in self.dns)]
+		if hasattr(self, "dns_search"):
+			lst += ["--dns-search", " ".join("%s" % obj for obj in self.dns_search)]
+		if hasattr(self, "debian_repository"):
+			lst += ["--debian-repository", self.debian_repository]
+		if hasattr(self, "ldap"):
 			assert ldap in (None, "lanfr", "lanus", "wantvr", "wanpmm", "wancap", "wanl3la")
-			lst += ["--ldap", self["ldap"]]
-		if "password" in self:
-			lst += ["--passwd", self["password"]]
-		if "reboot" in self and self["reboot"]:
+			lst += ["--ldap", self.ldap]
+		if hasattr(self, "password"):
+			lst += ["--passwd", self.password]
+		if hasattr(self, "reboot") and self.reboot:
 			lst += ["--reboot"]
-		if "smtp" in self:
-			lst += ["--smtp", self["smtp"]]
-		if "mail_root" in self:
-			lst += ["--mail-root", self["mail_root"]]
-		if "mail_domain" in self:
-			lst += ["--mail-domain", self.kwargs["mail_domain"]]
+		lst += self._get_mail_list()
+		if hasattr(self, "ntp"):
+			lst += ["--ntp", " ".join(self.ntp)]
+		lst += self._get_cc_list()
+		if hasattr(self, "is_repository"):
+			lst += ["--is-repository", self.is_repository]
 		return lst
 
-class IWebdavParms(DebianSJParms):
-	"helper class to build the cdn-iwebdav image parameter list"
+class ITransmuxProfile(DebianSJProfile):
+	"helper class to build the cdn-itransmux image I.S. parameter list"
+
+	image_name = "cdn-itransmux"
+
+	profiles = {
+		"basic": lambda hostname, store_name: ITransmuxProfile(
+			interfaces = (Address(store_name = store_name),), # cdn_in
+			hostname = hostname,
+			password = "arkena",
+			memory = 2 * 1024,
+			disks = ("5000",),
+			start = True,
+			kvm = True),
+		"prodvm": lambda hostname, in_store_name, out_store_name: ITransmuxProfile(
+			interfaces = (
+				Address(store_name = in_store_name),   # cdn_in
+				Address(store_name = out_store_name)), # stcon
+			internal_gw = Gateway(store_name = out_store_name),
+			hostname = hostname,
+			password = "arkena",
+			memory = 2 * 1024,
+			disks = ("5000",),
+			start = True,
+			kvm = True),
+	}
+
+class IWebdavProfile(DebianSJProfile):
+	"helper class to build the cdn-iwebdav image I.S. parameter list"
+
+	image_name = "cdn-iwebdav"
 
 	def __init__(
 		self,
 		hostname,
+		disks,
 		internal_gw,
-		disks = ("root:10000",),
 		**kwargs):
 		kwargs["internal_gw"] = internal_gw
-		super(IWebdavParms, self).__init__(
+		super(IWebdavProfile, self).__init__(
 			hostname = hostname,
 			disks = disks,
 			**kwargs)
 
+	profiles = {
+		"prodphy": lambda hostname, in_store_name, out_store_name: IWebdavProfile(
+			root_part_size = 10000,
+			data_part_size = 50000,
+			internal_gw = Gateway(store_name = out_store_name),
+			interfaces = (
+				Address(store_name = in_store_name),   # cdn_in
+				Address(store_name = out_store_name)), # stcon
+			hostname = hostname,
+			password = "arkena",
+			disks = ("/dev/sda",)),
+		"prodvm": lambda hostname, in_store_name, out_store_name: IWebdavProfile(
+			internal_gw = Gateway(store_name = out_store_name),
+			interfaces = (
+				Address(store_name = in_store_name),   # cdn_in
+				Address(store_name = out_store_name)), # stcon
+			hostname = hostname,
+			password = "arkena",
+			disks = ("root:10000",),
+			start = True,
+			kvm = True),
+		"basic": lambda hostname, store_name: IWebdavProfile(
+			internal_gw = Gateway(store_name = store_name),
+			interfaces = (Address(store_name = store_name),),
+			hostname = hostname,
+			password = "arkena",
+			disks = ("root:10000",),
+			start = True,
+			kvm = True),
+	}
+
 	def get_list(self):
-		lst = super(IWebdavParms, self).get_list()
-		if "internal_gw" in self:
-			lst += ["--internal-gw", self["internal_gw"]]
-		if "data_part_size" in self:
+		lst = super(IWebdavProfile, self).get_list()
+		if hasattr(self, "internal_gw"):
+			lst += ["--internal-gw", "%s" % self.internal_gw]
+		if hasattr(self, "data_part_size"):
 			assert\
 				"root_part_size" in self,\
 				"--data-part-size cannot be used without --root-part-size"
-			lst += ["--data-part-size", self["data_part_size"]]
+			lst += ["--data-part-size", self.data_part_size]
 		return lst
 
-class IHttpullParms(DebianSJParms):
-	"helper class to build the cdn-ihttpull image parameter list"
+class IHttpullProfile(DebianSJProfile):
+	"helper class to build the cdn-ihttpull image I.S. parameter list"
+
+	image_name = "cdn-ihttpull"
 
 	def __init__(
 		self,
@@ -307,125 +462,214 @@ class IHttpullParms(DebianSJParms):
 		kwargs["dns"] = dns
 		kwargs["dns_search"] = dns_search
 		kwargs["internal_gw"] = internal_gw
-		super(IHttpullParms, self).__init__(
+		super(IHttpullProfile, self).__init__(
 			hostname = hostname,
 			disks = disks,
 			**kwargs)
 
+	profiles = {
+		"prodphy": lambda hostname, in_store_name, out_store_name: IHttpullProfile(
+			root_part_size = 50000,
+			extend_storage = 1,
+			internal_gw = Gateway(store_name = in_store_name),
+			dns_search = (DnsSearch(store_name = in_store_name),),
+			interfaces = (
+				Address(store_name = in_store_name),   # cdn_in
+				Address(store_name = out_store_name)), # stcon
+			hostname = hostname,
+			password = "arkena",
+			disks = ("/dev/sda", "/dev/sdb"),
+			raid = 0,
+			dns = (Dns(store_name = in_store_name),)),
+		"prodvm": lambda hostname, in_store_name, out_store_name: IHttpullProfile(
+			internal_gw = Gateway(store_name = in_store_name),
+			dns_search = (DnsSearch(store_name = in_store_name),),
+			interfaces = (
+				Address(store_name = in_store_name),   # cdn_in
+				Address(store_name = out_store_name)), # stcon
+			hostname = hostname,
+			password = "arkena",
+			memory = 2 * 1024,
+			disks = ("root:20000",),
+			start = True,
+			dns = (Dns(store_name = in_store_name),),
+			kvm = True,
+			cpu = 2),
+		"basic": lambda hostname, store_name: IHttpullProfile(
+			internal_gw = Gateway(store_name = store_name),
+			dns_search = (DnsSearch(store_name = store_name),),
+			interfaces = (Address(store_name = store_name),),
+			hostname = hostname,
+			password = "arkena",
+			memory = 2 * 1024,
+			disks = ("root:20000",),
+			start = True,
+			dns = (Dns(store_name = store_name),),
+			kvm = True,
+			cpu = 2),
+	}
+
 	def get_list(self):
-		lst = super(IHttpullParms, self).get_list()
-		if "internal_gw" in self:
-			lst += ["--internal-gw", self["internal_gw"]]
-		if "arch" in self:
+		lst = super(IHttpullProfile, self).get_list()
+		if hasattr(self, "internal_gw"):
+			lst += ["--internal-gw", "%s" % self.internal_gw]
+		if hasattr(self, "arch"):
 			assert self["arch"] in ("i386", "amd64")
-			lst += ["--arch", self["arch"]]
-		if "update" in self and self["update"]:
+			lst += ["--arch", self.arch]
+		if hasattr(self, "update") and self.update:
 			lst += ["--update"]
-		if "extend_storage_level" in self:
-			assert self["extend_storage_level"] == 1
-			lst += ["--extend-storage-level", self["extend_storage_level"]]
-		if "cache_directory" in self:
-			lst += ["--cache-directory", self["cache_directory"]]
+		if hasattr(self, "extend_storage_level"):
+			assert self.extend_storage_level == 1
+			lst += ["--extend-storage-level", self.extend_storage_level]
+		if hasattr(self, "cache_directory"):
+			lst += ["--cache-directory", self.cache_directory]
 		return lst
 
-class IFtpParms(DebianSJParms):
-	"helper class to build the cdn-iftp image parameter list"
+class IFtpProfile(DebianSJProfile):
+	"helper class to build the cdn-iftp image I.S. parameter list"
+
+	image_name = "cdn-iftp"
 
 	def __init__(self, hostname, disks, dns, **kwargs):
 		kwargs["dns"] = dns
-		super(IFtpParms, self).__init__(hostname, disks, **kwargs)
+		super(IFtpProfile, self).__init__(hostname, disks, **kwargs)
 
-class OHCacheParms(DebianSJParms):
-	"helper class to build the cdn-ohcache image parameter list"
+	profiles = {}
+
+class IIcemp3Profile(DebianSJProfile):
+
+	image_name = "cdn-iicemp3"
+
+	profiles = {}
+
+class IAdwzbipProfile(DebianSJProfile):
+
+	image_name = "cdn-iadwzbip"
+
+	profiles = {}
+
+class StorageProfile(DebianSJProfile):
+
+	image_name = "cdn-storage"
+
+	profiles = {}
+
+class OOhpdwlProfile(DebianSJProfile):
+
+	image_name = "cdn-oohpdwl"
+
+	profiles = {}
+
+class OHttchkProfile(DebianSJProfile):
+
+	image_name = "cdn-ohttchk"
+
+	profiles = {}
+
+class OadwzkhProfile(DebianSJProfile):
+
+	image_name = "cdn-oadwzkh"
+
+	profiles = {}
+
+class OOhsdwlProfile(DebianSJProfile):
+
+	image_name = "cdn-oohsdwl"
+
+	profiles = {}
+
+class OHttflvProfile(DebianSJProfile):
+
+	image_name = "cdn-ohttflv"
+
+	profiles = {}
+
+class OHttmp3Profile(DebianSJProfile):
+
+	image_name = "cdn-ohttmp3"
+
+	profiles = {}
+
+class OHCacheProfile(DebianSJProfile):
+	"helper class to build the cdn-ohcache image I.S. parameter list"
+
+	image_name = "cdn-ohcache"
 
 	def __init__(self, hostname, disks, internal_gw, **kwargs):
 		kwargs["internal_gw"] = internal_gw
-		super(OHCacheParms, self).__init__(
+		super(OHCacheProfile, self).__init__(
 			hostname = hostname,
 			disks = disks,
 			**kwargs)
 
-	@staticmethod
-	def get_profile(hostname, profile_name):
-		pf, cfg = profile_name.split(":")
-		addr = allocate_address(pf)
-		d = {
-			#"phy-2disks-raid0": lambda: None,
-			#"phy-2disks-raid1": lambda: None,
-			#"phy-1disk": lambda: None,
-			#"phy-lacp-bonding": lambda: None,
-			"vm-nobtrfs": lambda: OHCacheParms(
-				hostname = hostname,
-				kvm = True,
-				cpu = 4,
-				memory = 2000,
-				disks = ("root:10000",),
-				interfaces = (addr,),
-				internal_gw = "10.69.0.2",
-				password = "arkena",
-				start = True,
-				autostart = True),
-		}
-		assert cfg in d, "unsupported profile, '%s' not in %s" % (cfg, d.keys())
-		return d[cfg]()
+	profiles = {
+		"prodvm": lambda hostname, in_store_name, out_store_name: OHCacheProfile(
+			description = "vm 4 cores, 2G mem, 10G disk, stcon@%s, stdiff@%s" % (
+				in_store_name,
+				out_store_name),
+			internal_gw = Gateway(store_name = in_store_name),
+			interfaces = (
+				Address(store_name = in_store_name),   # stcon
+				Address(store_name = out_store_name)), # stdiff
+			hostname = hostname,
+			password = "arkena",
+			memory = 2000,
+			disks = ("root:10000",),
+			start = True,
+			kvm = True,
+			cpu = 4),
+		"basic": lambda hostname, store_name: OHCacheProfile(
+			description = "vm 4 cores, 2G mem, 10G disk, @%s" % store_name,
+			internal_gw = Gateway(store_name = store_name),
+			interfaces = (Address(store_name = store_name),),
+			hostname = hostname,
+			password = "arkena",
+			memory = 2000,
+			disks = ("root:10000",),
+			start = True,
+			kvm = True,
+			cpu = 4),
+	}
 
 	def get_list(self):
-		lst = super(OHCacheParms, self).get_list()
-		if "log_part_size" in self:
-			lst += ("--log-part-size", self["log_part_size"])
-		if "vip" in self:
-			lst += ("--vip", " ".join(self["vip"]))
-		if "internal_gw" in self:
-			lst += ("--internal-gw", self["internal_gw"])
-		lst += self.get_bond_list()
-		if "arch" in self:
+		lst = super(OHCacheProfile, self).get_list()
+		if hasattr(self, "log_part_size" ):
+			lst += ("--log-part-size", self.log_part_size)
+		if hasattr(self, "vip"):
+			lst += ("--vip", " ".join(self.vip))
+		if hasattr(self, "internal_gw"):
+			lst += ("--internal-gw", "%s" % self.internal_gw)
+		lst += self._get_bond_list()
+		if hasattr(self, "arch"):
 			assert self["arch"] in ("i386", "amd64")
-			lst += ["--arch", self.kwargs["arch"]]
-		if "update" in self and self["update"]:
+			lst += ["--arch", self.arch]
+		if hasattr(self, "update") and self.update:
 			lst += ["--update"]
-		lst += self.get_cc_list()
-		if "extend_storage_level" in self:
-			assert self["extend_storage_level"] in ("True", "False")
-			lst += ["--extend-storage-level", self["extend_storage_level"]]
+		lst += self._get_cc_list()
+		if hasattr(self, "extend_storage_level"):
+			assert self.extend_storage_level in ("True", "False")
+			lst += ["--extend-storage-level", self.extend_storage_level]
 		return lst
 
-def get_image_parms_for_profile(hostname, image_name, profile_name):
-	if "debian-smartjog" in image_name:
-		return DebianSJParms.get_profile(hostname = hostname, profile_name = profile_name)
-	elif "cdn-itransmux" in image_name:
-		raise NotImplementedError()
-	elif "cdn-iwebdav" in image_name:
-		raise NotImplementedError()
-	elif "cdn-ihttpull" in image_name:
-		raise NotImplementedError()
-	elif "cdn-iftp" in image_name:
-		raise NotImplementedError()
-	elif "cdn-iicemp3" in image_name:
-		raise NotImplementedError()
-	elif "cdn-iadwzbip" in image_name:
-		raise NotImplementedError()
-	elif "cdn-storage-origin" in image_name:
-		raise NotImplementedError()
-	elif "cdn-oohpdwl" in image_name:
-		raise NotImplementedError()
-	elif "cdn-ohttchk" in image_name:
-		raise NotImplementedError()
-	elif "cdn-oadwzkh" in image_name:
-		raise NotImplementedError()
-	elif "cdn-oohsdwl" in image_name:
-		raise NotImplementedError()
-	elif "cdn-ohttflv" in image_name:
-		raise NotImplementedError()
-	elif "cdn-ohttmp3" in image_name:
-		raise NotImplementedError()
-	elif "cdn-ohcache" in image_name:
-		return OHCacheParms.get_profile(hostname = hostname, profile_name = profile_name)
-	else:
-		raise Exception("%s: unsupported image, please report this" % image_name)
+def get_subclasses(cls):
+	res = []
+	for subcls in cls.__subclasses__():
+		res += [subcls] + get_subclasses(subcls)
+	return res
 
-##############
-# data model #
-##############
+def get_profile_classes():
+	return get_subclasses(Profile)
+
+def get_profile_class(image_name):
+	for cls in get_profile_classes():
+		if cls.image_name in image_name:
+			return cls
+	else:
+		raise Exception("%s: unsupported image" % image_name)
+
+#########
+# model #
+#########
 
 class Hypervisor(object):
 
@@ -444,15 +688,26 @@ class Hypervisor(object):
 		return self.run(argv = argv, *args, **kwargs)
 
 	def list_domains(self, *args, **kwargs):
-		return self.run(argv = "virsh -q list --all", *args, **kwargs)
+		res = self.run(argv = "virsh -q list --all")
+		if res:
+			stdout = ""
+			for line in res.splitlines():
+				lst = line.split()
+				line = "%s: %s\n" % (lst[1], " ".join(lst[2:]))
+				if "on_stdout_line" in kwargs:
+					kwargs["on_stdout_line"](line)
+				else:
+					stdout += line
+			res.stdout = stdout
+		return res
 
 	def create_domain(
 		self,
 		image_name,
-		image_parms,
+		profile,
 		*args,
 		**kwargs):
-		argv = ["is", "install", image_name] + image_parms.get_list()
+		argv = ["is", "install", image_name] + profile.get_list()
 		return self.run(argv = argv, *args, **kwargs)
 
 	def start_domain(self, name, *args, **kwargs):
@@ -479,14 +734,23 @@ class Hypervisor(object):
 			name)
 		return self.run(argv = argv, *args, **kwargs)
 
-	def delete_domain(self, name, keep_all_storage = False, *args, **kwargs):
+	def delete_domain(
+		self,
+		name,
+		interfaces = None,
+		keep_all_storage = False,
+		*args,
+		**kwargs):
 		argv = (
 			"virsh",
 			"-q",
 			"undefine",
 			"--remove-all-storage" if not keep_all_storage else "",
 			name)
-		return self.run(argv = argv, *args, **kwargs)
+		res = self.run(argv = argv, *args, **kwargs)
+		for interface in interfaces:
+			address = parse_interface(interface)["address"]
+			Stores().get("/release/%s" % address)
 
 	def load(self, *args, **kwargs):
 		return self.run(argv = r"uptime | sed 's/.*load average: [0-9]*.[0-9]*, [0-9]*.[0-9]*, \([0-9]*\).\([0-9]*\)/\1.\2/g'", *args, **kwargs)
@@ -494,19 +758,20 @@ class Hypervisor(object):
 	def disk(self, *args, **kwargs):
 		return self.run(argv = "df --total | tail -n 1 | awk '{print $4}'", *args, **kwargs)
 
-##############
-# unit tests #
-##############
+#########
+# tests #
+#########
 
-class Runner(object):
-
-	def __call__(self, argv, *args, **kwargs): pass
-
-class SelfTest(unittest.TestCase):
-
-	def setUp(self):
-		self.hv = Hypervisor(run = Runner())
-
-	def test101(self): pass
+for cls in get_profile_classes():
+	for profile_name in cls.get_profile_names():
+		def test(self, cls = cls, profile_name = profile_name):
+			cls.get_profile(
+				hostname = "%s-%s" % (cls.__name__, profile_name),
+				profile_name = profile_name)
+		pattern = re.compile(r"[\W_]+")
+		name = "%s%sTest" % (
+			cls.__name__,
+			pattern.sub('', profile_name.title()))
+		globals()[name] = type(name, (unittest.TestCase,), {"test": test})
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
