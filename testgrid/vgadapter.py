@@ -2,7 +2,9 @@
 
 "vagrant.Guest adapter for testgrid"
 
-import ansible.inventory, ansible.runner, testgrid, unittest, time, os
+import ansible.inventory, ansible.runner, unittest, time, os
+
+from testgrid import model, database, persistent, vagrant
 
 APT_CONF = """
 #
@@ -146,12 +148,18 @@ apt-get install -qqy --force-yes git
 echo "** all done **"
 """
 
-class Node(testgrid.model.Node):
+class Node(database.StorableNode):
 
 	def __init__(self, name, root):
 		super(Node, self).__init__(name)
 		self.root = root
-		self.guest = testgrid.vagrant.Guest(root = root)
+		self.guest = vagrant.Guest(root = root)
+
+	def marshall(self):
+		return "%s" % {
+			"name": self.name,
+			"root": self.root,
+		}
 
 	def __eq__(self, other):
 		return isinstance(other, Node)\
@@ -185,7 +193,7 @@ class Node(testgrid.model.Node):
 	def get_hoststring(self):
 		ifname = self.guest.get_bridged_interface_name()
 		ifaddr = self.guest.get_inet_addresses()[ifname]
-		return testgrid.model.Hoststring("vagrant@%s" % ifaddr)
+		return model.Hoststring("vagrant@%s" % ifaddr)
 
 	def create(self, **opts):
 		use_proxy = opts.get("use_proxy", False)
@@ -222,7 +230,7 @@ class Node(testgrid.model.Node):
 	def get_installed_packages(self):
 		raise NotImplementedError("vgadapter.Node.get_installed_packages() not implemented yet")
 
-class Grid(testgrid.persistent.Grid):
+class Grid(persistent.Grid):
 
 	def __init__(self, name, root, *args, **kwargs):
 		super(Grid, self).__init__(name = name, *args, **kwargs)
@@ -237,13 +245,13 @@ class Grid(testgrid.persistent.Grid):
 				node = Node(name = name, root = os.path.join(root, name))
 				nodes.append(node)
 
-	def create_node(self, pkg = None, **opts):
+	def _create_node(self, pkg = None, **opts):
 		name = opts.get("name", "node-%i" % int(time.time()))
 		node = Node(name = name, root = os.path.join(self.root, name))
 		node.create(**opts)
 		return node
 
-	def terminate_node(self, node):
+	def _terminate(self, node):
 		node.terminate()
 
 #########
@@ -252,20 +260,22 @@ class Grid(testgrid.persistent.Grid):
 
 class SelfTest(unittest.TestCase):
 
-	timeout = 70
+	def setUp(self):
+		self.grid = Grid(name = "test", root = "/tmp", dbpath = "/tmp/vgtest.db")
+
+	def tearDown(self):
+		self.grid.reset()
 
 	def test(self):
-		grid = Grid(name = "test", root = "/tmp", dbpath = "/tmp/vgtest.db")
-		try:
-			session = grid.open_session(name = "test")
-			node = session.allocate_node(
-				box_name = "wheezy64",
-				bridge = os.getenv("BRIDGE", testgrid.vagrant.DEFAULT_BRIDGE))
-			self.assertTrue(node.is_up())
-			del session
-			session = grid.open_session(name = "test")
-			self.assertIn(node, session)
-		finally:
-			grid.close()
+		user = database.StorableUser("user")
+		session = self.grid.open_session(name = "test", user = user)
+		node = session.allocate_node(
+			box_name = "wheezy64",
+			bridge = os.getenv("BRIDGE", vagrant.DEFAULT_BRIDGE))
+		self.assertTrue(node.is_up())
+		del session
+		session = self.grid.open_session(name = "test", user = user) # re-open
+		self.assertIn(node, session)
+		session.close()
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

@@ -266,7 +266,13 @@ class NoSuchItemError(Exception):
 			type(item).__name__.lower(),
 			container))
 
-class User(object): pass
+class User(object):
+
+	def __init__(self, name):
+		self.name = name
+
+	def __str__(self):
+		return self.name
 
 class Session(object):
 	"""
@@ -278,7 +284,7 @@ class Session(object):
 		self.gridref = gridref
 		self.name = name
 		self.user = user
-		self.plan = plan or [] # list of pairs (package, node)
+		self.plan = plan if plan is not None else [] # list of pairs (package, node)
 		self.subnet = subnet # optional, maybe None
 
 	def __str__(self):
@@ -319,6 +325,7 @@ class Session(object):
 				break
 		else:
 			raise NoSuchItemError(node, self)
+		self.plan.remove((pkg, _node))
 
 	def deploy(self, packages):
 		"get, apply, register and return a named plan"
@@ -340,7 +347,7 @@ class Session(object):
 	def undeploy(self):
 		for pkg, node in self.plan:
 			self._release_pair(pkg, node)
-		self.plan = []
+		del self.plan[:]
 
 	def close(self, force = False):
 		if self.plan and not force:
@@ -401,9 +408,9 @@ class Grid(object):
 
 	def __init__(self, name, nodes = None, subnets = None, sessions = None):
 		self.name = name
-		self.nodes = nodes or []
-		self.subnets = subnets or []
-		self.sessions = sessions or []
+		self.nodes = nodes if nodes is not None else []
+		self.subnets = subnets if subnets is not None else []
+		self.sessions = sessions if sessions is not None else []
 
 	def __str__(self):
 		return self.name
@@ -549,15 +556,16 @@ class Grid(object):
 			for subnet in self.subnets:
 				for session in self.sessions:
 					if session.subnet == subnet:
-						continue
-				return subnet
+						break
+				else:
+					return subnet
 			else:
 				raise SubnetPoolExhaustedError()
 		else:
 			return None
 
 	def open_session(self, name, user, session_cls = Session, **opts):
-		# reopen session if it exists...
+		# re-open session if it exists...
 		for session in self.sessions:
 			if session.name == name:
 				if not session.user == user:
@@ -703,21 +711,23 @@ class SelfTest(unittest.TestCase):
 	"all grid subclasses must pass those tests, derive and adapt $cls below"
 
 	cls = {
-		"gengrid": FakeGenerativeGrid, # generative grid
-		"grid": Grid, # non-generative grid
+		"generative_grid": FakeGenerativeGrid, # generative grid
+		"package": FakePackage,
+		"subnet": Subnet,
 		"node": FakeNode,
-		"pkg": FakePackage,
+		"user": User,
+		"grid": Grid, # non-generative grid
 	}
 
 	def test_mocks(self):
 		"test mocks"
 		node = self.cls["node"](name = "node")
-		pkg = self.cls["pkg"](name = "pkg", version = "1.0")
+		pkg = self.cls["package"](name = "package", version = "1.0")
 		node.install(pkg)
 		assert node.is_installed(pkg)
 		node.uninstall(pkg)
 		assert not node.is_installed(pkg)
-		subnet = Subnet("vlan14")
+		subnet = self.cls["subnet"]("subnet")
 		node.join(subnet)
 		assert node in subnet
 		node.leave(subnet)
@@ -738,7 +748,7 @@ class SelfTest(unittest.TestCase):
 		"test subnet management operations"
 		grid = self.cls["grid"]("grid")
 		self.assertIs(grid._get_available_subnet(), None)
-		subnet = Subnet("subnet")
+		subnet = self.cls["subnet"]("subnet")
 		grid.add_subnet(subnet)
 		self.assertEqual(grid._get_available_subnet(), subnet)
 		self.assertRaises(DuplicatedSubnetError, grid.add_subnet, subnet)
@@ -748,17 +758,19 @@ class SelfTest(unittest.TestCase):
 
 	def test_open_close_session(self):
 		grid = self.cls["grid"]("grid")
-		session = grid.open_session(name = "session", user = "user")
+		user = self.cls["user"]("user")
+		session = grid.open_session(name = "session", user = user)
 		self.assertIn(session, grid.sessions)
 		self.assertEqual(len(grid.sessions), 1)
-		grid.open_session(name ="session", user = "user").close()
+		grid.open_session(name ="session", user = user).close()
 		self.assertEqual(len(grid.sessions), 0)
 
-	def test_grid_closing(self):
+	def test_grid_reset(self):
 		"test grid closing on a generative grid"
-		grid = self.cls["gengrid"]("grid")
+		grid = self.cls["generative_grid"]("grid")
+		user = self.cls["user"]("user")
 		for i in xrange(10):
-			session = grid.open_session(name = "session%i" % i, user = "user%i" % i)
+			session = grid.open_session(name = "session%i" % i, user = user)
 			node = session.allocate_node()
 		grid.reset()
 		self.assertEquals(len(grid), 0)
@@ -771,11 +783,12 @@ class SelfTest(unittest.TestCase):
 		# assert all nodes are in the session subnet
 		if session.subnet:
 			for _, node in plan:
-				assert\
-					node in session.subnet,\
-					"node '%s' not in subnet '%s'" % (node, session.subnet)
-				assert\
-					grid.is_allocated(node),\
+				assert node in session.subnet,\
+					"node '%s' not in subnet '%s' (node subnets: %s)" % (
+						node,
+						session.subnet,
+						node.get_subnets())
+				assert grid.is_allocated(node),\
 					"node '%s' not allocated" % node
 		# assert all packages are installed
 		for src_pkg in packages:
@@ -789,26 +802,30 @@ class SelfTest(unittest.TestCase):
 	def assert_undeployment(self, nodes, grid, session):
 		"assert undeployment is correct"
 		for node in nodes:
-			assert\
-				grid.is_available(node),\
-				"node '%s' not available (status=%s)" % (node, grid.get_status(node))
+			assert grid.is_available(node),\
+				"node '%s' not available (status=%s)" % (
+					node,
+					grid.get_status(node))
 			# assert node have no package installed
-			assert\
-				not node.get_installed_packages(),\
-				"packages '%s' not uninstalled from node '%s'" % (node.get_installed_packages(), node)
+			assert not node.get_installed_packages(),\
+				"packages '%s' not uninstalled from node '%s'" % (
+					node.get_installed_packages(),
+					node)
 			# assert node has left the session subnet
 			if session.subnet:
-				assert\
-					not node in session.subnet,\
-					"node '%s' still in subnet '%s'" % (node, session.subnet)
+				assert not node in session.subnet,\
+					"node '%s' still in subnet '%s'" % (
+						node,
+						session.subnet)
 
 	def mkenv(self, nb_nodes, nb_packages):
-		"create test objects, use non-generative grid"
+		"create test objects using a non-generative grid"
 		nodes = [self.cls["node"]("node%i" % i) for i in xrange(nb_nodes)]
-		packages = tuple(self.cls["pkg"]("pkg%i" % i, "1.0") for i in xrange(nb_packages))
-		subnets = [Subnet("vlan14")]
+		packages = [self.cls["package"]("pkg%i" % i, "1.0") for i in xrange(nb_packages)]
+		subnets = [self.cls["subnet"]("subnet")]
 		grid = self.cls["grid"](name = "grid", subnets = subnets, nodes = nodes)
-		session = grid.open_session(name = "session", user = "user")
+		user = self.cls["user"](name = "user")
+		session = grid.open_session(name = "session", user = user)
 		return (nodes, packages, grid, session)
 
 	def test_bijective_cycle(self):
@@ -844,12 +861,13 @@ class SelfTest(unittest.TestCase):
 
 	def test_node_creation(self):
 		"test deployment on a generative grid"
-		grid = self.cls["gengrid"](name = "test") # empty grid
+		grid = self.cls["generative_grid"](name = "test") # empty grid
 		assert len(grid) == 0
-		foo = self.cls["pkg"]("foo", "1.0")
-		bar = self.cls["pkg"]("bar", "1.0")
+		foo = self.cls["package"]("foo", "1.0")
+		bar = self.cls["package"]("bar", "1.0")
 		packages = [foo, bar]
-		session = grid.open_session(name = "session", user = "user")
+		user = self.cls["user"]("user")
+		session = grid.open_session(name = "session", user = user)
 		# assert nodes are created and are transient:
 		plan = session.deploy(packages = packages)
 		for pkg, node in plan:
@@ -858,5 +876,12 @@ class SelfTest(unittest.TestCase):
 		session.close(force = True)
 		for pkg, node in plan:
 			self.assertFalse(node.is_up(), "node '%s' still up" % node)
+
+	def test_access_violation(self):
+		grid = self.cls["grid"]("grid")
+		user1 = self.cls["user"]("user1")
+		session1 = grid.open_session("session1", user = user1)
+		user2 = self.cls["user"]("user2")
+		self.assertRaises(AccessViolation, grid.open_session, "session1", user2)
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

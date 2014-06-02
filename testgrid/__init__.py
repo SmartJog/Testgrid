@@ -23,9 +23,9 @@ import debian # model
 import remote # model
 
 import client # model, parser
-#import database # model, parser
+import database # model, parser
 
-#import persistent # model, database
+import persistent # model, database
 
 #import vgadapter # model, persistent, vagrant
 #import isadapter # model, persistent, installsystems

@@ -2,14 +2,14 @@
 
 "installsystems.Hypervisor adapter for testgrid"
 
-import testgrid
+from testgrid import database, persistent, installsystems
 
-class Node(testgrid.model.Node):
+class Node(database.StorableNode):
 
 	def __init__(self, name, hoststring):
-		self.hv = testgrid.installsystems.Hypervisor(run = lambda *args, **kwargs: None)
+		self.hv = installsystems.Hypervisor(run = lambda *args, **kwargs: None)
 
-class Grid(testgrid.persistent.Grid): pass
+class Grid(persistent.Grid): pass
 
 #########
 # tests #

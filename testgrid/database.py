@@ -14,8 +14,8 @@ create table Nodes (
 	modulename text not null,
 	typename text not null,
 	name text not null,
-	is_transient INT default 0,
-	is_quarantined INT default 0,
+	is_transient integer default 0,
+	is_quarantined integer default 0,
 	quarantine_reason text,
 	data text not null,
 	unique(modulename, typename, data)
@@ -35,6 +35,7 @@ create table Users (
 	id integer primary key autoincrement,
 	modulename text not null,
 	typename text not null,
+	name text not null,
 	data text not null,
 	unique(modulename, typename, data)
 );
@@ -45,7 +46,7 @@ create table Sessions (
 	typename text not null,
 	name text not null,
 	user_id integer not null references Users(id) on delete restrict,
-	subnet_id integer not null references Subnets(id) on delete restrict,
+	subnet_id integer references Subnets(id) on delete restrict,
 	data text not null,
 	unique(name)
 );
@@ -64,7 +65,7 @@ create table Packages (
 create table Pairs (
 	id integer primary key autoincrement,
 	session_id integer not null references Sessions(id) on delete cascade,
-	package_id integer not null references Packages(id) on delete restrict,
+	package_id integer references Packages(id) on delete restrict,
 	node_id integer not null references Nodes(id) on delete restrict,
 	unique(session_id, node_id)
 );
@@ -93,9 +94,12 @@ class Storable(object):
 
 class Database(object):
 
-	def __init__(self, dbpath = "testgrid.db"):
-		self.dbpath = os.path.expanduser(dbpath)
-		if not os.path.exists(self.dbpath):
+	def __init__(self, dbpath):
+		if dbpath != ":memory:":
+			self.dbpath = os.path.expanduser(dbpath)
+		else:
+			self.dbpath = dbpath
+		if dbpath == ":memory:" or not os.path.exists(self.dbpath):
 			self.con = sqlite3.connect(self.dbpath)
 			self.con.executescript(SCHEMA)
 		else:
@@ -171,13 +175,15 @@ class Database(object):
 				FROM Nodes WHERE id = ?
 			""",
 			(id,))
-		if self.cur.rowcount < 1:
+		row = self.cur.fetchone()
+		if not row:
 			raise model.NoSuchItemError(id, "table Nodes")
-		modulename, typename, data  = self.cur.fetchone()
-		return parser.get_subclass(
-			typename,
-			model.Node,
-			modulename).unmarshall(data)
+		else:
+			modulename, typename, data = row
+			return parser.get_subclass(
+				typename,
+				model.Node,
+				modulename).unmarshall(data)
 
 	def get_nodes(self):
 		self.cur.execute("SELECT modulename, typename, data FROM Nodes")
@@ -218,10 +224,12 @@ class Database(object):
 				type(obj).__module__,
 				type(obj).__name__,
 				obj.marshall()))
-		if self.cur.rowcount < 1:
+		row = self.cur.fetchone()
+		if not row:
 			raise model.NoSuchItemError(obj, "table Nodes")
-		reason, = self.cur.fetchone()
-		return reason
+		else:
+			reason, = row
+			return reason
 
 	def rehabilitate_node(self, obj):
 		self.cur.execute(
@@ -261,10 +269,12 @@ class Database(object):
 				type(obj).__module__,
 				type(obj).__name__,
 				obj.marshall()))
-		if self.cur.rowcount < 1:
+		row = self.cur.fetchone()
+		if not row:
 			raise model.NoSuchItemError(obj, "table Nodes")
-		is_quarantined, = self.cur.fetchone()
-		return bool(is_quarantined)
+		else:
+			is_quarantined, = row
+			return bool(is_quarantined)
 
 	def is_transient(self, obj):
 		self.cur.execute(
@@ -276,10 +286,12 @@ class Database(object):
 				type(obj).__module__,
 				type(obj).__name__,
 				obj.marshall()))
-		if self.cur.rowcount < 1:
+		row = self.cur.fetchone()
+		if not row:
 			raise model.NoSuchItemError(obj, "table Nodes")
-		is_transient, = self.cur.fetchone()
-		return bool(is_transient)
+		else:
+			is_transient, = row
+			return bool(is_transient)
 
 	###########
 	# subnets #
@@ -337,13 +349,15 @@ class Database(object):
 				FROM Subnets WHERE id = ?
 			""",
 			(id,))
-		if not self.cur.rowcount:
-			raise model.NoSuchItemError(obj, "table Subnets")
-		modulename, typename, data  = self.cur.fetchone()
-		return parser.get_subclass(
-			typename,
-			model.Subnet,
-			modulename).unmarshall(data)
+		row = self.cur.fetchone()
+		if not row:
+			raise model.NoSuchItemError(id, "table Subnets")
+		else:
+			modulename, typename, data = row
+			return parser.get_subclass(
+				typename,
+				model.Subnet,
+				modulename).unmarshall(data)
 
 	def get_subnets(self):
 		self.cur.execute("SELECT modulename, typename, data FROM Subnets")
@@ -383,10 +397,12 @@ class Database(object):
 				type(obj).__module__,
 				type(obj).__name__,
 				obj.marshall()))
-		if self.cur.rowcount < 1:
+		row = self.cur.fetchone()
+		if not row:
 			raise model.NoSuchItemError(obj, "table Subnets")
-		is_transient, = self.cur.fetchone()
-		return bool(is_transient)
+		else:
+			is_transient, = row
+			return bool(is_transient)
 
 	def release_subnet(self, obj):
 		self.cur.execute(
@@ -406,15 +422,16 @@ class Database(object):
 	# users #
 	#########
 
-	def add_user(self, obj):
+	def add_user(self, user):
 		self.cur.execute(
 			"""
-				INSERT INTO Users(modulename, typename, data)
-				VALUES (?, ?, ?)
+				INSERT INTO Users(modulename, typename, name, data)
+				VALUES (?, ?, ?, ?)
 			""", (
-				type(obj).__module__,
-				type(obj).__name__,
-				obj.marshall()))
+				type(user).__module__,
+				type(user).__name__,
+				user.name,
+				user.marshall()))
 		self.con.commit()
 		return self.cur.lastrowid
 
@@ -457,13 +474,15 @@ class Database(object):
 				FROM Users WHERE id = ?
 			""",
 			(id,))
-		if not self.cur.rowcount:
-			raise model.NoSuchItemError(obj, "table Users")
-		modulename, typename, data  = self.cur.fetchone()
-		return parser.get_subclass(
-			typename,
-			model.User,
-			modulename).unmarshall(data)
+		row = self.cur.fetchone()
+		if not row:
+			raise model.NoSuchItemError(id, "table Users")
+		else:
+			modulename, typename, data = row
+			return parser.get_subclass(
+				typename,
+				model.User,
+				modulename).unmarshall(data)
 
 	def get_users(self):
 		self.cur.execute("SELECT modulename, typename, data FROM Users")
@@ -536,13 +555,15 @@ class Database(object):
 				FROM Packages WHERE id = ?
 			""",
 			(id,))
-		if not self.cur.rowcount:
-			raise model.NoSuchItemError(obj, "table Packages")
-		modulename, typename, data  = self.cur.fetchone()
-		return parser.get_subclass(
-			typename,
-			model.Package,
-			modulename).unmarshall(data)
+		row = self.cur.fetchone()
+		if not row:
+			raise model.NoSuchItemError(id, "table Packages")
+		else:
+			modulename, typename, data = row
+			return parser.get_subclass(
+				typename,
+				model.Package,
+				modulename).unmarshall(data)
 
 	def get_packages(self):
 		self.cur.execute(
@@ -566,9 +587,12 @@ class Database(object):
 	# pairs #
 	#########
 
-	def _add_pair(self, session_id, pair):
+	def _add_pair_nocommit(self, session_id, pair):
 		package, node = pair
-		package_id = self._get_package_id(package, force = True) # add package
+		if package is not None:
+			package_id = self._get_package_id(package, force = True) # add package
+		else:
+			package_id = None
 		node_id = self._get_node_id(node, force = True) # add node
 		self.cur.execute(
 			"""
@@ -578,10 +602,12 @@ class Database(object):
 				session_id,
 				node_id,
 				package_id))
-		# no commit!
+
+	def _add_pair(self, *args, **kwargs):
+		self._add_pair_nocommit(*args, **kwargs)
+		self.con.commit()
 
 	def remove_pair(self, session_id, pair):
-		session_id = self._get_session_id(session)
 		_, node = pair
 		node_id = self._get_node_id(node)
 		self.cur.execute(
@@ -605,9 +631,22 @@ class Database(object):
 			(session_id,))
 		pairs = []
 		for package_id, node_id in self.cur.fetchall():
-			pair = (self._get_package(package_id), self._get_node(node_id))
+			if package_id is None:
+				package = None
+			else:
+				package = self._get_package(package_id)
+			pair = (package, self._get_node(node_id))
 			pairs.append(pair)
 		return tuple(pairs)
+
+	def count_pairs(self):
+		self.cur.execute("SELECT count(*) FROM Pairs")
+		cnt, = self.cur.fetchone()
+		return cnt
+
+	def clear_pairs(self):
+		self.cur.execute("DELETE FROM Pairs")
+		self.con.commit()
 
 	############
 	# sessions #
@@ -632,7 +671,7 @@ class Database(object):
 				session.marshall()))
 		session_id = self.cur.lastrowid
 		for pair in session.plan:
-			self._add_pair(session_id, pair)
+			self._add_pair_nocommit(session_id, pair)
 		self.con.commit()
 		return session_id
 
@@ -668,6 +707,53 @@ class Database(object):
 			else:
 				raise model.NoSuchItemError(obj, "table Sessions")
 
+	class Plan(object):
+		"list of pairs ORM"
+
+		def __init__(self, db, session):
+			self.db = db
+			self.session = session
+
+		def __eq__(self, other):
+			if isinstance(other, (tuple, list)):
+				return [pair for pair in self] == [pair for pair in other]
+			else:
+				return self.db == other.db and self.session == other.session
+
+		def __ne__(self, other):
+			return not (self == other)
+
+		def __getattr__(self, key):
+			if key == "session_id":
+				self.session_id = self.db._get_session_id(self.session)
+				return self.session_id
+			else:
+				raise AttributeError(key)
+
+		def __iter__(self):
+			for pair in self.db._get_pairs(self.session_id):
+				yield pair
+
+		def __len__(self):
+			return self.db.count_pairs()
+
+		def append(self, pair):
+			self.db._add_pair(session_id = self.session_id, pair = pair)
+
+		def remove(self, pair):
+			self.db.remove_pair(session_id = self.session_id, pair = pair)
+
+		def __iadd__(self, other):
+			for pair in other:
+				self.append(pair)
+			return self
+
+		def __delitem__(self, key):
+			if isinstance(key, slice):
+				self.db.clear_pairs()
+			else:
+				raise NotImplementedError("__delitem__(idx) not available")
+
 	def get_sessions(self, gridref = None):
 		self.cur.execute(
 			"""
@@ -682,8 +768,9 @@ class Database(object):
 				modulename).unmarshall(data)
 			session.gridref = gridref
 			session.user = self._get_user(user_id)
-			session.plan = self._get_pairs(session_id)
-			session.subnet = self._get_subnet(subnet_id)
+			session.plan = self.Plan(db = self, session = session)
+			if subnet_id is not None:
+				session.subnet = self._get_subnet(subnet_id)
 			sessions.append(session)
 		return tuple(sessions)
 
@@ -692,15 +779,76 @@ class Database(object):
 		cnt, = self.cur.fetchone()
 		return cnt
 
+####################
+# storable objects #
+####################
+
+class StorablePackage(Storable, model.Package):
+
+	def marshall(self):
+		return "%s" % {
+			"name": self.name,
+			"version": self.version,
+		}
+
+	@classmethod
+	def unmarshall(cls, data):
+		return (cls)(**eval(data))
+
+class StorableSubnet(Storable, model.Subnet):
+
+	def marshall(self):
+		return "%s" % {"id": self.id}
+
+	@classmethod
+	def unmarshall(cls, data):
+		return (cls)(**eval(data))
+
+class StorableNode(Storable, model.Node):
+
+	def marshall(self):
+		return "%s" % {"name": self.name}
+
+	@classmethod
+	def unmarshall(cls, data):
+		return (cls)(**eval(data))
+
+class StorableUser(Storable, model.User):
+
+	def marshall(self):
+		return "%s" % {"name": self.name}
+
+	@classmethod
+	def unmarshall(cls, data):
+		return (cls)(**eval(data))
+
+class StorableSession(Storable, model.Session):
+
+	def marshall(self):
+		return "%s" % {
+			"gridref": None, # filled-in by get_sessions() and open_session()
+			"name": self.name,
+			"user": None, # filled-in by get_sessions() and open_session()
+			"plan": None, # filled-in by get_sessions() and open_session()
+			"subnet": None, # filled-in by get_sessions() and open_session()
+		}
+
+	@classmethod
+	def unmarshall(cls, data):
+		return (cls)(**eval(data))
+
+	def __eq__(self, other):
+		return\
+			self.name == other.name\
+			and self.user == other.user\
+			and self.plan == other.plan\
+			and self.subnet == other.subnet
+
 #################
 # tests doubles #
 #################
 
-class FakeNode(model.Node, Storable):
-	"node implementing storable interface"
-
-	def __repr__(self):
-		return "FakeNode %s" % self.marshall()
+class FakeNode(StorableNode):
 
 	def get_hoststring(self): pass
 
@@ -716,18 +864,7 @@ class FakeNode(model.Node, Storable):
 
 	def leave(self, subnet): pass
 
-	def marshall(self):
-		return "%s" % {"name": self.name}
-
-	@classmethod
-	def unmarshall(cls, data):
-		return (cls)(**eval(data))
-
-class FakePackage(model.Package, Storable):
-	"package implementing storable interface"
-
-	def __repr__(self):
-		return "FakePackage %s" % self.marshall()
+class FakePackage(StorablePackage):
 
 	def install(self, node): pass
 
@@ -736,64 +873,6 @@ class FakePackage(model.Package, Storable):
 	def is_installed(self, node): pass
 
 	def is_installable(self, node): pass
-
-	def marshall(self):
-		return "%s" % {
-			"name": self.name,
-			"version": self.version,
-		}
-
-	@classmethod
-	def unmarshall(cls, data):
-		return (cls)(**eval(data))
-
-class FakeSubnet(model.Subnet, Storable):
-	"subnet implementing storable interface"
-
-	def __repr__(self):
-		return "FakeSubnet %s" % self.marshall()
-
-	def marshall(self):
-		return "%s" % {"id": self.id}
-
-	@classmethod
-	def unmarshall(cls, data):
-		return (cls)(**eval(data))
-
-class FakeSession(model.Session, Storable):
-	"session implementing storable interface"
-
-	def marshall(self):
-		return "%s" % {
-			"gridref": repr(None), # filled-in by get_sessions()
-			"name": self.name,
-			"user": repr(None), # filled-in by get_sessions()
-			"plan": repr(None), # filled-in by get_sessions()
-			"subnet": repr(None), # filled-in by get_sessions()
-		}
-
-	@classmethod
-	def unmarshall(cls, data):
-		return (cls)(**eval(data))
-
-	def __eq__(self, other):
-		return\
-			self.name == other.name\
-			and self.user == other.user\
-			and self.plan == other.plan\
-			and self.subnet == other.subnet
-
-class FakeUser(model.User, Storable):
-
-	def __repr__(self):
-		return "FakeUser %s" % self.marshall()
-
-	def marshall(self):
-		return ""
-
-	@classmethod
-	def unmarshall(cls, data):
-		return (cls)()
 
 #########
 # tests #
@@ -816,12 +895,10 @@ class CrudTest(object):
 	def remove_object(self, obj): pass
 
 	def setUp(self):
-		dbpath = "/tmp/%s.db" % time.strftime("%Y%m%d%H%M%S", time.localtime())
-		self.db = Database(dbpath = dbpath)
+		self.db = Database(dbpath = ":memory:")
 
 	def tearDown(self):
-		self.db.close(delete_storage = True)
-		self.assertFalse(os.path.exists(self.db.dbpath))
+		self.db.close()
 
 	def test_add_remove_object(self):
 		self.assertEqual(self.count_objects(), 0)
@@ -900,7 +977,7 @@ class PackageTest(CrudTest, unittest.TestCase):
 class SubnetTest(CrudTest, unittest.TestCase):
 
 	def Object(self):
-		return FakeSubnet(id = "subnet")
+		return StorableSubnet(id = "subnet")
 
 	def get_objects(self):
 		return self.db.get_subnets()
@@ -926,7 +1003,7 @@ class SubnetTest(CrudTest, unittest.TestCase):
 class UserTest(CrudTest, unittest.TestCase):
 
 	def Object(self):
-		return FakeUser()
+		return StorableUser(name = "user")
 
 	def get_objects(self):
 		return self.db.get_users()
@@ -943,12 +1020,12 @@ class UserTest(CrudTest, unittest.TestCase):
 class SessionTest(CrudTest, unittest.TestCase):
 
 	def Object(self):
-		return FakeSession(
+		return StorableSession(
 			gridref = None,
 			name = "session",
-			user = FakeUser(),
-			plan = ((FakePackage("pkg"), FakeNode("node")),),
-			subnet = FakeSubnet(id = "subnet"))
+			user = StorableUser("user"),
+			plan = ((FakePackage("package"), FakeNode("node")),),
+			subnet = StorableSubnet(id = "subnet"))
 
 	def get_objects(self):
 		return self.db.get_sessions()
