@@ -7,7 +7,7 @@
 
 * * *
 
-TestGrid (TG) is a PTE - Programmable Test Environments — provider.
+TestGrid (TG) is a PTE (Programmable Test Environments) provider.
 The service can use local single-user resources or shared remote resources;
 it can also be used manually or integrated to automation tools like Jenkins.
 
