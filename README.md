@@ -1,11 +1,15 @@
-	 _____         _   _____     _   _ 
-	|_   _|___ ___| |_|   __|___|_|_| |
-	  | | | -_|_ -|  _|  |  |  _| | . |
-	  |_| |___|___|_| |_____|_| |_|___|
-	                                   
+	  __                   __               .__    .___
+	_/  |_  ____   _______/  |_  ___________|__| __| _/
+	\   __\/ __ \ /  ___/\   __\/ ___\_  __ \  |/ __ | 
+	 |  | \  ___/ \___ \  |  | / /_/  >  | \/  / /_/ | 
+	 |__|  \___  >____  > |__| \___  /|__|  |__\____ | 
+	           \/     \/      /_____/               \/                               
 
-TestGrid (TG) is a PTE (Programmable Test Environments) provider service.
-The service can use local single-user resources or shared remote resources; it can also be used manually or integrated to automation tools.
+* * *
+
+TestGrid (TG) is a PTE - Programmable Test Environments — provider.
+The service can use local single-user resources or shared remote resources;
+it can also be used manually or integrated to automation tools like Jenkins.
 
 * * *
 
