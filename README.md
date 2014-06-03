@@ -63,3 +63,8 @@ Python API Example
 	>>> map(node.execute("uname") for node in session)
 	["Linux", "Linux"]
 	>>> session.close()
+
+Credits
+-------
+
+  * ascii art generator: http://patorjk.com/software/taag/#p=display&f=Graffiti&t=
