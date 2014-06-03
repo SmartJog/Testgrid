@@ -5,8 +5,7 @@
 String formatting routines.
 
 API:
-  * red|green|yellow|blue|purple|cyan|white(string)
-  * lookahead(iterable)
+  * gray|red|green|yellow|blue|purple|cyan|white(string)
   * cutline(string, maxlen)
   * strtree(iterable, use_ascii = False, maxlen = 80, is_prunable = False)
   * strcolalign(obj)
@@ -53,7 +52,7 @@ def cyan(string):
 def white(string):
 	return "\033[0;97m%s\033[0m" % string
 
-def lookahead(iterable):
+def _lookahead(iterable):
 	"""
 	On each iteration, return the pair (element, is_last).
 	Reference: http://stackoverflow.com/a/1630350
@@ -66,7 +65,10 @@ def lookahead(iterable):
 	yield last, True
 
 def cutline(string, maxlen):
-	return u"%s…" % string[:maxlen - 1] if len(string) > maxlen else string
+	if len(string) > maxlen:
+		return u"%s…" % string[:maxlen - 1]
+	else:
+		return string
 
 def strtree(iterable, use_ascii = False, maxlen = 80, is_prunable = False):
 	"""
@@ -82,11 +84,11 @@ def strtree(iterable, use_ascii = False, maxlen = 80, is_prunable = False):
 	def treelines(iterable):
 		lines = ["%s" % iterable]
 		cnt = 0
-		for child, is_last_child in lookahead(iterable):
+		for child, is_last_child in _lookahead(iterable):
 			cnt += 1
 			prefix = lastprefix if is_last_child else midprefix
 			child_lines = treelines(child)
-			for line, is_last_line in lookahead(child_lines):
+			for line, is_last_line in _lookahead(child_lines):
 				if child_lines.index(line) == 0:
 					lines.append("%s%s" % (prefix, line))
 				elif is_last_child:

@@ -1,4 +1,4 @@
-# copyright (c) 2014 smartjog, all rights reserved.
+# copyright (c) 2014 smartjog, released under the GPL license.
 
 """
 Python API for InstallSystems(tm).
@@ -84,6 +84,7 @@ STORE_HOSTNAME = "10.69.0.2"
 STORE_PORT = 9876
 
 class Stores(object):
+	"IPStore REST interface"
 
 	_instance = None # singleton
 

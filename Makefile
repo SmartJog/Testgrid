@@ -1,12 +1,13 @@
 # copyright (c) 2013-2014 smartjog, released under the GPL license.
 
-.PHONY: install loc
+.PHONY: install update loc
 
 usage::
 	@echo "Testgrid build utility."
 	@echo
 	@echo "Usage:"
 	@echo "  make install  install testgrid command-line tool and framework"
+	@echo "  make update   update 3rd-party dependencies (reserved)"
 	@echo "  make loc      return the number of lines of code"
 	@echo
 
@@ -32,6 +33,9 @@ install:
 else
 $(error unsupported platform)
 endif
+
+update:
+	@$(MAKE) -f update.mk
 
 clean::
 	-rm -rf build dist testgrid.egg-info

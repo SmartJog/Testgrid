@@ -1,26 +1,30 @@
-Test Grid
-=========
+	 _____         _   _____     _   _ 
+	|_   _|___ ___| |_|   __|___|_|_| |
+	  | | | -_|_ -|  _|  |  |  _| | . |
+	  |_| |___|___|_| |_____|_| |_|___|
+	                                   
 
-TestGrid (TG) is a service providing isolated, on-demand and Programmable Test Environments (PTE) to deploy quickly assets under test. The service can be used manually or integrated with automation tools to generate easily varying test conditions: components, configuration, connections, I/O and so on.
+TestGrid (TG) is a PTE (Programmable Test Environments) provider service.
+The service can use local single-user resources or shared remote resources; it can also be used manually or integrated to automation tools.
 
 * * *
 
 Features
 --------
 
-  * Sessions –
-    A user interacts with the TG via persistent or transient sessions     (respectively for long-running tests and one-shot short tests.)
-  * Allocation –
+  * **Sessions**
+    A user interacts with the TG via sessions.
+  * **Allocation**
     The user provides nodes’ specs, TG picks the appropriate hosting platform,     and instantiates the nodes in the given session.
-  * Deployment –
+  * **Deployment**
     The user provides packages’ specs,
     TG allocates appropriate nodes and installs the packages.
-  * Isolation –
+  * **Isolation**
     All allocated nodes are pushed in a subnet to avoid side-effects.
-  * Programmation –
+  * **Programmation**
     TG functions are accessible through its API to automate your work
     (Python API, CLI tool.)
-  * Provisioning Ecosystem Integration –
+  * **Provisioning Ecosystem Integration**
     A TG session can be fed to ansible as a dynamic inventory
 
 Requirements
@@ -42,7 +46,16 @@ Installation
 	$ cd testgrid
 	$ python setup.py install
 
-Tutorial
---------
+Python API Example
+------------------
 
-Coming soon!
+	>>> import testgrid
+	>>> client = testgrid.rest.Client()
+	>>> session = client.open_session("helloworld")
+	>>> fleche = client.get_package(name = "fleche", version = "16.3-1")
+	>>> session.deploy(fleche)
+	>>> node = session.allocate_node(is_image = "cdn-itransmux", profile = "cdn:basic")
+	>>> while not all(node.is_up() for node in session): sleep(1)
+	>>> map(node.execute("uname") for node in session)
+	["Linux", "Linux"]
+	>>> session.close()

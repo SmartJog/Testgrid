@@ -162,15 +162,17 @@ DEFAULT_BRIDGE = "en0: Wi-Fi (AirPort)" # Macbook + WiFi
 class SelfTest(unittest.TestCase):
 
 	def setUp(self):
-		self.guest = Guest("/tmp/foo")
+		run("mkdir -p /tmp/vgtest")
+		self.guest = Guest("/tmp/vgtest/foo")
 		self.guest.init(
 			box_name = "wheezy64",
 			bridge = os.getenv("BRIDGE", DEFAULT_BRIDGE))
 
 	def tearDown(self):
 		self.guest.fini()
+		run("rm -rf /tmp/vgtest")
 
-	def test(self):
+	def test_up_destroy(self):
 		self.guest.up()
 		try:
 			assert self.guest.is_running()
