@@ -50,8 +50,14 @@ Installation
 	$ cd testgrid
 	$ python setup.py install
 
-Python API Example
-------------------
+Usage
+-----
+
+### Command Line Utility
+
+	$ tg --help
+
+### Python API, Example
 
 	>>> import testgrid
 	>>> client = testgrid.rest.Client()
