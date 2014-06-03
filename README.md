@@ -57,11 +57,12 @@ Python API Example
 	>>> client = testgrid.rest.Client()
 	>>> session = client.open_session("helloworld")
 	>>> fleche = client.get_package(name = "fleche", version = "16.3-1")
-	>>> session.deploy(fleche)
-	>>> node = session.allocate_node(is_image = "cdn-itransmux", profile = "cdn:basic")
-	>>> while not all(node.is_up() for node in session): sleep(1)
-	>>> map(node.execute("uname") for node in session)
-	["Linux", "Linux"]
+	>>> plan = session.deploy(fleche)
+	>>> for pkg, node in plan:
+	... 	print "package", pkg, "installed on", node
+	>>> returncode, stdout, stderr = node.execute("uname")
+	>>> print stdout
+	'Linux'
 	>>> session.close()
 
 Credits
