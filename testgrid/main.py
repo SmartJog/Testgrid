@@ -18,7 +18,7 @@ Usage:
   tg [[-m INI] -l [-g NAME]|-c HOST] -s NAME --deploy NAME...
   tg [[-m INI] -l [-g NAME]|-c HOST] -s NAME --undeploy
   tg [[-m INI] -l [-g NAME]|-c HOST] [-s NAME] -n NAME --ping
-  tg [[-m INI] -l [-g NAME]|-c HOST] [-s NAME] -n NAME --install NAME 
+  tg [[-m INI] -l [-g NAME]|-c HOST] [-s NAME] -n NAME --install NAME
   tg [[-m INI] -l [-g NAME]|-c HOST] [-s NAME] -n NAME --uninstall NAME
   tg [[-m INI] -l [-g NAME]|-c HOST] [-s NAME] -n NAME --is-installed NAME
   tg [[-m INI] -l [-g NAME]|-c HOST] [-s NAME] -n NAME --is-installable NAME
@@ -77,7 +77,6 @@ __version__ = "0.1~20140506-1"
 import threading, testgrid, sys
 
 class Color(object):
-	"ANSI-escaped SGR string — see http://en.wikipedia.org/wiki/ANSI_escape_code"
 
 	def __init__(self, string, code = None):
 		if not code:
@@ -90,7 +89,7 @@ class Color(object):
 			self.code = code
 
 	def __str__(self):
-		return "\033[0;%im%s\033[0m" % (self.code, self.string)
+	      return "\033[0;%im%s\033[0m" % (self.code, self.string)
 
 	def __len__(self):
 		return len(self.string)
@@ -142,17 +141,17 @@ def list_nodes(client, nodes):
 		row = [
 			node.name,
 			node.get_typename(),
-			testgrid.strfmt.Green("up") if is_up[node.name] else testgrid.strfmt.Gray("unreachable")]
+			"up" if is_up[node.name] else "unreachable"]
 		if client.is_available(node):
-			row.append(testgrid.strfmt.Green("available"))
+			row.append("available")
 		elif client.is_allocated(node):
-			row.append(testgrid.strfmt.Blue("allocated"))
+			row.append("allocated")
 		elif client.is_quarantined(node):
-			row.append(testgrid.strfmt.Yellow("quarantined"))
+			row.append("quarantined")
 		else:
-			row.append(testgrid.strfmt.Red("unknown")) # BUG: should not happen
+			row.append("unknown") # BUG: should not happen
 		if session:
-			row.append(session.username)
+			row.append(session.user.name)
 			row.append(session.name)
 		else:
 			row.append("-")
@@ -248,14 +247,16 @@ def main():
 			if opts["--list-nodes"]:
 				list_nodes(client, [node for node in session])
 			elif opts["--allocate-node"]:
-				parser = testgrid.Parser(ini = opts["--manifest"])
+				parser = testgrid.parser.Parser(ini = opts["--manifest"])
+                                print opts
 				_opts = {}
 				for key, value in parser.conf.items(opts["NAME"]):
 					_opts[key] = value
+                                #_opts["hostname"] = opts["--allocate-node"]
 				node = session.allocate_node(name = opts["--allocate-node"], **_opts)
 			elif opts["--release-node"]:
 				node = client.get_node(opts["--release-node"])
-				session.release_node(node)
+				session.release(node)
 			elif opts["--deploy"]:
 				packages = []
 				for pkg in opts["PKG"]:

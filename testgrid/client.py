@@ -14,13 +14,14 @@ class UnknownNodeError(Exception):
 	def __init__(self, name):
 		super(UnknownNodeError, self).__init__("%s: no such node" % name)
 
-class User(object):
+class User(model.User):
 
-	def __init__(self, name):
-		self.name = name
+        def marshall(self):
+                return "%s" % {"name": self.name}
 
-	def __str__(self):
-		return self.name
+        @classmethod
+	def unmarshall(cls, data):
+		return (cls)(**eval(data))
 
 def get_current_user():
 	return User(name = getpass.getuser())
@@ -127,6 +128,14 @@ class Client(object):
 			else:
 				if session.user == self.user:
 					yield session
+
+
+        def get_node_session(self, node):
+                "return session that contains a specific node"
+                return self.grid._get_node_session(node)
+                # for session in self.grid.get_sessions():
+                #         if node in session:
+                #                 return session
 
 	def get_session(self, name):
 		"""

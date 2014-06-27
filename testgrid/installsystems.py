@@ -10,36 +10,27 @@ API:
   * Hypervisor(shell)
     - res = list_images(repo = None, ...)
     - res = list_domains(...)
-    - res = create_domain(hostname, image_parms, ...)
+    - res = create_domain(image_name, profile, [public_key] ...)
     - res = start_domain(name, ...)
-    - res = stop_domain(name, force = False, ...)
-    - res = restart_domain(name, force = False, ...)
-    - res = delete_domain(name, keep_all_storage = False, ...)
+    - res = stop_domain(name, [force = True], ...)
+    - res = restart_domain(name, [force = True], ...)
+    - res = delete_domain(name, [keep_all_storage = True], ...)
     - res = load(...)
     - res = disk(...)
 
 Tutorial:
-  >>> import installsystems, myrunner
-  >>> hv = installsystems.Hypervisor(myrunner.run)
-  >>> image_parms = DebianSJProfile.get_profile("pg")
-  >>> hv.create_domain(image_parms.image_name, image_parms)
-  >>> ...
+  hkvm$ python
+  >>> import installsystems as IS, os
+  >>> hv = IS.Hypervisor(runner = os.system)
+  >>> print hv.list_domains()
+  >>> profile = IS.Profiles("profiles.json").get_profile("test", domain_name = "foo")
+  >>> print hv.create_domain(profile)
+  >>> print hv.delete_domain(profile)
 
-Requirements:
-  on a domain creation, a REST service is expected at 10.69.0.2:9876:
-  1/ deliver the --interfaces configuration at /<store_name>/allocate,
-  2/ deliver the internal_gw value at /<store_name>/gateway
-  3/ deliver the dns value at /<store_name>/dns
-  4/ deliver the dns_search value at /<store_name>/dns_search
-  5/ deliver the list of store names at /names.
-
-Developers -- ading parms class/profiles:
-  * the constructor lists required parameters
-  * .profiles is a dict of constructors func(hostname[, store_name])
-  * fill-in get_list() with the new parameters
+For dynamic address allocation, you'll need an IPStore service.
 """
 
-import unittest, getpass, httplib, inspect, abc, re
+import tempfile, unittest, getpass, httplib, urllib, pipes, json, os, re
 
 ###########
 # helpers #
@@ -62,9 +53,9 @@ def normalized_playground_hostname(hostname):
 		"%s: invalid playground domain name" % hostname
 	return hostname
 
-def parse_interface(interface):
-	"return dict of interface as <address>/<mask>@<gateway>?<iface>:<vlan>"
-	res = {"address": interface}
+def parse_interface(string):
+	"parse <address>/<mask>@<gateway>?<iface>:<vlan> as dict"
+	res = {"address": "%s" % string}
 	if ":" in res["address"]:
 		res["address"], res["vlan"] = res["address"].split(":")
 	if "?" in res["address"]:
@@ -79,29 +70,47 @@ def parse_interface(interface):
 		"%s: expected 'dhcp' or ip4 address" % res["address"]
 	return res
 
-STORE_HOSTNAME = "10.69.0.2"
+def parse_disk(string):
+	"parse <name>:<size>@<vg> as dict"
+	res = {"name": "%s" % string}
+	if "@" in res["name"]:
+		res["name"], res["vg"] = res["name"].split("@")
+	if ":" in res["name"]:
+		res["name"], res["size"] = res["name"].split(":")
+	return res
 
-STORE_PORT = 9876
+class IPStoreError(Exception):
 
-class Stores(object):
-	"IPStore REST interface"
+	def __init__(self, host, port, path, exc):
+		self.host = host
+		self.port = port
+		self.path = path
+		self.exc = exc
 
-	_instance = None # singleton
+	def __str__(self):
+		return "IPStore %s:%i GET %s: %s, %s" % (
+			self.host,
+			self.port,
+			self.path,
+			type(self.exc).__name__,
+			self.exc)
 
-	def __new__(cls):
-		if not cls._instance:
-			cls._instance = super(Stores, cls).__new__(cls)
-		return cls._instance
+class IPStore(object):
+	"hold HTTP connection and dispatch requests to IPStore"
+
+	def __init__(self, host, port, use_ssl = False):
+		self.host = host
+		self.port = port
+		self.use_ssl = use_ssl
 
 	def __getattr__(self, key):
 		if key == "cnx":
-			self.cnx = httplib.HTTPConnection(host = STORE_HOSTNAME, port = STORE_PORT)
+			if self.use_ssl:
+				self.cnx = httplib.HTTPSConnection(host = self.host, port = self.port)
+			else:
+				self.cnx = httplib.HTTPConnection(host = self.host, port = self.port)
 			return self.cnx
 		raise AttributeError(key)
-
-	@staticmethod
-	def get_names():
-		return ("cdn", "cw", "vp", "tg", "srv", "pub")
 
 	def get(self, path):
 		try:
@@ -110,563 +119,194 @@ class Stores(object):
 			assert res.status == 200, "%i, %s" % (res.status, res.reason)
 			return res.read()
 		except Exception as e:
-			raise Exception("IPStore GET %s:%s%s: %s" % (
-				STORE_HOSTNAME,
-				STORE_PORT,
-				path,
-				e))
+			raise IPStoreError(self.host, self.port, path, e)
 
-class Store(object):
+	def get_names(self, unlocked = True):
+		return eval(self.get("/names?locked=%s" % "unlocked" if unlocked else "locked"))
 
-	_instances = {} # one instance per store name
+	def allocate(
+		self,
+		store_name,
+		reason = None,
+		reallocation_key = None):
+		query = {}
+		if reason:
+			query["reason"] = reason
+		else:
+			query["reason"] = "hv"
+		if reallocation_key:
+			query["reallocation_key"] = reallocation_key
+		return self.get("/%s/allocate?%s" % (store_name, urllib.urlencode(query)))
 
-	def __new__(cls, name):
-		if not name in Store._instances:
-			Store._instances[name] = super(Store, cls).__new__(cls, name)
-		return Store._instances[name]
+	def release(self, address):
+		return self.get("/release/%s" % address)
 
-	def __init__(self, name):
-		self.name = name
+	def gateway(self, store_name):
+		return self.get("/%s/gateway" % store_name)
 
-	def get(self, path):
-		return Stores().get("/%s%s" % (self.name, path))
+	def dns(self, store_name):
+		return self.get("/%s/dns" % store_name)
+
+	def dns_search(self, store_name):
+		return self.get("/%s/dns_search" % store_name)
 
 class LazyStoreValue(object):
+	"defer value request until explicit .value need"
 
-	store_method_name = None
-
-	def __init__(self, store_name):
-		self.store_name = store_name
+	def __init__(self, callback):
+		self.callback = callback
 
 	def __getattr__(self, key):
 		if key == "value":
-			self.value = Store(self.store_name).get(self.path)
+			self.value = self.callback()
 			return self.value
-		super(Address, self).__getattr__(key)
+		super(LazyStoreValue, self).__getattr__(key)
 
 	def __str__(self):
 		return "%s" % self.value
 
 class DnsSearch(LazyStoreValue):
 
-	path = "/dns_search"
+	def __init__(self, ipstore, store_name):
+		super(DnsSearch, self).__init__(lambda: ipstore.dns_search(store_name))
 
 class Gateway(LazyStoreValue):
 
-	path = "/gateway"
+	def __init__(self, ipstore, store_name):
+		super(Gateway, self).__init__(lambda: ipstore.gateway(store_name))
 
 class Address(LazyStoreValue):
 
-	path = "/allocate"
+	def __init__(
+		self,
+		ipstore,
+		store_name,
+		reason = None,
+		reallocation_key = None):
+		super(Address, self).__init__(lambda: ipstore.allocate(
+			store_name = store_name,
+			reason = reason,
+			reallocation_key = reallocation_key))
 
 class Dns(LazyStoreValue):
 
-	path = "/dns"
+	def __init__(self, ipstore, store_name):
+		super(Dns, self).__init__(lambda: ipstore.dns(store_name))
+
+class NoSuchProfiledImageError(Exception):
+
+	def __init__(self, image_name):
+		self.image_name = image_name
+
+	def __str__(self):
+		return "%s: no such profiled image" % self.image_name
+
+class NoSuchProfileError(Exception):
+
+	def __init__(self, profile_name):
+		self.profile_name = profile_name
+
+	def __str__(self):
+		return "%s: no such profile" % self.profile_name
 
 class Profile(object):
-	"profile abstract class"
+	"hold installsystems instance parameters"
 
-	__metaclass__ = abc.ABCMeta
+	def __init__(self, format, values, interfaces, image_name):
+		self.format = format
+		self.values = values
+		self.interfaces = interfaces
+		self.image_name = image_name
 
-	def __init__(self, **kwargs):
-		for key in kwargs:
-			setattr(self, key, kwargs[key])
+	def get_argv(self):
+		"return interpolated list of arguments"
+		return [item % self.values for item in self.format]
 
-	profiles = {} # dict of func(hostname[, store_name])
+	@property
+	def domain_name(self):
+		return self.values["domain_name"]
 
-	@classmethod
-	def get_profile_names(cls):
-		"generator, yield all profile names"
-		for key in cls.profiles:
-			args, _, _, _ = inspect.getargspec(cls.profiles[key])
-			if "store_name" in args:
-				for store_name in Stores().get_names():
-					yield "%s:%s" % (store_name, key)
-			elif "in_store_name" in args and "out_store_name" in args:
-				store_names = Stores().get_names()
-				for in_store_name in store_names:
-					for out_store_name in store_names:
-						if in_store_name != out_store_name:
-							yield "%s:%s:%s" % (in_store_name, out_store_name, key)
+class Profiles(object):
+
+	def __init__(self, path):
+		path = os.path.expanduser(path)
+		with open(path, "r") as f:
+			self.dict = json.load(f)
+
+	def __iter__(self):
+		for key in self.dict:
+			yield key
+
+	def __getitem__(self, key):
+		return self.dict[key]
+
+	@staticmethod
+	def parse(profile_name, ipstore = None, **kwargs):
+		"""
+		Parse profile_name as ([realloc_key@]store_name:)*raw_profile_name
+		Return interpolable values and interfaces.
+		"""
+		interfaces = []
+		values = {}
+		values.update(kwargs)
+		i = 0
+		tail = profile_name
+		while ":" in tail:
+			head, tail = profile_name.split(":", 1)
+			if "@" in head:
+				reallocation_key, store_name = head.split("@", 1)
 			else:
-				yield key
+				reallocation_key, store_name = (None, head)
+			adr = Address(
+				ipstore = ipstore,
+				store_name = store_name,
+				reallocation_key = reallocation_key)
+			suffix = "_%i" % i if i else ""
+			values.update({
+				"dns_search%s" % suffix: DnsSearch(
+					ipstore = ipstore,
+					store_name = store_name),
+				"address%s" % suffix: adr,
+				"gateway%s" % suffix: Gateway(
+					ipstore = ipstore,
+					store_name = store_name),
+				"dns%s" % suffix: Dns(
+					ipstore = ipstore,
+					store_name = store_name),
+			})
+			interfaces.append(adr)
+			i = i + 1
+		return (values, interfaces)
 
-	@classmethod
-	def get_profile(cls, hostname, profile_name):
-		"instanciate named profile"
-		if ":" in profile_name:
-			lst = profile_name.split(":")
-			if len(lst) == 2:
-				store_name, key = lst
-				kwargs = {"store_name": store_name}
-			elif len(lst) == 3:
-				in_store_name, out_store_name, key = lst
-				kwargs = {
-					"in_store_name": in_store_name,
-					"out_store_name": out_store_name,
-				}
+	def get_profile(
+		self,
+		profile_name,
+		ipstore = None,
+		image_name = None,
+		**kwargs):
+		values, interfaces = self.parse(profile_name, ipstore, **kwargs)
+		def make_profile(image_name, profile_name):
+			for profile_pattern in self.dict[image_name]:
+				if re.sub("\w+@", "", profile_name) in profile_pattern.split("|"):
+					return Profile(
+						format = self.dict[image_name][profile_pattern]["format"],
+						values = values,
+						interfaces = interfaces,
+						image_name = image_name)
+			else:
+				raise NoSuchProfileError(profile_name)
+		if image_name:
+			if not image_name in self.dict:
+				raise NoSuchImageError(image_name)
+			return make_profile(image_name, profile_name)
 		else:
-			key = profile_name
-			kwargs = {}
-		assert key in cls.profiles, "%s: unsupported profile" % key
-		return cls.profiles[key](hostname = hostname, **kwargs)
-
-	def _get_raid_list(self):
-		"return I.S. raid-specific parameter list from current object"
-		lst = []
-		if hasattr(self, "raid"):
-			assert\
-				self.raid in (0, 1, 4, 5, 6, 10),\
-				"%i: illegal raid level" % self.raid
-			lst += ["--raid", "%i" % self.raid]
-		if hasattr(self, "raid_devices"):
-			lst += ["--raid-devices", self.raid_devices]
-		if hasattr(self, "raid_limit") and self.raid_limit:
-			lst += ["--raid-limit"]
-		if hasattr(self, "raid_wait") and self.raid_wait:
-			lst += ["--raid-wait"]
-		return lst
-
-	def _get_bond_list(self):
-		"return I.S. bond-specific parameter list from current object"
-		lst = []
-		if hasattr(self, "bond"):
-			lst += ["--bond", self.bond]
-		if hasattr(self, "bond_slaves"):
-			lst += ["--bond-slaves", " ".join(self.bond_slaves)]
-		if hasattr(self, "bond_mode"):
-			lst += ["--bond-mode", self.bond_mode]
-		if hasattr(self, "bond_hash"):
-			lst += ["--bond-hash", self.bond_hash]
-		return lst
-
-	def _get_mail_list(self):
-		"return I.S. mail-specific parameter list from current object"
-		lst = []
-		if hasattr(self, "smtp"):
-			lst += ["--smtp", self.smtp]
-		if hasattr(self, "mail_root"):
-			lst += ["--mail-root", self.mail_root]
-		if hasattr(self, "mail_domain"):
-			lst += ["--mail-domain", self.kwargs.mail_domain]
-		return lst
-
-	def _get_cc_list(self):
-		"return I.S. cc-specific parameter list from current object"
-		lst = []
-		if hasattr(self, "cc_enable") and self.cc_enable:
-			lst += ["--cc-enable"]
-		if hasattr(self, "cc_server"):
-			lst += ["--cc-server", self.cc_server]
-		if hasattr(self, "cc_port"):
-			lst += ["--cc-port", self.cc_port]
-		if hasattr(self, "cc_login"):
-			lst += ["--cc-login", self.cc_login]
-		if hasattr(self, "cc_password"):
-			lst += ["--cd-password", self.cc_password]
-		return lst
-
-	@abc.abstractmethod
-	def get_list(self):
-		"return I.S. parameter list from current object"
-		raise NotImplementedError()
-
-class DebianSJProfile(Profile):
-	"helper class to build the debian-smartjog image I.S. parameter list"
-
-	image_name = "debian-smartjog"
-
-	def __init__(self, hostname, disks, **kwargs):
-		kwargs["hostname"] = hostname
-		kwargs["disks"] = disks
-		super(DebianSJProfile, self).__init__(**kwargs)
-
-	profiles = {
-		"pg": lambda hostname: DebianSJProfile(
-			interfaces = ("dhcp:2006",),
-			dns_search = ("fr.lan",),
-			hostname = normalized_playground_hostname(hostname),
-			password = "arkena",
-			memory = 512,
-			disks = ("rootfs:2048@vg",),
-			start = True,
-			dns = ("192.168.11.253",),
-			ntp = ("ntp.fr.lan",),
-			kvm = True,
-			cpu = 1),
-		"basic": lambda hostname, store_name: DebianSJProfile(
-			interfaces = (Address(store_name = store_name),),
-			hostname = hostname,
-			password = "arkena",
-			memory = 512,
-			disks = ("rootfs:2048@vg",),
-			start = True,
-			kvm = True,
-			cpu = 1),
-	}
-
-	# !!! parameter order matters for I.S. !!!
-	def get_list(self):
-		if hasattr(self, "hostname"):
-			lst = ["--hostname", self.hostname]
-		if hasattr(self, "domainname"):
-			lst += ["--domainname", self.domainname]
-		if hasattr(self, "kvm") and self.kvm:
-			lst += ["--kvm"]
-		if hasattr(self, "disks"):
-			for item in map(str, self.disks):
-				head = item
-				if ":" in head:
-					fs, head = item.split(":")
-				if "@" in head:
-					size, vgname = head.split("@")
-					assert int(size) >= 2048, "%s: disk size must be >= 2048" % item
-			lst += ["--disks", " ".join(self.disks)]
-		if hasattr(self, "root_part_size"):
-			lst += ["--root-part-size", self.root_part_size]
-		if hasattr(self, "cpu"):
-			lst += ["--cpu", "%i" % self.cpu]
-		if hasattr(self, "memory"):
-			lst += ["--memory", "%i" % self.memory]
-		if hasattr(self, "start") and self.start:
-			lst += ["--start"]
-		if hasattr(self, "autostart") and self.autostart:
-			lst += ["--autostart"]
-		lst += self._get_raid_list()
-		if hasattr(self, "interfaces"):
-			interfaces = tuple("%s" % obj for obj in self.interfaces)
-			for interface in interfaces:
-				parse_interface(interface)
-			lst += ["--interfaces", " ".join(interfaces)]
-		if hasattr(self, "dns"):
-			lst += ["--dns", " ".join("%s" % obj for obj in self.dns)]
-		if hasattr(self, "dns_search"):
-			lst += ["--dns-search", " ".join("%s" % obj for obj in self.dns_search)]
-		if hasattr(self, "debian_repository"):
-			lst += ["--debian-repository", self.debian_repository]
-		if hasattr(self, "ldap"):
-			assert ldap in (None, "lanfr", "lanus", "wantvr", "wanpmm", "wancap", "wanl3la")
-			lst += ["--ldap", self.ldap]
-		if hasattr(self, "password"):
-			lst += ["--passwd", self.password]
-		if hasattr(self, "reboot") and self.reboot:
-			lst += ["--reboot"]
-		lst += self._get_mail_list()
-		if hasattr(self, "ntp"):
-			lst += ["--ntp", " ".join(self.ntp)]
-		lst += self._get_cc_list()
-		if hasattr(self, "is_repository"):
-			lst += ["--is-repository", self.is_repository]
-		return lst
-
-class ITransmuxProfile(DebianSJProfile):
-	"helper class to build the cdn-itransmux image I.S. parameter list"
-
-	image_name = "cdn-itransmux"
-
-	profiles = {
-		"basic": lambda hostname, store_name: ITransmuxProfile(
-			interfaces = (Address(store_name = store_name),), # cdn_in
-			hostname = hostname,
-			password = "arkena",
-			memory = 2 * 1024,
-			disks = ("5000",),
-			start = True,
-			kvm = True),
-		"prodvm": lambda hostname, in_store_name, out_store_name: ITransmuxProfile(
-			interfaces = (
-				Address(store_name = in_store_name),   # cdn_in
-				Address(store_name = out_store_name)), # stcon
-			internal_gw = Gateway(store_name = out_store_name),
-			hostname = hostname,
-			password = "arkena",
-			memory = 2 * 1024,
-			disks = ("5000",),
-			start = True,
-			kvm = True),
-	}
-
-class IWebdavProfile(DebianSJProfile):
-	"helper class to build the cdn-iwebdav image I.S. parameter list"
-
-	image_name = "cdn-iwebdav"
-
-	def __init__(
-		self,
-		hostname,
-		disks,
-		internal_gw,
-		**kwargs):
-		kwargs["internal_gw"] = internal_gw
-		super(IWebdavProfile, self).__init__(
-			hostname = hostname,
-			disks = disks,
-			**kwargs)
-
-	profiles = {
-		"prodphy": lambda hostname, in_store_name, out_store_name: IWebdavProfile(
-			root_part_size = 10000,
-			data_part_size = 50000,
-			internal_gw = Gateway(store_name = out_store_name),
-			interfaces = (
-				Address(store_name = in_store_name),   # cdn_in
-				Address(store_name = out_store_name)), # stcon
-			hostname = hostname,
-			password = "arkena",
-			disks = ("/dev/sda",)),
-		"prodvm": lambda hostname, in_store_name, out_store_name: IWebdavProfile(
-			internal_gw = Gateway(store_name = out_store_name),
-			interfaces = (
-				Address(store_name = in_store_name),   # cdn_in
-				Address(store_name = out_store_name)), # stcon
-			hostname = hostname,
-			password = "arkena",
-			disks = ("root:10000",),
-			start = True,
-			kvm = True),
-		"basic": lambda hostname, store_name: IWebdavProfile(
-			internal_gw = Gateway(store_name = store_name),
-			interfaces = (Address(store_name = store_name),),
-			hostname = hostname,
-			password = "arkena",
-			disks = ("root:10000",),
-			start = True,
-			kvm = True),
-	}
-
-	def get_list(self):
-		lst = super(IWebdavProfile, self).get_list()
-		if hasattr(self, "internal_gw"):
-			lst += ["--internal-gw", "%s" % self.internal_gw]
-		if hasattr(self, "data_part_size"):
-			assert\
-				"root_part_size" in self,\
-				"--data-part-size cannot be used without --root-part-size"
-			lst += ["--data-part-size", self.data_part_size]
-		return lst
-
-class IHttpullProfile(DebianSJProfile):
-	"helper class to build the cdn-ihttpull image I.S. parameter list"
-
-	image_name = "cdn-ihttpull"
-
-	def __init__(
-		self,
-		hostname,
-		disks,
-		interfaces,
-		dns,
-		dns_search,
-		internal_gw,
-		**kwargs):
-		kwargs["interfaces"] = interfaces
-		kwargs["dns"] = dns
-		kwargs["dns_search"] = dns_search
-		kwargs["internal_gw"] = internal_gw
-		super(IHttpullProfile, self).__init__(
-			hostname = hostname,
-			disks = disks,
-			**kwargs)
-
-	profiles = {
-		"prodphy": lambda hostname, in_store_name, out_store_name: IHttpullProfile(
-			root_part_size = 50000,
-			extend_storage = 1,
-			internal_gw = Gateway(store_name = in_store_name),
-			dns_search = (DnsSearch(store_name = in_store_name),),
-			interfaces = (
-				Address(store_name = in_store_name),   # cdn_in
-				Address(store_name = out_store_name)), # stcon
-			hostname = hostname,
-			password = "arkena",
-			disks = ("/dev/sda", "/dev/sdb"),
-			raid = 0,
-			dns = (Dns(store_name = in_store_name),)),
-		"prodvm": lambda hostname, in_store_name, out_store_name: IHttpullProfile(
-			internal_gw = Gateway(store_name = in_store_name),
-			dns_search = (DnsSearch(store_name = in_store_name),),
-			interfaces = (
-				Address(store_name = in_store_name),   # cdn_in
-				Address(store_name = out_store_name)), # stcon
-			hostname = hostname,
-			password = "arkena",
-			memory = 2 * 1024,
-			disks = ("root:20000",),
-			start = True,
-			dns = (Dns(store_name = in_store_name),),
-			kvm = True,
-			cpu = 2),
-		"basic": lambda hostname, store_name: IHttpullProfile(
-			internal_gw = Gateway(store_name = store_name),
-			dns_search = (DnsSearch(store_name = store_name),),
-			interfaces = (Address(store_name = store_name),),
-			hostname = hostname,
-			password = "arkena",
-			memory = 2 * 1024,
-			disks = ("root:20000",),
-			start = True,
-			dns = (Dns(store_name = store_name),),
-			kvm = True,
-			cpu = 2),
-	}
-
-	def get_list(self):
-		lst = super(IHttpullProfile, self).get_list()
-		if hasattr(self, "internal_gw"):
-			lst += ["--internal-gw", "%s" % self.internal_gw]
-		if hasattr(self, "arch"):
-			assert self["arch"] in ("i386", "amd64")
-			lst += ["--arch", self.arch]
-		if hasattr(self, "update") and self.update:
-			lst += ["--update"]
-		if hasattr(self, "extend_storage_level"):
-			assert self.extend_storage_level == 1
-			lst += ["--extend-storage-level", self.extend_storage_level]
-		if hasattr(self, "cache_directory"):
-			lst += ["--cache-directory", self.cache_directory]
-		return lst
-
-class IFtpProfile(DebianSJProfile):
-	"helper class to build the cdn-iftp image I.S. parameter list"
-
-	image_name = "cdn-iftp"
-
-	def __init__(self, hostname, disks, dns, **kwargs):
-		kwargs["dns"] = dns
-		super(IFtpProfile, self).__init__(hostname, disks, **kwargs)
-
-	profiles = {}
-
-class IIcemp3Profile(DebianSJProfile):
-
-	image_name = "cdn-iicemp3"
-
-	profiles = {}
-
-class IAdwzbipProfile(DebianSJProfile):
-
-	image_name = "cdn-iadwzbip"
-
-	profiles = {}
-
-class StorageProfile(DebianSJProfile):
-
-	image_name = "cdn-storage"
-
-	profiles = {}
-
-class OOhpdwlProfile(DebianSJProfile):
-
-	image_name = "cdn-oohpdwl"
-
-	profiles = {}
-
-class OHttchkProfile(DebianSJProfile):
-
-	image_name = "cdn-ohttchk"
-
-	profiles = {}
-
-class OadwzkhProfile(DebianSJProfile):
-
-	image_name = "cdn-oadwzkh"
-
-	profiles = {}
-
-class OOhsdwlProfile(DebianSJProfile):
-
-	image_name = "cdn-oohsdwl"
-
-	profiles = {}
-
-class OHttflvProfile(DebianSJProfile):
-
-	image_name = "cdn-ohttflv"
-
-	profiles = {}
-
-class OHttmp3Profile(DebianSJProfile):
-
-	image_name = "cdn-ohttmp3"
-
-	profiles = {}
-
-class OHCacheProfile(DebianSJProfile):
-	"helper class to build the cdn-ohcache image I.S. parameter list"
-
-	image_name = "cdn-ohcache"
-
-	def __init__(self, hostname, disks, internal_gw, **kwargs):
-		kwargs["internal_gw"] = internal_gw
-		super(OHCacheProfile, self).__init__(
-			hostname = hostname,
-			disks = disks,
-			**kwargs)
-
-	profiles = {
-		"prodvm": lambda hostname, in_store_name, out_store_name: OHCacheProfile(
-			description = "vm 4 cores, 2G mem, 10G disk, stcon@%s, stdiff@%s" % (
-				in_store_name,
-				out_store_name),
-			internal_gw = Gateway(store_name = in_store_name),
-			interfaces = (
-				Address(store_name = in_store_name),   # stcon
-				Address(store_name = out_store_name)), # stdiff
-			hostname = hostname,
-			password = "arkena",
-			memory = 2000,
-			disks = ("root:10000",),
-			start = True,
-			kvm = True,
-			cpu = 4),
-		"basic": lambda hostname, store_name: OHCacheProfile(
-			description = "vm 4 cores, 2G mem, 10G disk, @%s" % store_name,
-			internal_gw = Gateway(store_name = store_name),
-			interfaces = (Address(store_name = store_name),),
-			hostname = hostname,
-			password = "arkena",
-			memory = 2000,
-			disks = ("root:10000",),
-			start = True,
-			kvm = True,
-			cpu = 4),
-	}
-
-	def get_list(self):
-		lst = super(OHCacheProfile, self).get_list()
-		if hasattr(self, "log_part_size" ):
-			lst += ("--log-part-size", self.log_part_size)
-		if hasattr(self, "vip"):
-			lst += ("--vip", " ".join(self.vip))
-		if hasattr(self, "internal_gw"):
-			lst += ("--internal-gw", "%s" % self.internal_gw)
-		lst += self._get_bond_list()
-		if hasattr(self, "arch"):
-			assert self["arch"] in ("i386", "amd64")
-			lst += ["--arch", self.arch]
-		if hasattr(self, "update") and self.update:
-			lst += ["--update"]
-		lst += self._get_cc_list()
-		if hasattr(self, "extend_storage_level"):
-			assert self.extend_storage_level in ("True", "False")
-			lst += ["--extend-storage-level", self.extend_storage_level]
-		return lst
-
-def get_subclasses(cls):
-	res = []
-	for subcls in cls.__subclasses__():
-		res += [subcls] + get_subclasses(subcls)
-	return res
-
-def get_profile_classes():
-	return get_subclasses(Profile)
-
-def get_profile_class(image_name):
-	for cls in get_profile_classes():
-		if cls.image_name in image_name:
-			return cls
-	else:
-		raise Exception("%s: unsupported image" % image_name)
+			for image_name in self.dict:
+				try:
+					return make_profile(image_name, profile_name)
+				except NoSuchProfileError:
+					pass
+			else:
+				raise NoSuchProfileError(profile_name)
 
 #########
 # model #
@@ -689,27 +329,86 @@ class Hypervisor(object):
 		return self.run(argv = argv, *args, **kwargs)
 
 	def list_domains(self, *args, **kwargs):
-		res = self.run(argv = "virsh -q list --all")
-		if res:
-			stdout = ""
-			for line in res.splitlines():
-				lst = line.split()
-				line = "%s: %s\n" % (lst[1], " ".join(lst[2:]))
-				if "on_stdout_line" in kwargs:
-					kwargs["on_stdout_line"](line)
-				else:
-					stdout += line
-			res.stdout = stdout
-		return res
+		return self.run(argv = "virsh -q list --all", *args, **kwargs)
+
+	# FIXME: check this is not called on an already started domain
+	def _copy_id(self, profile, public_key, *args, **kwargs):
+		for vgname in self.run("ls /dev/vg").splitlines():
+			if vgname.startswith(profile.domain_name):
+				vgpath = "/dev/vg/%s" % vgname
+				self.run("echo copy-id: mounting %s..." % vgpath, *args, **kwargs)
+				self.run("kpartx -a %s" % vgpath, *args, **kwargs)
+				# we have two partitions: 1=>GPT, 2=>ext4, we work on 2.
+				dmpath2 = "/dev/mapper/vg-%s2" % vgname.replace("-", "--")
+				mountpoint = "/tmp/%s" % profile.domain_name
+				self.run("mkdir %s" % mountpoint, *args, **kwargs)
+				self.run("mount %s %s" % (dmpath2, mountpoint), *args, **kwargs)
+				self.run("mkdir -p %s/root/.ssh" % mountpoint, *args, **kwargs)
+				self.run("echo copy-id: now registering public key", *args, **kwargs)
+				self.run(
+					"echo %s >> %s/root/.ssh/authorized_keys" % (
+						pipes.quote(public_key),
+						mountpoint),
+					*args,
+					**kwargs)
+				self.run("umount %s" % mountpoint, *args, **kwargs)
+				self.run("rmdir %s" % mountpoint, *args, **kwargs)
+				self.run("kpartx -d %s" % vgpath, *args, **kwargs)
+				break
+		else:
+			raise Exception("%s: cannot copy key, no vg found" % profile.domain_name)
+
+	def _delete_vg(self, profile, *args, **kwargs):
+		for vgname in self.run("ls /dev/vg").splitlines():
+			if vgname.startswith(profile.domain_name):
+				dmpath = "/dev/mapper/vg-%s" % vgname.replace("-", "--")
+				for dmpathX in self.run("ls %s?" % dmpath).splitlines():
+					self.run("umount %s" % dmpathX, warn_only = True, **kwargs)
+					self.run("dmsetup remove %s" % os.path.basename(dmpathX), **kwargs)
+				self.run("dmsetup remove %s" % dmpath, **kwargs)
+				self.run("lvremove -f %s" % path, **kwargs)
 
 	def create_domain(
 		self,
-		image_name,
 		profile,
+		public_key = None,
 		*args,
 		**kwargs):
-		argv = ["is", "install", image_name] + profile.get_list()
-		return self.run(argv = argv, *args, **kwargs)
+		argv = ["is", "install", profile.image_name] + profile.get_argv()
+		res = self.run(argv = argv, *args, **kwargs)
+		if res:
+			if public_key:
+				self._copy_id(
+					profile = profile,
+					public_key = public_key,
+					*args,
+					**kwargs)
+			self.run("virsh start %s" % profile.domain_name, *args, **kwargs)
+		else:
+			self._delete_vg(profile, *args, **kwargs)
+		return res
+
+	def delete_domain(
+		self,
+		name,
+		ipstore = None,
+		interfaces = None,
+		keep_all_storage = False,
+		*args,
+		**kwargs):
+		argv = (
+			"virsh",
+			"-q",
+			"undefine",
+			"--remove-all-storage" if not keep_all_storage else "",
+			name)
+		res = self.run(argv = argv, *args, **kwargs)
+		if ipstore and interfaces:
+			for interface in interfaces:
+				address = parse_interface(interface)["address"]
+				if address != "dhcp":
+					ipstore.release(address)
+		return res
 
 	def start_domain(self, name, *args, **kwargs):
 		argv = (
@@ -735,44 +434,218 @@ class Hypervisor(object):
 			name)
 		return self.run(argv = argv, *args, **kwargs)
 
-	def delete_domain(
-		self,
-		name,
-		interfaces = None,
-		keep_all_storage = False,
-		*args,
-		**kwargs):
-		argv = (
-			"virsh",
-			"-q",
-			"undefine",
-			"--remove-all-storage" if not keep_all_storage else "",
-			name)
-		res = self.run(argv = argv, *args, **kwargs)
-		for interface in interfaces:
-			address = parse_interface(interface)["address"]
-			Stores().get("/release/%s" % address)
-
 	def load(self, *args, **kwargs):
-		return self.run(argv = r"uptime | sed 's/.*load average: [0-9]*.[0-9]*, [0-9]*.[0-9]*, \([0-9]*\).\([0-9]*\)/\1.\2/g'", *args, **kwargs)
+		return float("%s" % self.run(argv = r"uptime | sed 's/.*load average: [0-9]*.[0-9]*, [0-9]*.[0-9]*, \([0-9]*\).\([0-9]*\)/\1.\2/g'", *args, **kwargs))
 
 	def disk(self, *args, **kwargs):
-		return self.run(argv = "df --total | tail -n 1 | awk '{print $4}'", *args, **kwargs)
+		return int("%s" % self.run(argv = "df --total | tail -n 1 | awk '{print $4}'", *args, **kwargs))
 
-#########
-# tests #
-#########
+################
+# test doubles #
+################
 
-for cls in get_profile_classes():
-	for profile_name in cls.get_profile_names():
-		def test(self, cls = cls, profile_name = profile_name):
-			cls.get_profile(
-				hostname = "%s-%s" % (cls.__name__, profile_name),
-				profile_name = profile_name)
-		pattern = re.compile(r"[\W_]+")
-		name = "%s%sTest" % (
-			cls.__name__,
-			pattern.sub('', profile_name.title()))
-		globals()[name] = type(name, (unittest.TestCase,), {"test": test})
+class FakeIPStore(IPStore):
+
+	cache = {}
+
+	def get(self, path):
+		"override http request with direct use of local cache"
+		try:
+			return self.cache[path]
+		except Exception as e:
+			raise IPStoreError("nohost", 0, path, e)
+
+	def get_names(self):
+		raise NotImplementedError()
+
+class Domain(object):
+
+	def __init__(self, name, started = False):
+		self.name = name
+		self.started = started
+
+	def __str__(self):
+		return "%s %s" % (self.name, "running" if self.started else "shut off")
+
+	def start(self):
+		self.started = True
+
+	def shutdown(self):
+		self.started = False
+
+class FakeRunner(object):
+
+	def __init__(self):
+		self.domains = [] # list of domains
+
+	def __call__(self, argv, *args, **kwargs):
+		if isinstance(argv, (list, tuple)):
+			argv = " ".join(argv)
+		if re.match("virsh .*list.*", argv):
+			return "\n".join("%s" % domain for domain in self.domains)
+		res = re.match(r"is install.*--hostname (\w+).*", argv)
+		if res:
+			hostname = res.group(1)
+			self.domains.append(Domain(hostname))
+			return True
+		res = re.match(r"virsh .*undefine.* (\w+)", argv)
+		if res:
+			domain_name = res.group(1)
+			self.domains = filter(
+				lambda domain: domain.name != domain_name,
+				self.domains)
+			return True
+		res = re.match(r"virsh start (\w+)", argv)
+		if res:
+			domain_name = res.group(1)
+			for domain in self.domains:
+				if domain.name == domain_name:
+					domain.start()
+					return True
+			else:
+				raise Exception("%s: no such domain" % domain_name)
+		raise Exception("%s: unknown command" % argv)
+
+##############
+# test cases #
+##############
+
+class StoreTest(unittest.TestCase):
+
+	def setUp(self):
+		self.ipstore = FakeIPStore(host = "whatever", port = 0)
+
+	def test_dns_search(self):
+		obj = DnsSearch(self.ipstore, "foo")
+		res = "phah7xuJ"
+		self.ipstore.cache["/foo/dns_search"] = res
+		self.assertEqual("%s" % obj, res)
+
+	def test_gateway(self):
+		obj = Gateway(self.ipstore, "foo")
+		res = "ahqu9EiZ"
+		self.ipstore.cache["/foo/gateway"] = res
+		self.assertEqual("%s" % obj, res)
+
+	def test_address(self):
+		adr = Address(self.ipstore, "foo")
+		res = "oo5Biewe"
+		self.ipstore.cache["/foo/allocate?reason=hv"] = res
+		self.assertEqual("%s" % adr, res)
+
+	def test_reallocated_address(self):
+		adr = Address(self.ipstore, "foo", reallocation_key = "aaa")
+		res = "ieceiw4D"
+		self.ipstore.cache["/foo/allocate?reallocation_key=aaa&reason=hv"] = res
+		self.assertEqual("%s" % adr, res)
+
+	def test_address_with_custom_reason(self):
+		adr = Address(self.ipstore, "foo", reason = "blah")
+		res = "xa5ep9Sh"
+		self.ipstore.cache["/foo/allocate?reason=blah"] = res
+		self.assertEqual("%s" % adr, res)
+
+	def test_dns(self):
+		obj = Dns(self.ipstore, "foo")
+		res = "SheePh1m"
+		self.ipstore.cache["/foo/dns"] = res
+		self.assertEqual("%s" % obj, res)
+
+class ProfileTest(unittest.TestCase):
+
+	def test_no_match(self):
+		with tempfile.NamedTemporaryFile() as f:
+			f.write("""
+			{
+				"foo": {
+					"bar": {
+						"description": "",
+						"format": []
+					}
+				}
+			}
+			""")
+			f.flush()
+			profiles = Profiles(f.name)
+			self.assertRaises(NoSuchProfileError, profiles.get_profile, "qux")
+
+	def test_basic_match(self):
+		with tempfile.NamedTemporaryFile() as f:
+			f.write("""
+			{
+				"foo": {
+					"bar": {
+						"description": "",
+						"format": []
+					}
+				}
+			}
+			""")
+			f.flush()
+			profiles = Profiles(f.name)
+			profiles.get_profile("bar")
+
+	def test_disjunctive_match(self):
+		with tempfile.NamedTemporaryFile() as f:
+			f.write("""
+			{
+				"foo": {
+					"bar|baz|qux": {
+						"description": "",
+						"format": []
+					}
+				}
+			}
+			""")
+			f.flush()
+			profiles = Profiles(f.name)
+			profiles.get_profile("baz")
+
+	def test_match_with_key(self):
+		with tempfile.NamedTemporaryFile() as f:
+			f.write("""
+			{
+				"foo": {
+					"bar|baz|qux": {
+						"description": "",
+						"format": []
+					}
+				}
+			}
+			""")
+			f.flush()
+			profiles = Profiles(f.name)
+			profiles.get_profile("1234@baz")
+
+class HypervisorTest(unittest.TestCase):
+
+	def setUp(self):
+		self.ipstore = FakeIPStore(host = "whatever", port = 0)
+		self.hv = Hypervisor(run = FakeRunner())
+
+	def test_create_delete(self):
+		self.assertFalse(self.hv.list_domains()) # no domain initially
+		with tempfile.NamedTemporaryFile() as f:
+			f.write("""
+			{
+				"foo": {
+					"bar": {
+						"description": "",
+						"format": [
+							"--hostname", "%(domain_name)s"
+						]
+					}
+				}
+			}
+			""")
+			f.flush()
+			profiles = Profiles(f.name)
+		profile = profiles.get_profile(
+			profile_name = "bar",
+			ipstore = self.ipstore,
+			domain_name = "zargl")
+		self.hv.create_domain(profile = profile)
+		self.assertEqual("%s" % self.hv.list_domains(), "zargl running")
+		self.hv.delete_domain("foo")
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

@@ -107,7 +107,7 @@ class Database(object):
 		self.con.isolation_level = 'EXCLUSIVE'
 		self.cur = self.con.cursor()
 		self.cur.execute("PRAGMA foreign_keys = ON")
-	
+
 	def close(self, delete_storage = False):
 		"close database connection, delete backend file if requested"
 		if self.con:
@@ -133,6 +133,7 @@ class Database(object):
 				type(node).__name__,
 				node.name,
 				node.marshall()))
+                print node.marshall()
 		self.con.commit()
 		return self.cur.lastrowid
 

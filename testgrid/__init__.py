@@ -34,5 +34,5 @@ import persistent # model, database
 # clients #
 ###########
 
-#import local # client, *.Grid, *.Node
+import local # client, *.Grid, *.Node
 #import rest # client
