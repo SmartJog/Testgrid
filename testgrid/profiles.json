@@ -1,0 +1,231 @@
+{
+
+	"debian-smartjog": {
+		"test": {
+			"description": "test profile, minimal resources, no interface",
+			"format": [
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "512",
+				"--disks", "rootfs:2048@vg",
+				"--cpu", "1"
+			]
+		},
+		"pg": {
+			"description": "playground profile, minimal resources, 1 dhcp interface",
+			"format": [
+				"--interfaces", "dhcp:2006",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "512",
+				"--disks", "rootfs:2048@vg",
+				"--dns", "192.168.11.253",
+				"--ntp", "ntp.fr.lan",
+				"--cpu", "1"
+			]
+		},
+		"cdn:basic|cw:basic|vp:basic|tg:basic|srv:basic": {
+			"description": "basic profile, minimal resources, 1 ipstore interface",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "512",
+				"--disks", "rootfs:2048@vg",
+				"--cpu", "1"
+			]
+		},
+		"ipstore.qap": {
+			"description": "reserved to QA, ipstore.qap profile",
+			"format": [
+				"--interfaces", "dhcp:441 dhcp:442 dhcp:443 dhcp:444 10.45.0.9/16:445",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "512",
+				"--disks", "rootfs:2048@vg",
+				"--cpu", "1"
+			]
+		}
+	},
+
+	"debian-smartjog:6": {
+		"cw:jstore": {
+			"description": "jinns storage, 2 CPU, 1G RAM, 100G disk, 1 CW interface, squeeze",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "1024",
+				"--disks", "rootfs:102400@vg",
+				"--cpu", "2"
+			]
+		},
+		"cw:jsup": {
+			"description": "jinns supervisor, 2 CPU, 1G RAM, 10G disk, 1 CW interface, squeeze",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "1024",
+				"--disks", "rootfs:10240@vg",
+				"--cpu", "2"
+			]
+		}
+	},
+
+	"cdn-itransmux": {
+		"cdn:basic": {
+			"description": "basic profile, 2G RAM, 5G disk, 1 CDN interface",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--memory", "2048",
+				"--disks", "5000",
+				"--kvm"
+			]
+		},
+		"cdn:pub:prodvm": {
+			"description": "prod profile, 2G RAM, 5G disk, CDN+PUB interfaces",
+			"format": [
+				"--internal-gw", "%(gateway_1)",
+				"--interfaces", "%(address)s", "%(address_1)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--memory", "2048",
+				"--disks", "5000",
+				"--kvm"
+			]
+		}
+	},
+
+	"cdn-iwebdav": {
+		"cdn:basic": {
+			"description": "",
+			"format": [
+				"--internal-gw", "%(gateway)s",
+				"--dns_search", "%(dns_search)s",
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--memory", "2048",
+				"--disks", "root:20000",
+				"--dns", "%(dns)s",
+				"--kvm",
+				"--cpu", "2"
+			]
+		},
+		"cdn:pub:prodphy": {
+			"description": "",
+			"format": [
+				"--root-part-size", 10000,
+				"--data-part-size", 50000,
+				"--internal-gw", "%(gateway_1)s",
+				"--interfaces", "%(address)s", "%(address_1)",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--disks", "/dev/sda"
+			]
+		},
+		"cdn:pub:prodvm": {
+			"description": "",
+			"format": [
+				"--internal-gw", "%(gateway_1)",
+				"--interfaces", "%(address)s", "%(address_1)",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--disks", "root:10000",
+				"--kvm"
+			]
+		}
+	},
+
+	"cdn-ihttpull": {
+		"cdn:pub:prodphy": {
+			"description": "",
+			"format": [
+				"--root-part-size", 50000,
+				"--extend-storage", 1,
+				"--internal-gw", "%(gateway_1)s",
+				"--dns-search", "%(dns_search_1)s",
+				"--interfaces", "%(address)s", "%(address_1)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--raid", "0",
+				"--dns", "%(dns_out)s"
+			]
+		},
+		"cdn:pub:prodvm": {
+			"description": "",
+			"format": [
+				"--internal-gw", "%(gateway_1)s",
+				"--dns-search", "%(dns_search_1)s",
+				"--interfaces", "%(address)s", "%(address_1)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--memory", "2048",
+				"--disks", "root:20000",
+				"--dns", "%(dns_out)s",
+				"--kvm",
+				"--cpu", "2"
+			]
+		}
+	},
+
+	"cdn-iftp": {},
+
+	"cdn-iicemp3": {},
+
+	"cdn-iadwzbip": {},
+
+	"cdn-storage": {},
+
+	"cdn-oohpdwl": {},
+
+	"cdn-ohttchk": {},
+
+	"cdn-oadwzkh": {},
+
+	"cdn-oohsdwl": {},
+
+	"cdn-ohttflv": {},
+
+	"cdn-ohttmp3": {},
+
+	"cdn-ohcache": {
+		"cdn:basic": {
+			"description": "",
+			"format": [
+				"--internal-gw", "%(gateway)s",
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--memory", "2000",
+				"--disks", "root:10000",
+				"--kvm",
+				"--cpu", "4"
+			]
+		},
+		"cdn:pub:prodvm": {
+			"description": "",
+			"format": [
+				"--internal-gw", "%(gateway)s",
+				"--interfaces", "%(address)s", "%(address_1)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--memory", "2000",
+				"--disks", "root:10000",
+				"--kvm",
+				"--cpu", "4"
+			]
+		}
+	}
+
+}
