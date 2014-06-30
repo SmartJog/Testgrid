@@ -6,9 +6,9 @@ from testgrid import database, persistent, installsystems, model, shell
 
 class Node(database.StorableNode):
 	def __init__(self, name, hoststring, arg):
-                self.arg = arg
+		self.arg = arg
 		self.name = name
-                self.hoststring = hoststring
+		self.hoststring = hoststring
 
 	def marshall(self):
 		return "%s" % {
@@ -74,7 +74,7 @@ class Grid(persistent.Grid):
 		image_name = opts["image_name"]
 		profile_name = opts["profile_name"]
 		if profile_name == "pg":
-			hostname = installsystems.normalized_playground_hostname(opts["hostname"])
+			hostname = installsystems.normalized_playground_hostname(opts["name"])
 		else:
 			hostname = opts["name"]
 		profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hostname)
@@ -82,16 +82,16 @@ class Grid(persistent.Grid):
 			profile = profile,
 			on_stdout_line = shell.Stderr, # stdout reserved for result
 			on_stderr_line = shell.Stderr)
-                if profile.interfaces:
+		if profile.interfaces:
 			hoststring = self._get_interface(profile.interfaces)
 		else:
-                        hoststring = profile.values["domain_name"]
+			hoststring = profile.values["domain_name"]
 
 		node = Node(hostname, hoststring, profile.get_argv())
 		return node
 
 	def _terminate(self, node):
-                kwargs = {"on_stdout_line": shell.Stdout,
+		kwargs = {"on_stdout_line": shell.Stdout,
 			  "on_stderr_line": shell.Stderr,}
 
 		self.hv.stop_domain(
@@ -99,41 +99,85 @@ class Grid(persistent.Grid):
 			force = True,
 			warn_only = True,
 			**kwargs)
-                self.hv.delete_domain(
+		self.hv.delete_domain(
 			name = node.name,
-                        ipstore = self.ipstore,
-                        interfaces = [node.hoststring],
+			ipstore = self.ipstore,
+			interfaces = [node.hoststring],
 			**kwargs)
 
-        def _get_interface(self, interfaces):
+	def _get_interface(self, interfaces):
 		#FIXME: find accurate interface
 		for interface in interfaces:
 			interfaces = installsystems.parse_interface(str(interface))
 			return interfaces['address']
 
+class TempGrid(Grid):
+	def __del__(self):
+		self.db.close(delete_storage = True)
+
+
 #########
 # tests #
 #########
+import tempfile
+
+class FakeTempGrid(TempGrid):
+	def __init__(self, name, hoststring, dbpath):
+		super(Grid, self).__init__(name = name, dbpath = dbpath)
+		self.hoststring = hoststring
+		self.hv = installsystems.Hypervisor(run = installsystems.FakeRunner())
+		self.ipstore = installsystems.FakeIPStore(host = "fake", port = 0)
+		self.ipstore.cache["/tg/allocate?reason=hv"] = "42.42.42.42"
+		self.ipstore.cache["/release/42.42.42.42"] = "released 42.42.42.42"
+		with tempfile.NamedTemporaryFile() as f:
+			f.write("""
+			{
+				"debian-smartjog": {
+					"tg:basic": {
+						"description": "",
+						"format": [
+							"--hostname", "%(domain_name)s"
+						]
+					}
+				}
+			}
+			""")
+			f.flush()
+			self.profiles = installsystems.Profiles(path = f.name)
+
 import unittest, time
+class FakeTest(unittest.TestCase):
 
-class SelfTest(unittest.TestCase):
 	def setUp(self):
-		#!!! VPN !!!
-		#playground root@hkvm-pg-1-1.pg-1.arkena.net
-		self.grid = Grid(name = "testis", hoststring = "root@10.69.44.1", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest.db")
-
-#	def tearDown(self):
+		self.grid = FakeTempGrid(name = "fake_is_test", hoststring = "fakehoststring", dbpath = "/tmp/fake_is.db")
+                self.profile = "tg:basic"
 
 
 	def test(self):
                 user = database.StorableUser("user")
-		opts = {"image_name": "debian-smartjog", "profile_name": "tg:basic", "name": "test-isadapter-%s" % time.strftime("%Y%m%d%H%M%S", time.localtime())}
+                opts = {"image_name": "debian-smartjog",
+                        "profile_name": self.profile,
+                        "name": "test-isadapter-%s"
+                        % time.strftime("%Y%m%d%H%M%S", time.localtime())}
                 session = self.grid.open_session(name = "test", user = user)
-		node = session.allocate_node(**opts)
-#		self.assertTrue(node.is_up()) can't ping address unreachable
-		del session
-		session = self.grid.open_session(name = "test", user = user) # re-open
-		self.assertIn(node, session)
-                self.grid.reset()
+                node = session.allocate_node(**opts)
+                del session
+                session = self.grid.open_session(name = "test", user = user) # re-open
+                self.assertIn(node, session)
+                session.release(node)
+                self.assertNotIn(node, session)
+
+class SelfTestQAP(FakeTest):
+	def setUp(self):
+		#!!! VPN !!!
+		self.grid = TempGrid(name = "testis_qap", hoststring = "root@10.69.44.1", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-qap.db")
+                self.profile = "tg:basic"
+
+class SelfTestPG(FakeTest):
+	def setUp(self):
+		#!!! VPN !!!
+		self.grid = TempGrid(name = "testis_pg", hoststring = "root@root@hkvm-pg-1-1.pg-1.arkena.net", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-pg.db")
+                self.profile = "pg"
+
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
