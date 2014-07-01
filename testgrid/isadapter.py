@@ -169,7 +169,7 @@ class FakeTest(unittest.TestCase):
                 user = database.StorableUser("user")
                 opts = {"image_name": "debian-smartjog",
                         "profile_name": self.profile,
-                        "name": "test-isadapter%s"
+                        "name": "test-isadapter-%s"
                         % time.strftime("%Y%m%d%H%M%S", time.localtime())}
                 session = self.grid.open_session(name = "test", user = user)
                 node = session.allocate_node(**opts)

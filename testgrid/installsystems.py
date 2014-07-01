@@ -49,7 +49,7 @@ def normalized_playground_hostname(hostname):
 	elif len(comps) == 2:
 		hostname += ".fr.lan"
 	assert\
-	    re.match(r"\w+-\w+\.(pg|lab)\.fr\.lan", hostname),\
+	    re.match(r"[\w+-]+-[\w+\-]+.(pg|lab)\.fr\.lan", hostname),\
 	    "%s: invalid playground domain name" % hostname
 	return hostname
 
