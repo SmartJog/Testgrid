@@ -274,6 +274,11 @@ class User(object):
 	def __str__(self):
 		return self.name
 
+	def __eq__(self, other):
+		if self.name == other.name:
+			return True
+		return False
+
 class Session(object):
 	"""
 	A session holds a deployment plan and an associated subnet.
@@ -306,16 +311,24 @@ class Session(object):
 		return node
 
 	def _release_pair(self, pkg, node):
-		try:
-			if self.gridref()._is_transient(node):
-				self.gridref()._terminate(node)
-			else:
-				if pkg:
-					node.uninstall(pkg)
-				if self.subnet:
-					node.leave(self.subnet)
-		except Exception as e:
-			self.gridref().quarantine_node(node = node, reason = e)
+		if self.gridref()._is_transient(node):
+			self.gridref()._terminate(node)
+		else:
+			if pkg:
+				node.uninstall(pkg)
+			if self.subnet:
+				node.leave(self.subnet)
+
+		# try:
+		#	if self.gridref()._is_transient(node):
+		#		self.gridref()._terminate(node)
+		#	else:
+		#		if pkg:
+		#			node.uninstall(pkg)
+		#		if self.subnet:
+		#			node.leave(self.subnet)
+		# except Exception as e:
+		#	self.gridref().quarantine(node = node, reason = e)
 
 	def release(self, node):
 		"release the node from the session"
@@ -326,6 +339,8 @@ class Session(object):
 		else:
 			raise NoSuchItemError(node, self)
 		self.plan.remove((pkg, _node))
+		if self.gridref()._is_transient(node):
+			self.gridref().remove_node(node)
 
 	def deploy(self, packages):
 		"get, apply, register and return a named plan"

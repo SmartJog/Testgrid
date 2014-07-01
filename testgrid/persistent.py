@@ -87,7 +87,7 @@ class Sessions(object):
 
 class Grid(model.Grid):
 
-	def __init__(self, name, dbpath = "~/testgrid.db"):	
+	def __init__(self, name, dbpath = "~/testgrid.db"):
 		self.db = database.Database(dbpath = dbpath)
 		super(Grid, self).__init__(
 			name = name,
@@ -97,7 +97,7 @@ class Grid(model.Grid):
 
 	def quarantine(self, node, reason):
 		super(Grid, self).quarantine(node = node, reason = reason)
-		self.db.quarantine_node(node = node, reason = reason)
+		self.db.quarantine_node(obj =  node, reason = reason)
 
 	def rehabilitate(self, node):
 		super(Grid, self).rehabilitate(node)

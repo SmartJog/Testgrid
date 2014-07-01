@@ -5,16 +5,18 @@
 from testgrid import database, persistent, installsystems, model, shell
 
 class Node(database.StorableNode):
-	def __init__(self, name, hoststring, arg):
+	def __init__(self, name, hoststring, arg, profile_name):
 		self.arg = arg
 		self.name = name
 		self.hoststring = hoststring
+                self.profile_name = profile_name
 
 	def marshall(self):
 		return "%s" % {
 			"name": self.name,
 			"hoststring": self.hoststring,
 			"arg": self.arg,
+                        "profile_name":  self.profile_name,
 		}
 
 	def __eq__(self, other):
@@ -73,21 +75,24 @@ class Grid(persistent.Grid):
 	def _create_node(self, pkg = None, **opts):
 		image_name = opts["image_name"]
 		profile_name = opts["profile_name"]
+                hostname = opts["name"]
 		if profile_name == "pg":
-			hostname = installsystems.normalized_playground_hostname(opts["name"])
-		else:
-			hostname = opts["name"]
-		profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hostname)
+                        hoststring = installsystems.normalized_playground_hostname(opts["name"])
+                        hostname = hoststring
+                        profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hoststring)
+                else:
+                        profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hostname)
 		self.hv.create_domain(
 			profile = profile,
 			on_stdout_line = shell.Stderr, # stdout reserved for result
 			on_stderr_line = shell.Stderr)
-		if profile.interfaces:
-			hoststring = self._get_interface(profile.interfaces)
-		else:
-			hoststring = profile.values["domain_name"]
+                if profile_name is not "pg":
+                        if profile.interfaces:
+                                hoststring = self._get_interface(profile.interfaces)
+                        else:
+                                hoststring = profile.values["domain_name"]
 
-		node = Node(hostname, hoststring, profile.get_argv())
+		node = Node(hostname, hoststring, profile.get_argv(), profile_name)
 		return node
 
 	def _terminate(self, node):
@@ -99,11 +104,18 @@ class Grid(persistent.Grid):
 			force = True,
 			warn_only = True,
 			**kwargs)
-		self.hv.delete_domain(
-			name = node.name,
-			ipstore = self.ipstore,
-			interfaces = [node.hoststring],
-			**kwargs)
+                if node.profile_name == "pg":
+                        self.hv.delete_domain(
+                                name = node.name,
+                                ipstore = None,
+                                interfaces = None,
+                                **kwargs)
+                else:
+                        self.hv.delete_domain(
+                                name = node.name,
+                                ipstore = self.ipstore,
+                                interfaces = [node.hoststring],
+                                **kwargs)
 
 	def _get_interface(self, interfaces):
 		#FIXME: find accurate interface
@@ -157,7 +169,7 @@ class FakeTest(unittest.TestCase):
                 user = database.StorableUser("user")
                 opts = {"image_name": "debian-smartjog",
                         "profile_name": self.profile,
-                        "name": "test-isadapter-%s"
+                        "name": "test-isadapter%s"
                         % time.strftime("%Y%m%d%H%M%S", time.localtime())}
                 session = self.grid.open_session(name = "test", user = user)
                 node = session.allocate_node(**opts)
@@ -176,7 +188,7 @@ class SelfTestQAP(FakeTest):
 class SelfTestPG(FakeTest):
 	def setUp(self):
 		#!!! VPN !!!
-		self.grid = TempGrid(name = "testis_pg", hoststring = "root@root@hkvm-pg-1-1.pg-1.arkena.net", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-pg.db")
+		self.grid = TempGrid(name = "testis_pg", hoststring = "root@hkvm-pg-1-1.pg-1.arkena.net", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-pg.db")
                 self.profile = "pg"
 
 

@@ -28,31 +28,31 @@ Usage:
 
 Options:
   -m INI, --manifest INI      comma-separated paths or URIs [default: ~/testgrid.ini]
-  -l, --local                 use a local client
+  -l, --local		      use a local client
   -c HOST, --controller HOST  set controller hoststring [default: qa.lab.fr.lan:8080]
-  -g NAME, --grid NAME        set grid section NAME in the manifest [default: grid]
-  -n NAME, --node NAME        set node NAME
+  -g NAME, --grid NAME	      set grid section NAME in the manifest [default: grid]
+  -n NAME, --node NAME	      set node NAME
   -s NAME, --session NAME     set session NAME
-  --list-nodes                list nodes in selected container
-  --add-node NAME             add named node parsed from manifest
-  --remove-node NAME          remove named node
+  --list-nodes		      list nodes in selected container
+  --add-node NAME	      add named node parsed from manifest
+  --remove-node NAME	      remove named node
   --quarantine-node NAME      place a node in quarantine
   --rehabilitate-node NAME    rehabilitate a quarantined node
-  --list-sessions             list sessions
-  --open-session NAME         open, or re-open if it exists, named session
+  --list-sessions	      list sessions
+  --open-session NAME	      open, or re-open if it exists, named session
   --terminate-session NAME    undeploy session nodes and remove session
-  --allocate-node NAME        allocate a node to the session
-  --release-node NAME         release a node from the session
-  --deploy PKG...             deploy named packages, allocated nodes automatically
-  --undeploy                  undeploy named packages, release nodes automatically
-  --ping                      ping node
-  --install NAME              install named packaged on node
-  --uninstall NAME            uninstall named package
-  --is-installed NAME         succeed if named package is installed on node
-  --is-installable NAME       succeed if named package is installable on node
-  -e, --execute               execute command on node
-  -h, --help                  show help
-  --version                   show version
+  --allocate-node NAME	      allocate a node to the session
+  --release-node NAME	      release a node from the session
+  --deploy PKG...	      deploy named packages, allocated nodes automatically
+  --undeploy		      undeploy named packages, release nodes automatically
+  --ping		      ping node
+  --install NAME	      install named packaged on node
+  --uninstall NAME	      uninstall named package
+  --is-installed NAME	      succeed if named package is installed on node
+  --is-installable NAME	      succeed if named package is installable on node
+  -e, --execute		      execute command on node
+  -h, --help		      show help
+  --version		      show version
 
 Example, simple debian package deployment:
   $ tg --create-session test-fleche
@@ -248,11 +248,10 @@ def main():
 				list_nodes(client, [node for node in session])
 			elif opts["--allocate-node"]:
 				parser = testgrid.parser.Parser(ini = opts["--manifest"])
-                                print opts
 				_opts = {}
 				for key, value in parser.conf.items(opts["NAME"]):
 					_opts[key] = value
-                                #_opts["hostname"] = opts["--allocate-node"]
+				#_opts["hostname"] = opts["--allocate-node"]
 				node = session.allocate_node(name = opts["--allocate-node"], **_opts)
 			elif opts["--release-node"]:
 				node = client.get_node(opts["--release-node"])

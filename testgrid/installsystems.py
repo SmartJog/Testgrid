@@ -49,8 +49,8 @@ def normalized_playground_hostname(hostname):
 	elif len(comps) == 2:
 		hostname += ".fr.lan"
 	assert\
-		re.match(r"\w+-\w+\.(pg|lab)\.fr\.lan", hostname),\
-		"%s: invalid playground domain name" % hostname
+	    re.match(r"\w+-\w+\.(pg|lab)\.fr\.lan", hostname),\
+	    "%s: invalid playground domain name" % hostname
 	return hostname
 
 def parse_interface(string):
@@ -103,17 +103,12 @@ class IPStore(object):
 		self.port = port
 		self.use_ssl = use_ssl
 
-	def __getattr__(self, key):
-		if key == "cnx":
+	def get(self, path):
+		try:
 			if self.use_ssl:
 				self.cnx = httplib.HTTPSConnection(host = self.host, port = self.port)
 			else:
 				self.cnx = httplib.HTTPConnection(host = self.host, port = self.port)
-			return self.cnx
-		raise AttributeError(key)
-
-	def get(self, path):
-		try:
 			self.cnx.request("GET", path)
 			res = self.cnx.getresponse()
 			assert res.status == 200, "%i, %s" % (res.status, res.reason)
@@ -287,7 +282,7 @@ class Profiles(object):
 		values, interfaces = self.parse(profile_name, ipstore, **kwargs)
 		def make_profile(image_name, profile_name):
 			for profile_pattern in self.dict[image_name]:
-				if re.sub("\w+@", "", profile_name) in profile_pattern.split("|"):
+				if re.sub("[\w-]+@", "", profile_name) in profile_pattern.split("|"):
 					return Profile(
 						format = self.dict[image_name][profile_pattern]["format"],
 						values = values,
@@ -495,6 +490,11 @@ class FakeRunner(object):
 				lambda domain: domain.name != domain_name,
 				self.domains)
 			return True
+
+		res = re.match(r"virsh .*destroy.* (\w+)", argv)
+		if res:
+			return True
+
 		res = re.match(r"virsh start (\w+)", argv)
 		if res:
 			domain_name = res.group(1)
