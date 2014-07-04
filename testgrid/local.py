@@ -34,7 +34,9 @@ class AccessManager(testgrid.client.AccessManager):
 class Client(testgrid.client.Client):
 	"handle transient sessions only"
 
-	def __init__(self, username = None, gridname = "grid", ini = "~/grid.ini"):
+	def __init__(self, username = None, name = "grid", ini = "~/grid.ini", modules = ()):
                 accessmgr = AccessManager()
-		grid = testgrid.parser.parse_grid(gridname, ini, __name__)
-		super(Client, self).__init__(grid = grid, accessmgr = accessmgr ,user = username)
+		modules += (__name__,)
+		grid = testgrid.parser.parse_grid(name, ini, *modules)
+		super(Client, self).__init__(grid = grid, accessmgr = accessmgr ,user = None)
+

@@ -378,7 +378,8 @@ class Hypervisor(object):
 					public_key = public_key,
 					*args,
 					**kwargs)
-			self.run("virsh start %s" % profile.domain_name, *args, **kwargs)
+			argv = ("virsh", "start", profile.domain_name)
+			self.run(argv = argv, *args, **kwargs)
 		else:
 			self._delete_vg(profile, *args, **kwargs)
 		return res

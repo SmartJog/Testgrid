@@ -231,7 +231,6 @@ class Node(database.StorableNode):
 		raise NotImplementedError("vgadapter.Node.get_installed_packages() not implemented yet")
 
 class Grid(persistent.Grid):
-
 	def __init__(self, name, root, *args, **kwargs):
 		super(Grid, self).__init__(name = name, *args, **kwargs)
 		self.root = root

@@ -133,7 +133,6 @@ class Database(object):
 				type(node).__name__,
 				node.name,
 				node.marshall()))
-                print node.marshall()
 		self.con.commit()
 		return self.cur.lastrowid
 

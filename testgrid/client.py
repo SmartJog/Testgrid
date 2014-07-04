@@ -44,6 +44,9 @@ def restricted(f):
 				resource = f)
 	return restricted_f
 
+import testgrid, unittest, getpass, jinja2, os, stat
+
+
 class Client(object):
 	"provide an access-controlled interface to sessions and grid"
 
@@ -106,7 +109,7 @@ class Client(object):
 
 	def is_quarantined(self, node):
 		"return True if the node is quarantined"
-		return self.grid.is_quarantined(node)
+ 		return self.grid.is_quarantined(node)
 
 	@restricted
 	def quarantine_node(self, name, reason):
@@ -130,12 +133,12 @@ class Client(object):
 					yield session
 
 
-        def get_node_session(self, node):
-                "return session that contains a specific node"
-                return self.grid._get_node_session(node)
-                # for session in self.grid.get_sessions():
-                #         if node in session:
-                #                 return session
+	def get_node_session(self, node):
+		"return session that contains a specific node"
+		return self.grid._get_node_session(node)
+		# for session in self.grid.get_sessions():
+		#	  if node in session:
+		#		  return session
 
 	def get_session(self, name):
 		"""
@@ -150,6 +153,10 @@ class Client(object):
 	def open_session(self, name):
 		return self.grid.open_session(name = name, user = self.user)
 
+	def close_session(self, name):
+		session = self.get_session(name)
+		session.close()
+
 #########
 # tests #
 #########
@@ -160,6 +167,7 @@ class DenyAll(AccessManager):
 		return False
 
 class AllowUser(AccessManager):
+
 
 	def __init__(self, user):
 		self.admin = user

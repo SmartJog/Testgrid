@@ -138,6 +138,12 @@ class Parser(object):
 				kwargs[key] = value
 		return self._mkobj(cls, **kwargs)
 
+	def _parse_node_dictionary(self, section):
+		kwargs = {"name": section}
+		for key, value in self.conf.items(section):
+			kwargs[key] = value
+		return kwargs
+
 	def _parse_grid(self, section):
 		cls = model.Grid
 		kwargs = {"name": section}
@@ -164,6 +170,14 @@ class Parser(object):
 				kwargs[key] = value
 		return self._mkobj(cls, **kwargs)
 
+	def _parse_session(self, section):
+		for key, value in self.conf.items(section):
+			if key.endswith("nodes"):
+				nodes_opt = []
+				for s in value.split():
+					nodes_opt.append(self.cache[s] if s in self.cache else self._parse(s, self._parse_node_dictionary))
+				return nodes_opt
+
 	def _parse(self, section, hdl):
 		if not self.conf.has_section(section):
 		 raise NoSuchSectionError(section)
@@ -181,6 +195,13 @@ class Parser(object):
 	def parse_grid(self, name):
 		return self._parse(name, self._parse_grid)
 
+
+	def parse_node_dictionary(self, name):
+		return self._parse(name, self._parse_node_dictionary)
+
+	def parse_session(self, name):
+		return self._parse(name, self._parse_session)
+
 def parse_node(name, ini, *modules):
 	"parse manifests and return a node instance"
 	return Parser(ini, *modules).parse_node(name)
@@ -189,12 +210,18 @@ def parse_grid(name, ini, *modules):
 	"parse manifests and return a grid instance"
 	return Parser(ini, *modules).parse_grid(name)
 
-#########
-# tests #
-#########
+def parse_node_dictionary(name, ini, *modules):
+	"parse manifests and return a dictionary of a node options"
+	return Parser(ini, *modules).parse_node_dictionary(name)
+
+def parse_session(name, ini, *modules):
+	return Parser(ini, *modules).parse_session(name)
+
+##############
+# unit tests #
+##############
 
 class SelfTest(unittest.TestCase):
-
 	@staticmethod
 	def get_file(content = ""):
 		"generate a temporary file with the specified content"

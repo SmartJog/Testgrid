@@ -30,9 +30,11 @@ import persistent # model, database
 #import vgadapter # model, persistent, vagrant
 #import isadapter # model, persistent, installsystems
 
+
 ###########
 # clients #
 ###########
 
 import local # client, *.Grid, *.Node
-#import rest # client
+import rest # client
+import inventory

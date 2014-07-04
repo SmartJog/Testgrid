@@ -1,4 +1,4 @@
-# copyright (c) 2013-2014 smartjog, released under the GPL license.
+#copyright (c) 2013-2014 smartjog, released under the GPL license.
 
 "Ansible-based Programmable Test Environments - PTE - management framework"
 
@@ -153,6 +153,7 @@ class Hoststring(str):
 			hostname, port = hostport.split(":")
 		else:
 			hostname, port = (hostport, None)
+
 		return (username, password, hostname, port)
 
 class Node(object):
@@ -214,7 +215,7 @@ class Node(object):
 	def is_up(self):
 		"return True if the node is reachable, False otherwise"
 		username, password, hostname, port = self.get_hoststring().split()
-		code, stdout, stderr = local_run("ping -t 1 -c 1 %s" % hostname, warn_only = True)
+		code, stdout, stderr = local_run("ping -t 2 -c 1 %s" % hostname, warn_only = True)
 		return code == 0
 
 	def start(self, service):
@@ -311,36 +312,28 @@ class Session(object):
 		return node
 
 	def _release_pair(self, pkg, node):
-		if self.gridref()._is_transient(node):
-			self.gridref()._terminate(node)
-		else:
-			if pkg:
-				node.uninstall(pkg)
-			if self.subnet:
-				node.leave(self.subnet)
-
-		# try:
-		#	if self.gridref()._is_transient(node):
-		#		self.gridref()._terminate(node)
-		#	else:
-		#		if pkg:
-		#			node.uninstall(pkg)
-		#		if self.subnet:
-		#			node.leave(self.subnet)
-		# except Exception as e:
-		#	self.gridref().quarantine(node = node, reason = e)
+		try:
+			if self.gridref()._is_transient(node):
+				self.gridref()._terminate(node)
+			else:
+				if pkg:
+					node.uninstall(pkg)
+				if self.subnet:
+					node.leave(self.subnet)
+		except Exception as e:
+			self.gridref().quarantine(node = node, reason = e)
 
 	def release(self, node):
 		"release the node from the session"
 		for pkg, _node in self.plan:
 			if _node == node:
 				self._release_pair(pkg, _node)
+				self.plan.remove((pkg, _node))
 				break
 		else:
 			raise NoSuchItemError(node, self)
-		self.plan.remove((pkg, _node))
-		if self.gridref()._is_transient(node):
-			self.gridref().remove_node(node)
+                if self.gridref()._is_transient(node):
+			self.gridref().remove_node(node, force = True)
 
 	def deploy(self, packages):
 		"get, apply, register and return a named plan"
@@ -619,6 +612,9 @@ class Grid(object):
 		return self._get_node_session(lnode) == self._get_node_session(rnode)\
 			and lnode == rnode
 
+        def get_sessions(self):
+                return self.sessions
+
 ################
 # test doubles #
 ################
@@ -657,6 +653,14 @@ class FakeNode(Node):
 		self.terminated = False
 		self.installed = []
 		self.subnets = []
+		self.hoststring = "test@test"
+
+	def get_typename(self):
+		return "fake node"
+
+	def get_info(self):
+		return "fake node"
+
 
 	def has_support(self, **opts):
 		return True

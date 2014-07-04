@@ -8,7 +8,7 @@ class Node(database.StorableNode):
 	def __init__(self, name, hoststring, arg, profile_name):
 		self.arg = arg
 		self.name = name
-		self.hoststring = hoststring
+		self.hoststring =  hoststring
                 self.profile_name = profile_name
 
 	def marshall(self):
@@ -31,6 +31,10 @@ class Node(database.StorableNode):
 
 	def get_typename(self):
 		return "is image"
+
+        def get_info(self):
+		return "is"
+
 
 	def has_support(self, **opts):
 		raise NotImplementedError("isadapter.Node.has_support() not implemented yet")
@@ -84,7 +88,7 @@ class Grid(persistent.Grid):
                         profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hostname)
 		self.hv.create_domain(
 			profile = profile,
-			on_stdout_line = shell.Stderr, # stdout reserved for result
+			on_stdout_line = shell.Stdout, # stdout reserved for result
 			on_stderr_line = shell.Stderr)
                 if profile_name is not "pg":
                         if profile.interfaces:
@@ -179,17 +183,17 @@ class FakeTest(unittest.TestCase):
                 session.release(node)
                 self.assertNotIn(node, session)
 
-class SelfTestQAP(FakeTest):
-	def setUp(self):
-		#!!! VPN !!!
-		self.grid = TempGrid(name = "testis_qap", hoststring = "root@10.69.44.1", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-qap.db")
-                self.profile = "tg:basic"
+# class SelfTestQAP(FakeTest):
+# 	def setUp(self):
+# 		#!!! VPN !!!
+# 		self.grid = TempGrid(name = "testis_qap", hoststring = "root@10.69.44.1", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-qap.db")
+# 		self.profile = "tg:basic"
 
-class SelfTestPG(FakeTest):
-	def setUp(self):
-		#!!! VPN !!!
-		self.grid = TempGrid(name = "testis_pg", hoststring = "root@hkvm-pg-1-1.pg-1.arkena.net", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-pg.db")
-                self.profile = "pg"
+# class SelfTestPG(FakeTest):
+# 	def setUp(self):
+# 		#!!! VPN !!!
+# 		self.grid = TempGrid(name = "testis_pg", hoststring = "root@hkvm-pg-1-1.pg-1.arkena.net", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-pg.db")
+# 		self.profile = "pg"
 
 
 if __name__ == "__main__": unittest.main(verbosity = 2)
