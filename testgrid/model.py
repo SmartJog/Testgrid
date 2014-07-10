@@ -655,6 +655,14 @@ class FakeNode(Node):
 		self.subnets = []
 		self.hoststring = "test@test"
 
+        def __eq__(self, other):
+		if self.name == other.name:
+			return True
+		return False
+
+	def __ne__(self, other):
+		return not (self == other)
+
 	def get_typename(self):
 		return "fake node"
 

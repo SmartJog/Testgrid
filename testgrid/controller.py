@@ -4,65 +4,93 @@ import testgrid
 
 
 grid = None
+accessmgr = None
 app = bottle.Bottle()
 
-def setup_serveur(host, port, g):
+class AccessManager(testgrid.client.AccessManager):
+
+    def __init__(self, host):
+        self.host = host
+
+    def is_administrator(self, user):
+        if self.host == user.remote_addr:
+            return True
+        return False
+
+def setup_serveur(host, port, g, am = None):
     global grid
+    global accessmgr
     grid = g
+    accessmgr = am or AccessManager(host)
     app.run(host=host, port=port, debug=True)
 
-def get_session(username, name):
-    for session in grid.get_sessions():
-        if (session.user.name == username and session.name == name):
-            return session
-    raise Exception("session %s %s doesn't exist" % (user.name, name))
+def setup_client(username):
+    #username, _ = bottle.request.auth
+    user = testgrid.client.User(name = username)
+    user.remote_addr = bottle.request.remote_addr
+    client = testgrid.client.Client(grid = grid, accessmgr = accessmgr , user = user)
+    return client
+
 
 @app.route("/get_node")
 def get_node():
+    client = setup_client(bottle.request.GET.get("username"))
     name = bottle.request.GET.get("name")
-    for node in grid:
-        if node.name == name:
-            return {"name": node.name ,"typename": node.get_info(), "hoststring": node.hoststring}
-    return ({"error": "node %s doesn' exist" % name})
+    try:
+        node = client.get_node(name)
+        return {"name": node.name ,"typename": node.get_info(), "hoststring": node.hoststring}
+    except Exception as e:
+        return ({"error": "%s" % repr(e)})
+
 
 @app.route("/get_nodes")
 def get_nodes():
     result = {}
-    for node in grid:
+    client = setup_client(bottle.request.GET.get("username"))
+    for node in client.get_nodes():
         result[node.name] = {"typename": node.get_info(), "hoststring": node.hoststring}
     return result
 
 @app.route("/is_available")
 def is_available():
     name = bottle.request.GET.get("name")
-    for node in grid:
-        if name == node.name:
-            return ({"result": grid.is_available(node)})
-    return ({"error": "node %s doesn' exist" % name})
+    client = setup_client(bottle.request.GET.get("username"))
+    try:
+        node = client.get_node(name)
+        return ({"result": client.is_available(node)})
+    except Exception as e:
+        return ({"error": "%s" % repr(e)})
 
 @app.route("/is_allocated")
 def is_allocated():
     name = bottle.request.GET.get("name")
-    for node in grid:
-        if name == node.name:
-            return ({"result": grid.is_allocated(node)})
-    return ({"error": "node %s doesn' exist" % name})
+    client = setup_client(bottle.request.GET.get("username"))
+    try:
+        node = client.get_node(name)
+        return ({"result": client.is_allocated(node)})
+    except Exception as e:
+        return ({"error": "%s" % repr(e)})
 
 @app.route("/is_quarantined")
 def is_quarantined():
     name = bottle.request.GET.get("name")
-    for node in grid:
-        if name == node.name:
-            return ({"result": grid.is_quarantined(node)})
-    return ({"error": "node %s doesn' exist" % name})
+    client = setup_client(bottle.request.GET.get("username"))
+    try:
+        node = client.get_node(name)
+        return ({"result": client.is_quarantined(node)})
+    except Exception as e:
+        return ({"error": "%s" % repr(e)})
+
 
 @app.route("/is_transient")
 def is_transient():
     name = bottle.request.GET.get("name")
-    for node in grid:
-        if name == node.name:
-            return ({"result": grid._is_transient(node)})
-    return ({"error": "node %s doesn' exist" % name})
+    client = setup_client(bottle.request.GET.get("username"))
+    try:
+        node = client.get_node(name)
+        return ({"result": client.is_transient(node)})
+    except Exception as e:
+        return ({"error": "%s" % repr(e)})
 
 @app.post("/deploy")
 def deploy():
@@ -70,9 +98,13 @@ def deploy():
         data = bottle.request.json
         list_packages = []
         for package in data["packages"]:
-            cls = testgrid.parser.get_subclass(package["type"], testgrid.model.Package ,package["module"])
-            list_packages.append(cls(name = package["name"], version = package["version"]))
-        session = get_session(data["session"]["username"], data["session"]["name"])
+            cls = testgrid.parser.get_subclass(package["type"],
+                                               testgrid.model.Package ,
+                                               package["module"])
+            list_packages.append(cls(name = package["name"],
+                                     version = package["version"]))
+        client = setup_client(data["session"]["username"])
+        session = client.get_session(data["session"]["name"])
         plans = session.deploy(list_packages)
         result = {}
         for pkg, node in plans:
@@ -85,7 +117,8 @@ def deploy():
 def undeploy():
     try:
         data = bottle.request.json
-        session = get_session(data["session"]["username"], data["session"]["name"])
+        client = setup_client(data["session"]["username"])
+        session = client.open_session(data["session"]["name"])
         session.undeploy()
         return {}
     except Exception as e:
@@ -95,8 +128,8 @@ def undeploy():
 def open_session():
     try:
         data = bottle.request.json
-        user = testgrid.client.User(data["session"]["username"])
-        session = grid.open_session(name = data["session"]["name"], user = user)
+        client = setup_client(data["session"]["username"])
+        session = client.open_session(data["session"]["name"])
         return {"session" :{"username": session.user.name, "name": session.name}}
     except Exception as e:
         return {"error": repr(e)}
@@ -105,7 +138,8 @@ def open_session():
 def allocate_node():
     try:
         data = bottle.request.json
-        session = get_session(data["session"]["username"], data["session"]["name"])
+        client = setup_client(data["session"]["username"])
+        session = client.open_session(data["session"]["name"])
         node = session.allocate_node(**data["options"])
         return {"name": node.name,"typename": node.get_info(), "hoststring": node.hoststring}
     except Exception as e:
@@ -115,29 +149,30 @@ def allocate_node():
 def release_node():
     try:
         data = bottle.request.json
-        session = get_session(data["session"]["username"], data["session"]["name"])
-        for node in grid:
-            if node.name == data["node"]["name"]:
-                session.release(node)
-                return {}
-        return ({"error": "node %s doesn' exist" % data["node"]["name"]})
+        client = setup_client(data["session"]["username"])
+        session = client.get_session(data["session"]["name"])
+        node = client.get_node(name)
+        session.release(node)
+        return {}
     except Exception as e:
         return {"error": repr(e)}
 
 @app.route('/get_node_session')
 def get_node_session():
     name = bottle.request.GET.get("name")
-    for session in grid.get_sessions():
-        for node in session:
-            if node.name == name:
-                return {"session": {"username": session.user.name, "name": session.name}}
+    client = setup_client(bottle.request.GET.get("username"))
+    node = client.get_node(name)
+    session = client.get_node_session(node)
+    if session:
+        return {"session": {"username": session.user.name, "name": session.name}}
     return {}
 
 @app.post('/close_session')
 def close_session():
     try:
         data = bottle.request.json
-        session = get_session(data["session"]["username"], data["session"]["name"])
+        client = setup_client(data["session"]["username"])
+        session = client.open_session(data["session"]["name"])
         session.close()
         return {}
     except Exception as e:
@@ -146,16 +181,17 @@ def close_session():
 @app.route('/get_sessions')
 def get_sessions():
     sessions = {"sessions": []}
-    for session in grid.get_sessions():
+    client = setup_client(bottle.request.GET.get("username"))
+    for session in client.get_sessions():
         sessions["sessions"].append({"username": session.user.name, "name": session.name})
     return sessions
 
 @app.route('/get_session')
-def get_session_rest():
+def get_session():
     try:
         name = bottle.request.GET.get("name")
-        uername = bottle.request.GET.get("username")
-        session = get_session(username, name)
+        client = setup_client(bottle.request.GET.get("username"))
+        session = client.get_session(name)
         result = {}
         for node in session:
             result[node.name] = {"typename": node.get_info(), "hoststring": node.hoststring}
@@ -167,14 +203,9 @@ def get_session_rest():
 def add_node():
     try:
         data = bottle.request.json
-        if "type" in data:
-            cls = testgrid.parser.get_subclass(testgrid.parser.normalized(data["type"]), testgrid.model.Node)
-            del data["type"]
-            node = testgrid.parser.Parser._mkobj(cls, **data)
-            grid.add_node(node)
-            return {}
-        else:
-            raise Exception("node type wasn't provided")
+        client = setup_client(data["username"])
+        node = client.create_node_object(data["node_opt"])
+        client.add_node(node)
     except Exception as e:
         return {"error": repr(e)}
 
@@ -182,11 +213,9 @@ def add_node():
 def remove_node():
     try:
         name = bottle.request.GET.get("name")
-        for node in grid:
-            if node.name == name:
-                grid.remove_node(node)
-                return {}
-        return {"error": "can't remove node %s doesn't exist" % name}
+        client = setup_client(bottle.request.GET.get("username"))
+        client.remove_node(name)
+        return {}
     except Exception as e:
         return {"error": repr(e)}
 
@@ -194,11 +223,9 @@ def remove_node():
 def quarantine_node():
     try:
         data = bottle.request.json
-        for node in grid:
-            if node.name == data["name"]:
-                grid.quarantine(node, data["reason"])
-                return {}
-        return {"error": "can't quarantine node %s doesn't exist" % name}
+        client = setup_client(data["username"])
+        client.quarantine_node(data["name"], data["reason"])
+        return {}
     except Exception as e:
         return {"error": repr(e)}
 
@@ -206,23 +233,24 @@ def quarantine_node():
 def rehabilitate_node():
     try:
         data = bottle.request.json
-        for node in grid:
-            if node.name == data["name"]:
-                grid.rehabilitate(node)
-                return {}
-        return {"error": "can't rehabilitate node %s doesn't exist" % name}
+        client = setup_client(data["username"])
+        client.rehabilitate_node(data["name"])
+        return {}
     except Exception as e:
-        return {"error": repr(e)}
+         return {"error": repr(e)}
 
 @app.post('/install')
 def install():
     try:
         data = bottle.request.json
-        for node in grid:
-            if node.name == data["node"]["name"]:
-                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
-                code , stdout, stderr = node.install(cls(name = data["package"]["name"], version = data["package"]["version"]))
-                return {"code": code, "stdout": stdout, "stderr": stderr}
+        client = setup_client(data["username"])
+        if node.name == data["node"]["name"]:
+            cls = testgrid.parser.get_subclass(data["package"]["type"],
+                                               testgrid.model.Package ,
+                                               data["package"]["module"])
+            code , stdout, stderr = node.install(cls(name = data["package"]["name"], 
+                                                     version = data["package"]["version"]))
+            return {"code": code, "stdout": stdout, "stderr": stderr}
         return {"error": "node %s doesn't exist" % data["node"]["name"]}
     except Exception as e:
         return {"error": repr(e)}
@@ -231,12 +259,11 @@ def install():
 def uninstall():
     try:
         data = bottle.request.json
-        for node in grid:
-            if node.name == data["node"]["name"]:
-                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
-                code , stdout, stderr = node.uninstall(cls(name = data["package"]["name"], version = data["package"]["version"]))
-                return {"code": code, "stdout": stdout, "stderr": stderr}
-        return {"error": "node %s doesn't exist" % data["node"]["name"]}
+        client = setup_client(data["username"])
+        node = client.get_node(data["node"]["name"])
+        cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
+        code , stdout, stderr = node.uninstall(cls(name = data["package"]["name"], version = data["package"]["version"]))
+        return {"code": code, "stdout": stdout, "stderr": stderr}
     except Exception as e:
         return {"error": repr(e)}
 
@@ -244,11 +271,10 @@ def uninstall():
 def is_installed():
     try:
         data = bottle.request.json
-        for node in grid:
-            if node.name == data["node"]["name"]:
-                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
-                return {"result": node.is_installed(cls(name = data["package"]["name"], version = data["package"]["version"]))}
-        return {"error": "node %s doesn't exist" % data["node"]["name"]}
+        client = setup_client(data["username"])
+        client.get_node(data["node"]["name"])
+        cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
+        return {"result": node.is_installed(cls(name = data["package"]["name"], version = data["package"]["version"]))}
     except Exception as e:
         return {"error": repr(e)}
 
@@ -256,27 +282,32 @@ def is_installed():
 def is_installable():
     try:
         data = bottle.request.json
-        for node in grid:
-            if node.name == data["node"]["name"]:
-                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
-                return {"result":node.is_installable(cls(name = data["package"]["name"], version = data["package"]["version"]))}
-        return {"error": "node %s doesn't exist" % data["node"]["name"]}
+        client = setup_client(data["username"])
+        node = client.get_node(data["node"]["name"])
+        cls = testgrid.parser.get_subclass(data["package"]["type"],
+                                           testgrid.model.Package ,
+                                           data["package"]["module"])
+        return {"result":node.is_installable(cls(name = data["package"]["name"], 
+                                                 version = data["package"]["version"]))}
     except Exception as e:
         return {"error": repr(e)}
 
 @app.post('/has_support')
 def has_support():
-    data = bottle.request.json
-    for node in grid:
-        if node.name == data["node"]:
-            return {"result": node.has_support(**data["opts"])}
-    return {"error": "node %s doesn't exist" % data["node"]}
+    try:
+        #FIXME
+        data = bottle.request.json
+        client = setup_client()
+        node = client.get_node(data["node"])
+        return {"result": node.has_support(**data["opts"])}
+    except Exception as e:
+        return {"error": "%s" % repr(e)}
 
 @app.route('/get_nodes_session')
 def get_nodes_session():
     name = bottle.request.GET.get("name")
-    username = bottle.request.GET.get("username")
-    session = get_session(username, name)
+    client = setup_client(bottle.request.GET.get("username"))
+    session = client.get_session(name)
     result = {}
     nodes = []
     for node in session:
@@ -287,8 +318,8 @@ def get_nodes_session():
 @app.route('/session_contains')
 def session_contains():
     name = bottle.request.GET.get("name")
-    username = bottle.request.GET.get("username")
-    session = get_session(username, name)
+    client = setup_client(bottle.request.GET.get("username"))
+    session = client.get_session(name)
     node_name = bottle.request.GET.get("node")
     for node in session:
         if node.name == node_name:

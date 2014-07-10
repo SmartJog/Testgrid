@@ -183,17 +183,17 @@ class FakeTest(unittest.TestCase):
                 session.release(node)
                 self.assertNotIn(node, session)
 
-# class SelfTestQAP(FakeTest):
-# 	def setUp(self):
-# 		#!!! VPN !!!
-# 		self.grid = TempGrid(name = "testis_qap", hoststring = "root@10.69.44.1", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-qap.db")
-# 		self.profile = "tg:basic"
+class SelfTestQAP(FakeTest):
+	def setUp(self):
+		#!!! VPN !!!
+		self.grid = TempGrid(name = "testis_qap", hoststring = "root@10.69.44.1", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-qap.db")
+		self.profile = "tg:basic"
 
-# class SelfTestPG(FakeTest):
-# 	def setUp(self):
-# 		#!!! VPN !!!
-# 		self.grid = TempGrid(name = "testis_pg", hoststring = "root@hkvm-pg-1-1.pg-1.arkena.net", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-pg.db")
-# 		self.profile = "pg"
+class SelfTestPG(FakeTest):
+	def setUp(self):
+		#!!! VPN !!!
+		self.grid = TempGrid(name = "testis_pg", hoststring = "root@hkvm-pg-1-1.pg-1.arkena.net", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-pg.db")
+		self.profile = "pg"
 
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

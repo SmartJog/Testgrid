@@ -16,10 +16,10 @@ class UnknownNodeError(Exception):
 
 class User(model.User):
 
-        def marshall(self):
-                return "%s" % {"name": self.name}
+	def marshall(self):
+		return "%s" % {"name": self.name}
 
-        @classmethod
+	@classmethod
 	def unmarshall(cls, data):
 		return (cls)(**eval(data))
 
@@ -59,6 +59,7 @@ class Client(object):
 		"return all nodes if user is admin, return user's nodes otherwise"
 		if self.accessmgr.is_administrator(self.user):
 			for node in self.grid:
+                                print node
 				yield node
 		else:
 			for session in self.grid.sessions:
@@ -72,6 +73,7 @@ class Client(object):
 		If user is not admin, fails if the node is not in any user's session.
 		"""
 		for node in self.get_nodes():
+                        print node.name
 			if node.name == name:
 				return node
 		raise UnknownNodeError(name)
@@ -136,9 +138,7 @@ class Client(object):
 	def get_node_session(self, node):
 		"return session that contains a specific node"
 		return self.grid._get_node_session(node)
-		# for session in self.grid.get_sessions():
-		#	  if node in session:
-		#		  return session
+
 
 	def get_session(self, name):
 		"""
@@ -221,6 +221,7 @@ class SelfTest(unittest.TestCase):
 		_, clients, sessions, nodes = self.mkenv(10, 10)
 		for client in clients:
 			for node in nodes:
+                                print node.name
 				# if node is user's, it can get it:
 				if node in sessions[clients.index(client)]:
 					self.assertEqual(node, client.get_node(node.name))
