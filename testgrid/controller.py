@@ -46,9 +46,10 @@ def get_node():
 @app.route("/get_nodes")
 def get_nodes():
     result = {}
+    result["nodes"] = []
     client = setup_client(bottle.request.GET.get("username"))
     for node in client.get_nodes():
-        result[node.name] = {"typename": node.get_info(), "hoststring": node.hoststring}
+        result["nodes"].append({"name": node.name, "typename": node.get_info(), "hoststring": node.hoststring})
     return result
 
 @app.route("/is_available")

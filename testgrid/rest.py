@@ -238,7 +238,6 @@ class Client(testgrid.client.Client):
         def get_node(self, name):
                 url = 'http://%s/get_node?name=%s&username=%s' % (self.host, name, self.user.name)
                 response = request_get(url)
-                print response
                 if "error" in response:
                         raise testgrid.client.UnknownNodeError(name)
                 return Node(self.host, **response)
@@ -246,8 +245,8 @@ class Client(testgrid.client.Client):
         def get_nodes(self):
                 url = 'http://%s/get_nodes?username=%s' % (self.host, self.user.name)
                 response = request_get(url)
-                for key, value in response.items():
-                        yield Node(host = self.host, name = key, **value)
+                for node in response["nodes"]:
+                        yield Node(host = self.host, **node)
 
         def is_available(self, node):
                 url = 'http://%s/is_available?name=%s&username=%s' % (self.host, node.name, self.user.name)
@@ -274,8 +273,8 @@ class Client(testgrid.client.Client):
                 response = request_get(url)
                 if "session" in response:
                         return Session(self.host,
-                                       response["session"]["username"],
-                                       response["session"]["name"])
+                                       user = response["session"]["username"],
+                                       name = response["session"]["name"])
 
         def open_session(self, name = None):
                 url = 'http://%s/open_session' % self.host
@@ -297,14 +296,14 @@ class Client(testgrid.client.Client):
                 url = 'http://%s/get_session?name=%s&username=%s' % (self.host, name, self.user.name)
                 response = request_get(url)
                 if "error" in response:
-                        raise Exception(response["error"])
-                return Session(self.host, self.user.name, name)
+                        raise testgrid.client.UnknownSessionError(name)#Exception(response["error"])
+                return Session(self.host, name = name, user = self.user.name)
 
         def get_sessions(self):
                 url = 'http://%s/get_sessions?username=%s' % (self.host, self.user.name)
                 response = request_get(url)
                 for session in response["sessions"]:
-                        yield Session(self.host, session["username"], session["name"])
+                        yield Session(self.host, user = session["username"], name = session["name"])
 
         def add_node(self, name, ini):
                 url = 'http://%s/add_node' % self.host
@@ -371,9 +370,9 @@ class SelfTest(testgrid.client.SelfTest):
 			clients.append(client)
 			session = client.open_session("user%i_session" % i)
 			sessions.append(session)
-                for j in xrange(nb_nodes):
-                        nodes.append(session.allocate_node())
-                        return (admin_client, clients, sessions, nodes)
+                        for j in xrange(nb_nodes):
+                                nodes.append(session.allocate_node())
+                return (admin_client, clients, sessions, nodes)
 
 	def setUp(self):
 		grid = testgrid.model.FakeGenerativeGrid(name = "grid")

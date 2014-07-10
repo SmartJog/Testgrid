@@ -59,7 +59,6 @@ class Client(object):
 		"return all nodes if user is admin, return user's nodes otherwise"
 		if self.accessmgr.is_administrator(self.user):
 			for node in self.grid:
-                                print node
 				yield node
 		else:
 			for session in self.grid.sessions:
@@ -73,7 +72,6 @@ class Client(object):
 		If user is not admin, fails if the node is not in any user's session.
 		"""
 		for node in self.get_nodes():
-                        print node.name
 			if node.name == name:
 				return node
 		raise UnknownNodeError(name)
@@ -161,6 +159,8 @@ class Client(object):
 # tests #
 #########
 
+import itertools
+
 class DenyAll(AccessManager):
 
 	def is_administrator(self, user):
@@ -208,20 +208,19 @@ class SelfTest(unittest.TestCase):
 	def test_get_nodes(self):
 		admin_client, clients, sessions, nodes = self.mkenv(10, 10)
 		# admin get all nodes:
-		self.assertEqual(
-			set(n for n in admin_client.get_nodes()),
-			set(nodes))
-		# user get its nodes:
-		for client in clients:
-			self.assertEqual(
-				set(n for n in client.get_nodes()),
-				set(n for n in sessions[clients.index(client)]))
+                self.assertEqual(
+                        list(admin_client.get_nodes()),
+                        nodes)
+                # user get its nodes:
+                for client in clients:
+                        self.assertEqual(
+                                list(n for n in client.get_nodes()),
+                                list(n for n in sessions[clients.index(client)]))
 
 	def test_get_node(self):
 		_, clients, sessions, nodes = self.mkenv(10, 10)
 		for client in clients:
 			for node in nodes:
-                                print node.name
 				# if node is user's, it can get it:
 				if node in sessions[clients.index(client)]:
 					self.assertEqual(node, client.get_node(node.name))
@@ -232,9 +231,8 @@ class SelfTest(unittest.TestCase):
 	def test_get_sessions(self):
 		admin_client, clients, sessions, nodes = self.mkenv(10, 10)
 		# admin get all sessions:
-		self.assertEqual(
-			set(s for s in admin_client.get_sessions()),
-			set(sessions))
+                self.assertEqual(list(admin_client.get_sessions()),
+                                 sessions)
 		# user get its sessions:
 		for client in clients:
 			expected, = client.get_sessions()
