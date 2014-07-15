@@ -9,14 +9,14 @@ class Node(database.StorableNode):
 		self.arg = arg
 		self.name = name
 		self.hoststring =  hoststring
-                self.profile_name = profile_name
+		self.profile_name = profile_name
 
 	def marshall(self):
 		return "%s" % {
 			"name": self.name,
 			"hoststring": self.hoststring,
 			"arg": self.arg,
-                        "profile_name":  self.profile_name,
+			"profile_name":	 self.profile_name,
 		}
 
 	def __eq__(self, other):
@@ -32,7 +32,7 @@ class Node(database.StorableNode):
 	def get_typename(self):
 		return "is image"
 
-        def get_info(self):
+	def get_info(self):
 		return "is"
 
 
@@ -79,22 +79,22 @@ class Grid(persistent.Grid):
 	def _create_node(self, pkg = None, **opts):
 		image_name = opts["image_name"]
 		profile_name = opts["profile_name"]
-                hostname = opts["name"]
+		hostname = opts["name"]
 		if profile_name == "pg":
-                        hoststring = installsystems.normalized_playground_hostname(opts["name"])
-                        hostname = hoststring
-                        profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hoststring)
-                else:
-                        profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hostname)
+			hoststring = installsystems.normalized_playground_hostname(opts["name"])
+			hostname = hoststring
+			profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hoststring)
+		else:
+			profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hostname)
 		self.hv.create_domain(
 			profile = profile,
 			on_stdout_line = shell.Stdout, # stdout reserved for result
 			on_stderr_line = shell.Stderr)
-                if profile_name is not "pg":
-                        if profile.interfaces:
-                                hoststring = self._get_interface(profile.interfaces)
-                        else:
-                                hoststring = profile.values["domain_name"]
+		if profile_name is not "pg":
+			if profile.interfaces:
+				hoststring = self._get_interface(profile.interfaces)
+			else:
+				hoststring = profile.values["domain_name"]
 
 		node = Node(hostname, hoststring, profile.get_argv(), profile_name)
 		return node
@@ -108,18 +108,18 @@ class Grid(persistent.Grid):
 			force = True,
 			warn_only = True,
 			**kwargs)
-                if node.profile_name == "pg":
-                        self.hv.delete_domain(
-                                name = node.name,
-                                ipstore = None,
-                                interfaces = None,
-                                **kwargs)
-                else:
-                        self.hv.delete_domain(
-                                name = node.name,
-                                ipstore = self.ipstore,
-                                interfaces = [node.hoststring],
-                                **kwargs)
+		if node.profile_name == "pg":
+			self.hv.delete_domain(
+				name = node.name,
+				ipstore = None,
+				interfaces = None,
+				**kwargs)
+		else:
+			self.hv.delete_domain(
+				name = node.name,
+				ipstore = self.ipstore,
+				interfaces = [node.hoststring],
+				**kwargs)
 
 	def _get_interface(self, interfaces):
 		#FIXME: find accurate interface
@@ -166,34 +166,23 @@ class FakeTest(unittest.TestCase):
 
 	def setUp(self):
 		self.grid = FakeTempGrid(name = "fake_is_test", hoststring = "fakehoststring", dbpath = "/tmp/fake_is.db")
-                self.profile = "tg:basic"
+		self.profile = "tg:basic"
 
 
 	def test(self):
-                user = database.StorableUser("user")
-                opts = {"image_name": "debian-smartjog",
-                        "profile_name": self.profile,
-                        "name": "test-isadapter-%s"
-                        % time.strftime("%Y%m%d%H%M%S", time.localtime())}
-                session = self.grid.open_session(name = "test", user = user)
-                node = session.allocate_node(**opts)
-                del session
-                session = self.grid.open_session(name = "test", user = user) # re-open
-                self.assertIn(node, session)
-                session.release(node)
-                self.assertNotIn(node, session)
+		user = database.StorableUser("user")
+		opts = {"image_name": "debian-smartjog",
+			"profile_name": self.profile,
+			"name": "test-isadapter-%s"
+			% time.strftime("%Y%m%d%H%M%S", time.localtime())}
+		session = self.grid.open_session(name = "test", user = user)
+		node = session.allocate_node(**opts)
+		del session
+		session = self.grid.open_session(name = "test", user = user) # re-open
+		self.assertIn(node, session)
+		session.release(node)
+		self.assertNotIn(node, session)
 
-class SelfTestQAP(FakeTest):
-	def setUp(self):
-		#!!! VPN !!!
-		self.grid = TempGrid(name = "testis_qap", hoststring = "root@10.69.44.1", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-qap.db")
-		self.profile = "tg:basic"
-
-class SelfTestPG(FakeTest):
-	def setUp(self):
-		#!!! VPN !!!
-		self.grid = TempGrid(name = "testis_pg", hoststring = "root@hkvm-pg-1-1.pg-1.arkena.net", profile_path = "testgrid/profiles.json" , ipstore_host = "ipstore.qa.arkena.com",ipstore_port=80 ,dbpath = "/tmp/istest-pg.db")
-		self.profile = "pg"
 
 
 if __name__ == "__main__": unittest.main(verbosity = 2)

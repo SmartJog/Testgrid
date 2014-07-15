@@ -7,6 +7,14 @@ grid = None
 accessmgr = None
 app = bottle.Bottle()
 
+class Client(testgrid.client.Client):
+
+    @testgrid.client.restricted
+    def add_node(self, **opts):
+        node = testgrid.parser.create_node_object(**opts)
+        self.grid.add_node(node)
+        return node
+
 class AccessManager(testgrid.client.AccessManager):
 
     def __init__(self, host):
@@ -25,10 +33,9 @@ def setup_serveur(host, port, g, am = None):
     app.run(host=host, port=port, debug=True)
 
 def setup_client(username):
-    #username, _ = bottle.request.auth
     user = testgrid.client.User(name = username)
     user.remote_addr = bottle.request.remote_addr
-    client = testgrid.client.Client(grid = grid, accessmgr = accessmgr , user = user)
+    client = Client(grid = grid, accessmgr = accessmgr , user = user)
     return client
 
 
@@ -152,7 +159,7 @@ def release_node():
         data = bottle.request.json
         client = setup_client(data["session"]["username"])
         session = client.get_session(data["session"]["name"])
-        node = client.get_node(name)
+        node = client.get_node(data["node"]["name"])
         session.release(node)
         return {}
     except Exception as e:
@@ -205,8 +212,8 @@ def add_node():
     try:
         data = bottle.request.json
         client = setup_client(data["username"])
-        node = client.create_node_object(data["node_opt"])
-        client.add_node(node)
+        client.add_node(**data["node_opt"])
+        return {}
     except Exception as e:
         return {"error": repr(e)}
 
@@ -345,15 +352,16 @@ class Server(multiprocessing.Process):
 
 class SelfTest(unittest.TestCase):
 
+        cls = {
+               "generative_grid": testgrid.model.FakeGenerativeGrid, # generative grid
+               "package": testgrid.model.FakePackage,
+               "subnet": testgrid.model.Subnet,
+               "node": testgrid.model.FakeNode,
+               "user": testgrid.model.User,
+               "grid": testgrid.model.Grid, # non-generative grid
+              }
+
         def setUp(self):
-            self.cls = {
-                "generative_grid": testgrid.model.FakeGenerativeGrid, # generative grid
-                "package": testgrid.model.FakePackage,
-                "subnet": testgrid.model.Subnet,
-                "node": testgrid.model.FakeNode,
-                "user": testgrid.model.User,
-                "grid": testgrid.model.Grid, # non-generative grid
-                }
             self.nodes, self.packages, self.grid, self.session = self.mkenv(2, 2)
             self.grid.nodes = list(self.grid.nodes)
             self.server = Server(host = "127.0.0.1", port = "8080", grid = self.grid)
@@ -397,27 +405,24 @@ class SelfTest(unittest.TestCase):
         def test_add_remove_node(self):
             data = self.request_get('http://127.0.0.1:8080/get_nodes')
             self.assertNotIn("error", data)
-            self.assertEqual(len(data), 2)
-            self.assertIn("node0", data)
-            self.assertIn("node1", data)
-            self.assertEqual(data["node0"], {'typename': 'fake node', 'hoststring': u'test@test'})
+            self.assertEqual(data, {'nodes': [{'typename': 'fake node', 'hoststring': 'test@test', 'name': 'node0'}, {'typename': 'fake node', 'hoststring': 'test@test', 'name': 'node1'}]})
             data = self.request_get('http://127.0.0.1:8080/remove_node?name=node0')
             self.assertNotIn("error", data)
             data = self.request_get('http://127.0.0.1:8080/get_nodes')
-            self.assertEqual(data, {'node1': {'typename': 'fake node', 'hoststring': 'test@test'}})
-            self.request_post('http://127.0.0.1:8080/add_node', {"name": "node", "type": "fake node"})
+            self.assertEqual(data, {'nodes': [{'typename': 'fake node', 'hoststring': 'test@test', 'name': 'node1'}]})
+            self.request_post('http://127.0.0.1:8080/add_node', {"node_opt": {"name": "node", "type": "fake node"}, "username": "user"})
             data = self.request_get('http://127.0.0.1:8080/get_nodes')
             self.assertNotIn("error", data)
-            self.assertEqual(data, {'node1': {'typename':'fake node','hoststring':'test@test'},'node': {'typename':'fake node','hoststring':'test@test'}})
+            self.assertEqual(data, {'nodes': [{'typename':'fake node','hoststring':'test@test','name':'node1'}, {'typename':'fake node','hoststring':'test@test','name': 'node'}]})
 
         def test_node_state(self):
-            data = self.request_post('http://127.0.0.1:8080/quarantine_node', {"name": "node0", "reason": "test quarantine"})
+            data = self.request_post('http://127.0.0.1:8080/quarantine_node', {"name": "node0", "reason": "test quarantine", "username": "user"})
             self.assertNotIn("error", data)
-            data = self.request_get("http://127.0.0.1:8080/is_quarantined?name=node0")
+            data = self.request_get("http://127.0.0.1:8080/is_quarantined?name=node0&username=user")
             self.assertEqual(data, {"result": True})
-            data = self.request_post('http://127.0.0.1:8080/rehabilitate_node', {"name": "node0"})
+            data = self.request_post('http://127.0.0.1:8080/rehabilitate_node', {"name": "node0", "username": "user"})
             self.assertNotIn("error", data)
-            data = self.request_get("http://127.0.0.1:8080/is_quarantined?name=node0")
+            data = self.request_get("http://127.0.0.1:8080/is_quarantined?name=node0&username=user")
             self.assertEqual(data, {"result": False})
 
         def test_basic_session_manipulaion(self):

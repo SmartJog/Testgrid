@@ -217,13 +217,14 @@ def parse_node_dictionary(name, ini, *modules):
 def parse_session(name, ini, *modules):
 	return Parser(ini, *modules).parse_session(name)
 
-def create_node_object(opts):
+def create_node_object(**opts):
         if "type" in opts:
-                cls = get_subclass(normalized(opts["type"]), testgrid.model.Node)
+                cls = get_subclass(normalized(opts["type"]), model.Node)
                 del opts["type"]
-                node = Parser._mkobj(cls, **data)
+                node = Parser._mkobj(cls, **opts)
                 return node
-        raise Exception("missing type")
+        else:
+                raise Exception("missing type")
 
 ##############
 # unit tests #

@@ -111,17 +111,21 @@ class Client(object):
 		"return True if the node is quarantined"
  		return self.grid.is_quarantined(node)
 
+	def is_transient(self, node):
+		"return True if the node is quarantined"
+ 		return self.grid._is_transient(node)
+
 	@restricted
 	def quarantine_node(self, name, reason):
 		"push node into quarantine"
 		node = self.get_node(name)
-		self.grid.quarantine_node(node, reason)
+		self.grid.quarantine(node, reason)
 
 	@restricted
 	def rehabilitate_node(self, name):
 		"pull node from quarantine"
 		node = self.get_node(name)
-		self.grid.rehabilitate_node(node)
+		self.grid.rehabilitate(node)
 
 	def get_sessions(self):
 		"return all sessions if user is admin, return user's sessions otherwise"
@@ -154,6 +158,7 @@ class Client(object):
 	def close_session(self, name):
 		session = self.get_session(name)
 		session.close()
+
 
 #########
 # tests #

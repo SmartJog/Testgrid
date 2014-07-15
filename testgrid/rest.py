@@ -12,326 +12,319 @@ class UnknownNodeError(Exception):
 		super(UnknownNodeError, self).__init__("%s: no such node" % name)
 
 def request_get(url):
-        # (user, password) = (username, '')
-        # base64string = base64.encodestring('%s:%s' % (user, password)).replace('\n', '')
-        # request = urllib2.Request(url)
-        # request.add_header("Authorization", "Basic %s" % base64string)
-        response = urllib2.urlopen(url)
-        response.geturl()
-        return json.loads(response.read())
+	response = urllib2.urlopen(url)
+	response.geturl()
+	return json.loads(response.read())
 
 def request_post(url, data):
-        headers = {'content-type': 'application/json'}
-        request = urllib2.Request(url, json.dumps(data), headers)
-        #  (user, password) = (username, '')
-        # base64string = base64.encodestring('%s:%s' % (user, password)).replace('\n', '')
-        # request.add_header("Authorization", "Basic %s" % base64string)
-        response = urllib2.urlopen(request)
-        return json.loads(response.read())
+	headers = {'content-type': 'application/json'}
+	request = urllib2.Request(url, json.dumps(data), headers)
+	response = urllib2.urlopen(request)
+	return json.loads(response.read())
 
 class Node(testgrid.model.Node):
 
-        def __init__(self, host ,  name, typename,  hoststring):
-                self.name = name
-                self.typename = typename
-                self.hoststring = hoststring
-                self.host = host
+	def __init__(self, host ,  name, typename,  hoststring):
+		self.name = name
+		self.typename = typename
+		self.hoststring = hoststring
+		self.host = host
 
-        def __eq__(self, other):
-                if other.name == self.name:
-                        return True
-                return False
+	def __eq__(self, other):
+		if other.name == self.name:
+			return True
+		return False
 
-        def __ne__(self, other):
-                return not (self == other)
+	def __ne__(self, other):
+		return not (self == other)
 
-        def get_typename(self):
-                return self.typename
+	def get_typename(self):
+		return self.typename
 
-        def get_hoststring(self):
-                return testgrid.model.Hoststring(self.hoststring)
+	def get_hoststring(self):
+		return testgrid.model.Hoststring(self.hoststring)
 
-        def has_support(self, **opts):
-                url = 'http://%s/has_support' % self.host
-                data = {"opts": opts, "node": self.name}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
-                return response["result"]
+	def has_support(self, **opts):
+		url = 'http://%s/has_support' % self.host
+		data = {"opts": opts, "node": self.name}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
+		return response["result"]
 
-        def get_load(self):pass
+	def get_load(self):pass
 
-        def join(self, subnet):pass
+	def join(self, subnet):pass
 
-        def leave(self, subnet):pass
+	def leave(self, subnet):pass
 
-        def get_subnets(self):pass
+	def get_subnets(self):pass
 
-        def get_installed_packages(self):pass
+	def get_installed_packages(self):pass
 
-        def is_up(self):
-                return 1
+	def is_up(self):
+		return 1
 
-        def install(self, package):
-                url = 'http://%s/install' % self.host
-                data = {"package":
-                                {"name": package.name,
-                                 "version": package.version,
-                                 "type": type(package).__name__,
-                                 "module": type(package).__module__
-                                 }
-                        }
-                data["node"] =  {"name": self.name}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
-                return response["code"], response["stdout"], response["stderr"]
+	def install(self, package):
+		url = 'http://%s/install' % self.host
+		data = {"package":
+				{"name": package.name,
+				 "version": package.version,
+				 "type": type(package).__name__,
+				 "module": type(package).__module__
+				 }
+			}
+		data["node"] =	{"name": self.name}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
+		return response["code"], response["stdout"], response["stderr"]
 
-        def uninstall(self, package):
-                url = 'http://%s/uninstall' % self.host
-                data = {"package":
-                                {"name": package.name,
-                                 "version": package.version,
-                                 "type": type(package).__name__,
-                                 "module": type(package).__module__
-                                 }
-                        }
-                data["node"] =  {"name": self.name}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
-                return response["code"], response["stdout"], response["stderr"]
+	def uninstall(self, package):
+		url = 'http://%s/uninstall' % self.host
+		data = {"package":
+				{"name": package.name,
+				 "version": package.version,
+				 "type": type(package).__name__,
+				 "module": type(package).__module__
+				 }
+			}
+		data["node"] =	{"name": self.name}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
+		return response["code"], response["stdout"], response["stderr"]
 
 
-        def is_installed(self, package):
-                url = 'http://%s/is_installed' % self.host
-                data = {"package":
-                                {"name": package.name,
-                                 "version": package.version,
-                                 "type": type(package).__name__,
-                                 "module": type(package).__module__
-                                 }
-                        }
-                data["node"] =  {"name": self.name}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
-                return response["result"]
+	def is_installed(self, package):
+		url = 'http://%s/is_installed' % self.host
+		data = {"package":
+				{"name": package.name,
+				 "version": package.version,
+				 "type": type(package).__name__,
+				 "module": type(package).__module__
+				 }
+			}
+		data["node"] =	{"name": self.name}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
+		return response["result"]
 
-        def is_installable(self, package):
-                url = 'http://%s/is_installable' % self.host
-                data = {"package":
-                        {"name": package.name,
-                         "version": package.version,
-                         "type": type(package).__name__,
-                         "module": type(package).__module__
-                         }
-                        }
-                data["node"] =  {"name": self.name}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
-                return response["result"]
+	def is_installable(self, package):
+		url = 'http://%s/is_installable' % self.host
+		data = {"package":
+			{"name": package.name,
+			 "version": package.version,
+			 "type": type(package).__name__,
+			 "module": type(package).__module__
+			 }
+			}
+		data["node"] =	{"name": self.name}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
+		return response["result"]
 
 
 class Session(object):
 
-        def __init__(self, host, name = None, user = None):
-                self.host = host
-                self.user = testgrid.client.User(user) or testgrid.client.get_current_user()
-                self.name = name
+	def __init__(self, host, name = None, user = None):
+		self.host = host
+		self.user = testgrid.client.User(user) or testgrid.client.get_current_user()
+		self.name = name
 
-        def __iter__(self):
-                url = 'http://%s/get_nodes_session?name=%s&username=%s' % (self.host, self.name, self.user.name)
-                response = request_get(url)
-                if "error" in response:
-                        raise Exception(response["error"])
-                for node in response["nodes"]:
-                        yield Node(self.host, **node)
+	def __iter__(self):
+		url = 'http://%s/get_nodes_session?name=%s&username=%s' % (self.host, self.name, self.user.name)
+		response = request_get(url)
+		if "error" in response:
+			raise Exception(response["error"])
+		for node in response["nodes"]:
+			yield Node(self.host, **node)
 
-        def __contains__(self, node):
-                url = 'http://%s/session_contains?name=%s&username=%s&node=%s' % (self.host, self.name , self.user.name, node.name)
-                response = request_get(url)
-                if "error" in response:
-                        raise Exception(response["error"])
-                return response["result"]
+	def __contains__(self, node):
+		url = 'http://%s/session_contains?name=%s&username=%s&node=%s' % (self.host, self.name , self.user.name, node.name)
+		response = request_get(url)
+		if "error" in response:
+			raise Exception(response["error"])
+		return response["result"]
 
-        def __eq__(self, other):
-                if other.name == self.name and other.user.name == self.user.name:
-                        return True
-                return False
+	def __eq__(self, other):
+		if other.name == self.name and other.user.name == self.user.name:
+			return True
+		return False
 
-        def __ne__(self, other):
-                return not (self == other)
+	def __ne__(self, other):
+		return not (self == other)
 
-        def __len__(self):
-                url = 'http://%s/get_nodes_session?name=%s&username=%s' % (self.host, self.name, self.user.name)
-                count = 0
-                response = request_get(url)
-                if "error" in response:
-                        raise Exception(response["error"])
-                for node in response["nodes"]:
-                        count+= 1
-                return count
+	def __len__(self):
+		url = 'http://%s/get_nodes_session?name=%s&username=%s' % (self.host, self.name, self.user.name)
+		count = 0
+		response = request_get(url)
+		if "error" in response:
+			raise Exception(response["error"])
+		for node in response["nodes"]:
+			count+= 1
+		return count
 
-        def deploy(self, packages):
-                url = 'http://%s/deploy' % self.host
-                data = {}
-                list_packages = []
-                for pkg in packages:
-                        list_packages.append(
-                                {"name": pkg.name,
-                                 "version": pkg.version,
-                                 "type": type(pkg).__name__,
-                                 "module": type(pkg).__module__})
-                data["packages"] = list_packages
-                data["session"] = {"username":self.user.name, "name": self.name}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
-                plans = []
-                for key, value in response.items():
-                        plans.append(
-                                (value["pkg"]["name"] ,
-                                 Node(host = self.host,
-                                      name = key,
-                                      **value["args"])))
-                return plans
+	def deploy(self, packages):
+		url = 'http://%s/deploy' % self.host
+		data = {}
+		list_packages = []
+		for pkg in packages:
+			list_packages.append(
+				{"name": pkg.name,
+				 "version": pkg.version,
+				 "type": type(pkg).__name__,
+				 "module": type(pkg).__module__})
+		data["packages"] = list_packages
+		data["session"] = {"username":self.user.name, "name": self.name}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
+		plans = []
+		for key, value in response.items():
+			plans.append(
+				(value["pkg"]["name"] ,
+				 Node(host = self.host,
+				      name = key,
+				      **value["args"])))
+		return plans
 
-        def undeploy(self):
-                url = 'http://%s/undeploy' % self.host
-                data = {"session" :{"username":self.user.name, "name": self.name}}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
+	def undeploy(self):
+		url = 'http://%s/undeploy' % self.host
+		data = {"session" :{"username":self.user.name, "name": self.name}}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
 
-        def allocate_node(self, **opts):
-                url = 'http://%s/allocate_node' % self.host
-                data = {"session" :{"username":self.user.name, "name": self.name}}
-                data["options"] = opts
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
-                return Node(self.host, **response)
+	def allocate_node(self, **opts):
+		url = 'http://%s/allocate_node' % self.host
+		data = {"session" :{"username":self.user.name, "name": self.name}}
+		data["options"] = opts
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
+		return Node(self.host, **response)
 
-        def release(self, node):
-                url = 'http://%s/release_node' % self.host
-                data = {"session" :{"username":self.user.name, "name": self.name}}
-                data["node"] = {"name": node.name}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
+	def release(self, node):
+		url = 'http://%s/release_node' % self.host
+		data = {"session" :{"username":self.user.name, "name": self.name}}
+		data["node"] = {"name": node.name}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
 
-        def close(self):
-                url = 'http://%s/close_session' % self.host
-                data = {"session" :{"username":self.user.name, "name": self.name}}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
+	def close(self):
+		url = 'http://%s/close_session' % self.host
+		data = {"session" :{"username":self.user.name, "name": self.name}}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
 
 class Client(testgrid.client.Client):
 
-        def __init__(self, host =  "127.0.0.1:8080", user = None):
-                self.host = host
-                self.user = user or testgrid.client.get_current_user()
+	def __init__(self, host =  "127.0.0.1:8080", user = None):
+		self.host = host
+		self.user = user or testgrid.client.get_current_user()
 
-        def get_node(self, name):
-                url = 'http://%s/get_node?name=%s&username=%s' % (self.host, name, self.user.name)
-                response = request_get(url)
-                if "error" in response:
-                        raise testgrid.client.UnknownNodeError(name)
-                return Node(self.host, **response)
+	def get_node(self, name):
+		url = 'http://%s/get_node?name=%s&username=%s' % (self.host, name, self.user.name)
+		response = request_get(url)
+		if "error" in response:
+			raise testgrid.client.UnknownNodeError(name)
+		return Node(self.host, **response)
 
-        def get_nodes(self):
-                url = 'http://%s/get_nodes?username=%s' % (self.host, self.user.name)
-                response = request_get(url)
-                for node in response["nodes"]:
-                        yield Node(host = self.host, **node)
+	def get_nodes(self):
+		url = 'http://%s/get_nodes?username=%s' % (self.host, self.user.name)
+		response = request_get(url)
+		for node in response["nodes"]:
+			yield Node(host = self.host, **node)
 
-        def is_available(self, node):
-                url = 'http://%s/is_available?name=%s&username=%s' % (self.host, node.name, self.user.name)
-                response = request_get(url)
-                return response["result"]
+	def is_available(self, node):
+		url = 'http://%s/is_available?name=%s&username=%s' % (self.host, node.name, self.user.name)
+		response = request_get(url)
+		return response["result"]
 
-        def is_allocated(self, node):
-                url = 'http://%s/is_allocated?name=%s&username=%s' % (self.host, node.name, self.user.name)
-                response = request_get(url)
-                return response["result"]
+	def is_allocated(self, node):
+		url = 'http://%s/is_allocated?name=%s&username=%s' % (self.host, node.name, self.user.name)
+		response = request_get(url)
+		return response["result"]
 
-        def is_quarantined(self, node):
-                url = 'http://%s/is_quarantined?name=%s&username=%s' % (self.host, node.name, self.user.name)
-                response = request_get(url)
-                return response["result"]
+	def is_quarantined(self, node):
+		url = 'http://%s/is_quarantined?name=%s&username=%s' % (self.host, node.name, self.user.name)
+		response = request_get(url)
+		return response["result"]
 
-        def is_transient(self, node):
-                url = 'http://%s/is_transient?name=%s&username=%s' % (self.host, node.name, self.user.name)
-                response = request_get(url)
-                return response["result"]
+	def is_transient(self, node):
+		url = 'http://%s/is_transient?name=%s&username=%s' % (self.host, node.name, self.user.name)
+		response = request_get(url)
+		return response["result"]
 
-        def get_node_session(self, node):
-                url = 'http://%s/get_node_session?name=%s&username=%s' % (self.host, node.name, self.user.name)
-                response = request_get(url)
-                if "session" in response:
-                        return Session(self.host,
-                                       user = response["session"]["username"],
-                                       name = response["session"]["name"])
+	def get_node_session(self, node):
+		url = 'http://%s/get_node_session?name=%s&username=%s' % (self.host, node.name, self.user.name)
+		response = request_get(url)
+		if "session" in response:
+			return Session(self.host,
+				       user = response["session"]["username"],
+				       name = response["session"]["name"])
 
-        def open_session(self, name = None):
-                url = 'http://%s/open_session' % self.host
-                data = {}
-                data["session"] = {"username": self.user.name, "name": name}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
-                return Session(self.host, name = response["session"]["name"], user = self.user.name)
+	def open_session(self, name = None):
+		url = 'http://%s/open_session' % self.host
+		data = {}
+		data["session"] = {"username": self.user.name, "name": name}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
+		return Session(self.host, name = response["session"]["name"], user = self.user.name)
 
-        def close_session(self, name):
-                url = 'http://%s/close_session' % self.host
-                data = {"session" :{"username":self.user.name, "name": name}}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
+	def close_session(self, name):
+		url = 'http://%s/close_session' % self.host
+		data = {"session" :{"username":self.user.name, "name": name}}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
 
-        def get_session(self, name):
-                url = 'http://%s/get_session?name=%s&username=%s' % (self.host, name, self.user.name)
-                response = request_get(url)
-                if "error" in response:
-                        raise testgrid.client.UnknownSessionError(name)#Exception(response["error"])
-                return Session(self.host, name = name, user = self.user.name)
+	def get_session(self, name):
+		url = 'http://%s/get_session?name=%s&username=%s' % (self.host, name, self.user.name)
+		response = request_get(url)
+		if "error" in response:
+			raise testgrid.client.UnknownSessionError(name)#FIXME recreate exception from response
+		return Session(self.host, name = name, user = self.user.name)
 
-        def get_sessions(self):
-                url = 'http://%s/get_sessions?username=%s' % (self.host, self.user.name)
-                response = request_get(url)
-                for session in response["sessions"]:
-                        yield Session(self.host, user = session["username"], name = session["name"])
+	def get_sessions(self):
+		url = 'http://%s/get_sessions?username=%s' % (self.host, self.user.name)
+		response = request_get(url)
+		for session in response["sessions"]:
+			yield Session(self.host, user = session["username"], name = session["name"])
 
-        def add_node(self, name, ini):
-                url = 'http://%s/add_node' % self.host
-                data["node_opt"] = self.get_node_dictionary(name, ini)
-                data["username"] = self.user.name
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
+	def add_node(self, name, ini):
+		url = 'http://%s/add_node' % self.host
+		data["node_opt"] = self.get_node_dictionary(name, ini)
+		data["username"] = self.user.name
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
 
-        def remove_node(self, name):
-                url = 'http://%s/remove_node?name=%s&username=%s' % (self.host, name, self.user.name)
-                response = request_get(url)
-                if "error" in response:
-                        raise Exception(response["error"])
+	def remove_node(self, name):
+		url = 'http://%s/remove_node?name=%s&username=%s' % (self.host, name, self.user.name)
+		response = request_get(url)
+		if "error" in response:
+			raise Exception(response["error"])
 
-        def quarantine_node(self, name, reason):
-                url = 'http://%s/quarantine_node' % self.host
-                data = {"name": name, "reason": reason, "username": self.user.name}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
+	def quarantine_node(self, name, reason):
+		url = 'http://%s/quarantine_node' % self.host
+		data = {"name": name, "reason": reason, "username": self.user.name}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
 
-        def rehabilitate_node(self, name):
-                url = 'http://%s/rehabilitate_node' % self.host
-                data = {"name": name, "username": self.user.name}
-                response = request_post(url, data)
-                if "error" in response:
-                        raise Exception(response["error"])
+	def rehabilitate_node(self, name):
+		url = 'http://%s/rehabilitate_node' % self.host
+		data = {"name": name, "username": self.user.name}
+		response = request_post(url, data)
+		if "error" in response:
+			raise Exception(response["error"])
 
 
 #########
@@ -343,15 +336,15 @@ import time, multiprocessing
 
 class Server(multiprocessing.Process):
 
-        def __init__(self, host, port, grid, accessmgr):
-            super(Server, self).__init__()
-            self.host = host
-            self.port = port
-            self.grid = grid
-            self.accessmgr = accessmgr
+	def __init__(self, host, port, grid, accessmgr):
+	    super(Server, self).__init__()
+	    self.host = host
+	    self.port = port
+	    self.grid = grid
+	    self.accessmgr = accessmgr
 
-        def run(self):
-                controller.setup_serveur(self.host , self.port, self.grid, self.accessmgr)
+	def run(self):
+		controller.setup_serveur(self.host , self.port, self.grid, self.accessmgr)
 
 class SelfTest(testgrid.client.SelfTest):
 	client_cls = Client
@@ -370,9 +363,9 @@ class SelfTest(testgrid.client.SelfTest):
 			clients.append(client)
 			session = client.open_session("user%i_session" % i)
 			sessions.append(session)
-                        for j in xrange(nb_nodes):
-                                nodes.append(session.allocate_node())
-                return (admin_client, clients, sessions, nodes)
+			for j in xrange(nb_nodes):
+				nodes.append(session.allocate_node())
+		return (admin_client, clients, sessions, nodes)
 
 	def setUp(self):
 		grid = testgrid.model.FakeGenerativeGrid(name = "grid")
