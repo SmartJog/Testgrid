@@ -11,7 +11,7 @@ usage::
 	@echo "  make loc      return the number of lines of code"
 	@echo
 
-include template.mk
+#include template.mk
 
 #
 # install for OS/X
@@ -39,7 +39,15 @@ update:
 
 clean::
 	-rm -rf build dist testgrid.egg-info
+	find . -name '*.pyc' -exec rm \{\} \;
+	rm -rf obj
+
+obj:
+	mkdir $@
+
+test: | obj
+
+	PYTHONPATH=. python testgrid/model.py
 
 loc:
 	find . \( -name '*.py' -o -name '*.sql' \) -a -not \( -name bottle.py -o -name docopt.py \) | xargs wc -l | sort -n
-	
