@@ -52,6 +52,9 @@ ifeq ($(shell which nosetests),)
 	PYTHONPATH=. python testgrid/client.py
 else
 	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/model.py
+	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/parser.py
+	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/client.py
+
 endif
 
 loc:
