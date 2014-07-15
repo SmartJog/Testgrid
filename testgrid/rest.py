@@ -351,7 +351,7 @@ class SelfTest(testgrid.client.SelfTest):
 
 	def mkenv(self, nb_users, nb_nodes):
 		admin = testgrid.client.User("admin")
-		admin_client = (self.client_cls)(user = admin)
+		admin_client = (self.client_cls)(user = admin, host =  "127.0.0.1:3000")
 		users = []
 		clients = []
 		sessions = []
@@ -359,7 +359,7 @@ class SelfTest(testgrid.client.SelfTest):
 		for i in xrange(nb_users):
 			user = testgrid.client.User("user%i" % i)
 			users.append(user)
-			client = (self.client_cls)(user = user)
+			client = (self.client_cls)(user = user,  host =  "127.0.0.1:3000")
 			clients.append(client)
 			session = client.open_session("user%i_session" % i)
 			sessions.append(session)
