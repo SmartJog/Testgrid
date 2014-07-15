@@ -45,9 +45,14 @@ clean::
 obj:
 	mkdir $@
 
-test: | obj
-
+test: 	| obj
+ifeq ($(shell which nosetests),)
 	PYTHONPATH=. python testgrid/model.py
+	PYTHONPATH=. python testgrid/parser.py
+	PYTHONPATH=. python testgrid/client.py
+else
+	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/model.py
+endif
 
 loc:
 	find . \( -name '*.py' -o -name '*.sql' \) -a -not \( -name bottle.py -o -name docopt.py \) | xargs wc -l | sort -n
