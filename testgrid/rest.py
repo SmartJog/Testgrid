@@ -369,7 +369,7 @@ class SelfTest(testgrid.client.SelfTest):
 
 	def setUp(self):
 		grid = testgrid.model.FakeGenerativeGrid(name = "grid")
-		self.server = Server("127.0.0.1", "8080", grid, testgrid.client.AllowUser(testgrid.client.User("admin")))
+		self.server = Server("127.0.0.1", "3000", grid, testgrid.client.AllowUser(testgrid.client.User("admin")))
 		self.server.start()
 		time.sleep(1)
 
