@@ -349,7 +349,7 @@ def session_contains():
     except Exception as e:
         return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
-import unittest, controller
+import unittest
 import multiprocessing
 import json, urllib2
 import time
@@ -363,7 +363,7 @@ class Server(multiprocessing.Process):
             self.grid = grid
 
         def run(self):
-                controller.setup_serveur(self.host , self.port, self.grid)
+            setup_serveur(self.host , self.port, self.grid)
 
 class SelfTest(unittest.TestCase):
 

@@ -6,7 +6,11 @@ import testgrid
 testmodules = [
 	'testgrid.model',
 	'testgrid.database',
+	'testgrid.persistent',
 	'testgrid.controller',
+	'testgrid.client',
+	'testgrid.isadapter',
+	'testgrid.rest'
 	# to be completed...
 ]
 
