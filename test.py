@@ -18,8 +18,5 @@ suite = unittest.TestSuite()
 for t in testmodules:
         suite.addTest(unittest.defaultTestLoader.loadTestsFromName(t))
 
-if __name__  == "__main__":
-        runner = unittest.TextTestRunner(verbosity = 2)
-        runner.run(suite)
-        unittest.main(runner)#unittest.TextTestRunner(verbosity = 2).run(suite)
+if __name__  == "__main__":unittest.TextTestRunner(verbosity = 2).run(suite)
 

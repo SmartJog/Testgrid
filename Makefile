@@ -47,9 +47,9 @@ obj:
 
 test: 	| obj
 ifeq ($(shell which nosetests),)
-	PYTHONPATH=. python test.py
+	python -m unittest -v testgrid.model testgrid.controller testgrid.database testgrid.persistent testgrid.client testgrid.isadapter testgrid.rest
 else
-	nosetests --with-xunit --xunit-file=obj/nosetests.xml test.py
+	nosetests --with-xunit --xunit-file=obj/nosetests.xml -v testgrid.model testgrid.controller testgrid.database testgrid.persistent testgrid.client testgrid.isadapter testgrid.rest
 
 endif
 
