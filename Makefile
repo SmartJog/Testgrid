@@ -47,24 +47,10 @@ obj:
 
 test: 	| obj
 ifeq ($(shell which nosetests),)
-	PYTHONPATH=. python testgrid/model.py
-	PYTHONPATH=. python testgrid/parser.py
-	PYTHONPATH=. python testgrid/client.py
-	PYTHONPATH=. python testgrid/controller.py
-	PYTHONPATH=. python testgrid/rest.py
-	PYTHONPATH=. python testgrid/isadapter.py
-	PYTHONPATH=. python testgrid/persistent.py
-	PYTHONPATH=. python testgrid/database.py
-	
+	PYTHONPATH=. python test.py
 else
-	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/model.py
-	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/parser.py
-	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/client.py
-	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/controller.py
-	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/rest.py
-	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/isadapter.py
-	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/persistent.py
-	nosetests --with-xunit --xunit-file=obj/nosetests.xml testgrid/database.py
+	nosetests --with-xunit --xunit-file=obj/nosetests.xml test.py
+
 endif
 
 loc:
