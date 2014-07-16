@@ -14,15 +14,12 @@ testmodules = [
 	# to be completed...
 ]
 
+suite = unittest.TestSuite()
+for t in testmodules:
+        suite.addTest(unittest.defaultTestLoader.loadTestsFromName(t))
 
-class testall(unittest.TestCase):
-
-        def test_all(self):
-                suite = unittest.TestSuite()
-                for t in testmodules:
-                        suite.addTest(unittest.defaultTestLoader.loadTestsFromName(t))
-                runner = unittest.TextTestRunner(verbosity = 2)
-                runner.run(suite)
-
-if __name__  == "__main__": unittest.main(verbosity = 2)#unittest.TextTestRunner(verbosity = 2).run(suite)
+if __name__  == "__main__":
+        runner = unittest.TextTestRunner(verbosity = 2)
+        runner.run(suite)
+        unittest.main(runner)#unittest.TextTestRunner(verbosity = 2).run(suite)
 
