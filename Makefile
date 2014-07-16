@@ -51,7 +51,7 @@ test: 	| obj
 #else
 #	nosetests --with-xunit --xunit-file=obj/nosetests.xml test.py
 
-endif
+#endif
 
 loc:
 	find . \( -name '*.py' -o -name '*.sql' \) -a -not \( -name bottle.py -o -name docopt.py \) | xargs wc -l | sort -n
