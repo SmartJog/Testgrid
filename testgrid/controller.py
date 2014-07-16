@@ -47,17 +47,20 @@ def get_node():
         node = client.get_node(name)
         return {"name": node.name ,"typename": node.get_info(), "hoststring": node.hoststring}
     except Exception as e:
-        return ({"error": "%s" % repr(e)})
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 
 @app.route("/get_nodes")
 def get_nodes():
-    result = {}
-    result["nodes"] = []
-    client = setup_client(bottle.request.GET.get("username"))
-    for node in client.get_nodes():
-        result["nodes"].append({"name": node.name, "typename": node.get_info(), "hoststring": node.hoststring})
-    return result
+    try:
+        result = {}
+        result["nodes"] = []
+        client = setup_client(bottle.request.GET.get("username"))
+        for node in client.get_nodes():
+            result["nodes"].append({"name": node.name, "typename": node.get_info(), "hoststring": node.hoststring})
+        return result
+    except Exception as e:
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.route("/is_available")
 def is_available():
@@ -67,7 +70,7 @@ def is_available():
         node = client.get_node(name)
         return ({"result": client.is_available(node)})
     except Exception as e:
-        return ({"error": "%s" % repr(e)})
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.route("/is_allocated")
 def is_allocated():
@@ -77,7 +80,7 @@ def is_allocated():
         node = client.get_node(name)
         return ({"result": client.is_allocated(node)})
     except Exception as e:
-        return ({"error": "%s" % repr(e)})
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.route("/is_quarantined")
 def is_quarantined():
@@ -87,7 +90,7 @@ def is_quarantined():
         node = client.get_node(name)
         return ({"result": client.is_quarantined(node)})
     except Exception as e:
-        return ({"error": "%s" % repr(e)})
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 
 @app.route("/is_transient")
@@ -98,7 +101,7 @@ def is_transient():
         node = client.get_node(name)
         return ({"result": client.is_transient(node)})
     except Exception as e:
-        return ({"error": "%s" % repr(e)})
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post("/deploy")
 def deploy():
@@ -119,7 +122,7 @@ def deploy():
             result[node.name] = {"pkg":{"name": pkg.name, "version": pkg.version}, "args": {"typename": node.get_typename(), "hoststring": node.hoststring}}
         return result
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post("/undeploy")
 def undeploy():
@@ -130,7 +133,7 @@ def undeploy():
         session.undeploy()
         return {}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post("/open_session")
 def open_session():
@@ -140,7 +143,7 @@ def open_session():
         session = client.open_session(data["session"]["name"])
         return {"session" :{"username": session.user.name, "name": session.name}}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post("/allocate_node")
 def allocate_node():
@@ -151,7 +154,7 @@ def allocate_node():
         node = session.allocate_node(**data["options"])
         return {"name": node.name,"typename": node.get_info(), "hoststring": node.hoststring}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post("/release_node")
 def release_node():
@@ -163,17 +166,20 @@ def release_node():
         session.release(node)
         return {}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.route('/get_node_session')
 def get_node_session():
-    name = bottle.request.GET.get("name")
-    client = setup_client(bottle.request.GET.get("username"))
-    node = client.get_node(name)
-    session = client.get_node_session(node)
-    if session:
-        return {"session": {"username": session.user.name, "name": session.name}}
-    return {}
+    try:
+        name = bottle.request.GET.get("name")
+        client = setup_client(bottle.request.GET.get("username"))
+        node = client.get_node(name)
+        session = client.get_node_session(node)
+        if session:
+            return {"session": {"username": session.user.name, "name": session.name}}
+        return {}
+    except Exception as e:
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post('/close_session')
 def close_session():
@@ -184,15 +190,18 @@ def close_session():
         session.close()
         return {}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.route('/get_sessions')
 def get_sessions():
-    sessions = {"sessions": []}
-    client = setup_client(bottle.request.GET.get("username"))
-    for session in client.get_sessions():
-        sessions["sessions"].append({"username": session.user.name, "name": session.name})
-    return sessions
+    try:
+        sessions = {"sessions": []}
+        client = setup_client(bottle.request.GET.get("username"))
+        for session in client.get_sessions():
+            sessions["sessions"].append({"username": session.user.name, "name": session.name})
+        return sessions
+    except Exception as e:
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.route('/get_session')
 def get_session():
@@ -205,7 +214,7 @@ def get_session():
             result[node.name] = {"typename": node.get_info(), "hoststring": node.hoststring}
         return result
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post('/add_node')
 def add_node():
@@ -215,7 +224,7 @@ def add_node():
         client.add_node(**data["node_opt"])
         return {}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.route('/remove_node')
 def remove_node():
@@ -225,7 +234,7 @@ def remove_node():
         client.remove_node(name)
         return {}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post('/quarantine_node')
 def quarantine_node():
@@ -235,7 +244,7 @@ def quarantine_node():
         client.quarantine_node(data["name"], data["reason"])
         return {}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post('/rehabilitate_node')
 def rehabilitate_node():
@@ -245,7 +254,7 @@ def rehabilitate_node():
         client.rehabilitate_node(data["name"])
         return {}
     except Exception as e:
-         return {"error": repr(e)}
+         return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post('/install')
 def install():
@@ -261,7 +270,7 @@ def install():
             return {"code": code, "stdout": stdout, "stderr": stderr}
         return {"error": "node %s doesn't exist" % data["node"]["name"]}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post('/uninstall')
 def uninstall():
@@ -273,7 +282,7 @@ def uninstall():
         code , stdout, stderr = node.uninstall(cls(name = data["package"]["name"], version = data["package"]["version"]))
         return {"code": code, "stdout": stdout, "stderr": stderr}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post('/is_installed')
 def is_installed():
@@ -284,7 +293,7 @@ def is_installed():
         cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
         return {"result": node.is_installed(cls(name = data["package"]["name"], version = data["package"]["version"]))}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post('/is_installable')
 def is_installable():
@@ -298,7 +307,7 @@ def is_installable():
         return {"result":node.is_installable(cls(name = data["package"]["name"], 
                                                  version = data["package"]["version"]))}
     except Exception as e:
-        return {"error": repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.post('/has_support')
 def has_support():
@@ -309,30 +318,36 @@ def has_support():
         node = client.get_node(data["node"])
         return {"result": node.has_support(**data["opts"])}
     except Exception as e:
-        return {"error": "%s" % repr(e)}
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.route('/get_nodes_session')
 def get_nodes_session():
-    name = bottle.request.GET.get("name")
-    client = setup_client(bottle.request.GET.get("username"))
-    session = client.get_session(name)
-    result = {}
-    nodes = []
-    for node in session:
-        nodes.append({"name": node.name ,"typename": node.get_info(), "hoststring": node.hoststring})
-    result["nodes"]  = nodes
-    return result
+    try:
+        name = bottle.request.GET.get("name")
+        client = setup_client(bottle.request.GET.get("username"))
+        session = client.get_session(name)
+        result = {}
+        nodes = []
+        for node in session:
+            nodes.append({"name": node.name ,"typename": node.get_info(), "hoststring": node.hoststring})
+        result["nodes"]  = nodes
+        return result
+    except Exception as e:
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 @app.route('/session_contains')
 def session_contains():
-    name = bottle.request.GET.get("name")
-    client = setup_client(bottle.request.GET.get("username"))
-    session = client.get_session(name)
-    node_name = bottle.request.GET.get("node")
-    for node in session:
-        if node.name == node_name:
-            return {"result": True}
-    return {"result": False}
+    try:
+        name = bottle.request.GET.get("name")
+        client = setup_client(bottle.request.GET.get("username"))
+        session = client.get_session(name)
+        node_name = bottle.request.GET.get("node")
+        for node in session:
+            if node.name == node_name:
+                return {"result": True}
+        return {"result": False}
+    except Exception as e:
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
 import unittest, controller
 import multiprocessing
