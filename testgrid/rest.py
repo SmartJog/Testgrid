@@ -23,9 +23,9 @@ def request_post(url, data):
 	return json.loads(response.read())
 
 def verification_error(response):
-        if "error" in response:
-                cls = testgrid.parser.get_subclass(response["type"], Exception)
-                raise cls(response["error"])
+	if "error" in response:
+		cls = testgrid.parser.get_subclass(response["type"], Exception)
+		raise cls(response["error"])
 
 class Node(testgrid.model.Node):
 
@@ -53,7 +53,7 @@ class Node(testgrid.model.Node):
 		url = 'http://%s/has_support' % self.host
 		data = {"opts": opts, "node": self.name}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 		return response["result"]
 
 	def get_load(self):pass
@@ -80,7 +80,7 @@ class Node(testgrid.model.Node):
 			}
 		data["node"] =	{"name": self.name}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 		return response["code"], response["stdout"], response["stderr"]
 
 	def uninstall(self, package):
@@ -92,9 +92,9 @@ class Node(testgrid.model.Node):
 				 "module": type(package).__module__
 				 }
 			}
-		data["node"] =	{"name": self.name}
+		data["node"] = {"name": self.name}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 		return response["code"], response["stdout"], response["stderr"]
 
 
@@ -107,9 +107,9 @@ class Node(testgrid.model.Node):
 				 "module": type(package).__module__
 				 }
 			}
-		data["node"] =	{"name": self.name}
+		data["node"] = {"name": self.name}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 		return response["result"]
 
 	def is_installable(self, package):
@@ -121,9 +121,9 @@ class Node(testgrid.model.Node):
 			 "module": type(package).__module__
 			 }
 			}
-		data["node"] =	{"name": self.name}
+		data["node"] = {"name": self.name}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 		return response["result"]
 
 
@@ -137,14 +137,14 @@ class Session(object):
 	def __iter__(self):
 		url = 'http://%s/get_nodes_session?name=%s&username=%s' % (self.host, self.name, self.user.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		for node in response["nodes"]:
 			yield Node(self.host, **node)
 
 	def __contains__(self, node):
 		url = 'http://%s/session_contains?name=%s&username=%s&node=%s' % (self.host, self.name , self.user.name, node.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		return response["result"]
 
 	def __eq__(self, other):
@@ -159,7 +159,7 @@ class Session(object):
 		url = 'http://%s/get_nodes_session?name=%s&username=%s' % (self.host, self.name, self.user.name)
 		count = 0
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		for node in response["nodes"]:
 			count+= 1
 		return count
@@ -177,7 +177,7 @@ class Session(object):
 		data["packages"] = list_packages
 		data["session"] = {"username":self.user.name, "name": self.name}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 		plans = []
 		for key, value in response.items():
 			plans.append(
@@ -191,14 +191,14 @@ class Session(object):
 		url = 'http://%s/undeploy' % self.host
 		data = {"session" :{"username":self.user.name, "name": self.name}}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 
 	def allocate_node(self, **opts):
 		url = 'http://%s/allocate_node' % self.host
 		data = {"session" :{"username":self.user.name, "name": self.name}}
 		data["options"] = opts
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 		return Node(self.host, **response)
 
 	def release(self, node):
@@ -206,13 +206,13 @@ class Session(object):
 		data = {"session" :{"username":self.user.name, "name": self.name}}
 		data["node"] = {"name": node.name}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 
 	def close(self):
 		url = 'http://%s/close_session' % self.host
 		data = {"session" :{"username":self.user.name, "name": self.name}}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 
 class Client(testgrid.client.Client):
 
@@ -223,44 +223,44 @@ class Client(testgrid.client.Client):
 	def get_node(self, name):
 		url = 'http://%s/get_node?name=%s&username=%s' % (self.host, name, self.user.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		return Node(self.host, **response)
 
 	def get_nodes(self):
 		url = 'http://%s/get_nodes?username=%s' % (self.host, self.user.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		for node in response["nodes"]:
 			yield Node(host = self.host, **node)
 
 	def is_available(self, node):
 		url = 'http://%s/is_available?name=%s&username=%s' % (self.host, node.name, self.user.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		return response["result"]
 
 	def is_allocated(self, node):
 		url = 'http://%s/is_allocated?name=%s&username=%s' % (self.host, node.name, self.user.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		return response["result"]
 
 	def is_quarantined(self, node):
 		url = 'http://%s/is_quarantined?name=%s&username=%s' % (self.host, node.name, self.user.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		return response["result"]
 
 	def is_transient(self, node):
 		url = 'http://%s/is_transient?name=%s&username=%s' % (self.host, node.name, self.user.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		return response["result"]
 
 	def get_node_session(self, node):
 		url = 'http://%s/get_node_session?name=%s&username=%s' % (self.host, node.name, self.user.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		if "session" in response:
 			return Session(self.host,
 				       user = response["session"]["username"],
@@ -271,14 +271,14 @@ class Client(testgrid.client.Client):
 		data = {}
 		data["session"] = {"username": self.user.name, "name": name}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 		return Session(self.host, name = response["session"]["name"], user = self.user.name)
 
 	def close_session(self, name):
 		url = 'http://%s/close_session' % self.host
 		data = {"session" :{"username":self.user.name, "name": name}}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 
 	def get_session(self, name):
 		url = 'http://%s/get_session?name=%s&username=%s' % (self.host, name, self.user.name)
@@ -289,7 +289,7 @@ class Client(testgrid.client.Client):
 	def get_sessions(self):
 		url = 'http://%s/get_sessions?username=%s' % (self.host, self.user.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 		for session in response["sessions"]:
 			yield Session(self.host, user = session["username"], name = session["name"])
 
@@ -298,24 +298,24 @@ class Client(testgrid.client.Client):
 		data["node_opt"] = self.get_node_dictionary(name, ini)
 		data["username"] = self.user.name
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 
 	def remove_node(self, name):
 		url = 'http://%s/remove_node?name=%s&username=%s' % (self.host, name, self.user.name)
 		response = request_get(url)
-                verification_error(response)
+		verification_error(response)
 
 	def quarantine_node(self, name, reason):
 		url = 'http://%s/quarantine_node' % self.host
 		data = {"name": name, "reason": reason, "username": self.user.name}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 
 	def rehabilitate_node(self, name):
 		url = 'http://%s/rehabilitate_node' % self.host
 		data = {"name": name, "username": self.user.name}
 		response = request_post(url, data)
-                verification_error(response)
+		verification_error(response)
 
 
 #########
@@ -350,7 +350,7 @@ class SelfTest(testgrid.client.SelfTest):
 		for i in xrange(nb_users):
 			user = testgrid.client.User("user%i" % i)
 			users.append(user)
-			client = (self.client_cls)(user = user,  host =  "127.0.0.1:3000")
+			client = (self.client_cls)(user = user,	 host =	 "127.0.0.1:3000")
 			clients.append(client)
 			session = client.open_session("user%i_session" % i)
 			sessions.append(session)

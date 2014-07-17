@@ -52,7 +52,7 @@ class Inventory(object):
                                 if node.has_support(**{key:opts[key] for key in opts if key!="name"}) and  not node in excluded:
                                         host =  self.inventory.get_host(opts["name"])
                                         host.set_variable("ansible_ssh_host", node.get_hoststring())
-                                        host.set_variable("ip", node.get_hoststring())
+                                        host.set_variable("ip", node.get_hoststring()) # same as ansible_ssh_host motherbrain requires it
                                         excluded.append(node)
                                         break
                 if len(excluded) < len(nodes_opts):
@@ -74,7 +74,7 @@ class Inventory(object):
                 return host.get_variables()
 
         def get_all_hosts(self):
-                #review _meta
+                #review _meta for optimization
                 hosts = {"hostvars": {}}
                 for host in self.inventory.get_hosts():
                         hosts["hostvars"][host.name] = host.get_variables()
@@ -198,7 +198,7 @@ class SelfTest(unittest.TestCase):
                 generate_inventory_script(setup.inventory_file.name, setup.session,
                                           setup.session_ini.name ,
                                           True , setup.grid_ini.name, "grid", "testgrid.inventory")
-                out = subprocess.check_output('ansible -i  %s.py --list-hosts group1' % setup.session, shell=True)
+                out = subprocess.check_output('ansible -i  %s.py --list-hosts group1' % setup.session, shell=True) #fix passwd issue
                 self.assertIn("task1", out)
 
 

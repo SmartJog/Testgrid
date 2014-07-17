@@ -256,70 +256,6 @@ def rehabilitate_node():
     except Exception as e:
          return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
 
-@app.post('/install')
-def install():
-    try:
-        data = bottle.request.json
-        client = setup_client(data["username"])
-        if node.name == data["node"]["name"]:
-            cls = testgrid.parser.get_subclass(data["package"]["type"],
-                                               testgrid.model.Package ,
-                                               data["package"]["module"])
-            code , stdout, stderr = node.install(cls(name = data["package"]["name"], 
-                                                     version = data["package"]["version"]))
-            return {"code": code, "stdout": stdout, "stderr": stderr}
-        return {"error": "node %s doesn't exist" % data["node"]["name"]}
-    except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
-
-@app.post('/uninstall')
-def uninstall():
-    try:
-        data = bottle.request.json
-        client = setup_client(data["username"])
-        node = client.get_node(data["node"]["name"])
-        cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
-        code , stdout, stderr = node.uninstall(cls(name = data["package"]["name"], version = data["package"]["version"]))
-        return {"code": code, "stdout": stdout, "stderr": stderr}
-    except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
-
-@app.post('/is_installed')
-def is_installed():
-    try:
-        data = bottle.request.json
-        client = setup_client(data["username"])
-        client.get_node(data["node"]["name"])
-        cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
-        return {"result": node.is_installed(cls(name = data["package"]["name"], version = data["package"]["version"]))}
-    except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
-
-@app.post('/is_installable')
-def is_installable():
-    try:
-        data = bottle.request.json
-        client = setup_client(data["username"])
-        node = client.get_node(data["node"]["name"])
-        cls = testgrid.parser.get_subclass(data["package"]["type"],
-                                           testgrid.model.Package ,
-                                           data["package"]["module"])
-        return {"result":node.is_installable(cls(name = data["package"]["name"], 
-                                                 version = data["package"]["version"]))}
-    except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
-
-@app.post('/has_support')
-def has_support():
-    try:
-        #FIXME
-        data = bottle.request.json
-        client = setup_client()
-        node = client.get_node(data["node"])
-        return {"result": node.has_support(**data["opts"])}
-    except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
-
 @app.route('/get_nodes_session')
 def get_nodes_session():
     try:
@@ -348,6 +284,70 @@ def session_contains():
         return {"result": False}
     except Exception as e:
         return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+
+# Node level
+# FIXME object can't acces to username
+@app.post('/install')
+def install():
+    try:
+        data = bottle.request.json
+        for node in grid:
+            if node.name == data["node"]["name"]:
+                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
+                code , stdout, stderr = node.install(cls(name = data["package"]["name"], version = data["package"]["version"]))
+                return {"code": code, "stdout": stdout, "stderr": stderr}
+        raise Exception("node %s doesn't exist" % data["node"]["name"])
+    except Exception as e:
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+
+@app.post('/uninstall')
+def uninstall():
+    try:
+        data = bottle.request.json
+        for node in grid:
+            if node.name == data["node"]["name"]:
+                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
+                code , stdout, stderr = node.uninstall(cls(name = data["package"]["name"], version = data["package"]["version"]))
+                return {"code": code, "stdout": stdout, "stderr": stderr}
+        raise Exception("node %s doesn't exist" % data["node"]["name"])
+    except Exception as e:
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+
+@app.post('/is_installed')
+def is_installed():
+    try:
+        data = bottle.request.json
+        for node in grid:
+            if node.name == data["node"]["name"]:
+                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
+                return {"result": node.is_installed(cls(name = data["package"]["name"], version = data["package"]["version"]))}
+        raise Exception("node %s doesn't exist" % data["node"]["name"])
+    except Exception as e:
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+
+@app.post('/is_installable')
+def is_installable():
+    try:
+        data = bottle.request.json
+        for node in grid:
+            if node.name == data["node"]["name"]:
+                cls = testgrid.parser.get_subclass(data["package"]["type"], testgrid.model.Package , data["package"]["module"])
+                return {"result":node.is_installable(cls(name = data["package"]["name"], version = data["package"]["version"]))}
+        raise Exception("node %s doesn't exist")
+    except Exception as e:
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+
+@app.post('/has_support')
+def has_support():
+    try:
+        data = bottle.request.json
+        for node in grid:
+            if node.name == data["node"]:
+                return {"result": node.has_support(**data["opts"])}
+        raise Exception("node %s doesn't exist" % data["node"]["name"])
+    except Exception as e:
+        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+
 
 import unittest
 import multiprocessing
@@ -493,6 +493,8 @@ class SelfTest(unittest.TestCase):
             self.assertEqual(res, {'node1': {'args': {'typename': 'fake node', 'hoststring': 'test@test'}, 'pkg': {'version': u'1.0', 'name': 'pkg1'}}, 'node0': {'args': {'typename': 'fake node', 'hoststring': 'test@test'}, 'pkg': {'version': '1.0', 'name': 'pkg0'}}})
             res = self.request_post("http://127.0.0.1:3000/deploy", data)
             self.assertIn("error", res)
+            res = self.request_get('http://127.0.0.1:3000/get_nodes_session?name=%s&username=%s' % (self.session.name, self.session.user.name))
+            self.assertEqual(res, {'nodes': [{'typename':'fake node','hoststring':'test@test','name':'node0'}, {'typename':'fake node','hoststring':'test@test','name':'node1'}]})
             res = self.request_post("http://127.0.0.1:3000/undeploy", {"session" :{"username":self.session.user.name, "name": self.session.name}})
             self.assertNotIn("error", res)
             data = self.request_get('http://127.0.0.1:3000/get_nodes_session?name=%s&username=%s' % (self.session.name, self.session.user.name))
