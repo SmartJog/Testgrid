@@ -81,7 +81,7 @@ class Grid(persistent.Grid):
 		profile_name = opts["profile_name"]
 		hostname = opts["name"]
 		if profile_name == "pg":
-			hoststring = installsystems.normalized_playground_hostname(opts["name"])
+			hoststring = installsystems.normalized_domain_name(opts["name"])
 			hostname = hoststring
 			profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hoststring)
 		else:
@@ -143,7 +143,7 @@ class FakeTempGrid(TempGrid):
 		self.hoststring = hoststring
 		self.hv = installsystems.Hypervisor(run = installsystems.FakeRunner())
 		self.ipstore = installsystems.FakeIPStore(host = "fake", port = 0)
-		self.ipstore.cache["/tg/allocate?reason=hv"] = "42.42.42.42"
+		self.ipstore.cache["/allocate?reason=hv+%7C+no+details"] = "42.42.42.42"
 		self.ipstore.cache["/release/42.42.42.42"] = "released 42.42.42.42"
 		with tempfile.NamedTemporaryFile() as f:
 			f.write("""
@@ -167,16 +167,16 @@ class FakeTest(unittest.TestCase):
 	def setUp(self):
 		self.grid = FakeTempGrid(name = "fake_is_test", hoststring = "fakehoststring", dbpath = "/tmp/fake_is.db")
 		self.profile = "tg:basic"
-
+                self.opts = {"image_name": "debian-smartjog",
+                             "profile_name": self.profile,
+                             "name": "test-isadapter-%s"
+                             % time.strftime("%Y%m%d%H%M%S", time.localtime())}
+                self.grid.ipstore.cache["/tg/allocate?reason=hv+%7C+image_name%3Ddebian-smartjog+domain_name%3D" + self.opts["name"]] = "42.42.42.42"
 
 	def test(self):
 		user = database.StorableUser("user")
-		opts = {"image_name": "debian-smartjog",
-			"profile_name": self.profile,
-			"name": "test-isadapter-%s"
-			% time.strftime("%Y%m%d%H%M%S", time.localtime())}
 		session = self.grid.open_session(name = "test", user = user)
-		node = session.allocate_node(**opts)
+		node = session.allocate_node(**self.opts)
 		del session
 		session = self.grid.open_session(name = "test", user = user) # re-open
 		self.assertIn(node, session)
