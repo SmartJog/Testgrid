@@ -3,6 +3,9 @@
 "installsystems.Hypervisor adapter for testgrid"
 
 from testgrid import database, persistent, installsystems, model, shell
+import paramiko
+import time
+import os
 
 class Node(database.StorableNode):
 	def __init__(self, name, hoststring, arg, profile_name):
@@ -37,9 +40,8 @@ class Node(database.StorableNode):
 
 
 	def has_support(self, **opts):
-		raise NotImplementedError("isadapter.Node.has_support() not implemented yet")
-
-	def is_up(self):pass
+		# FIXME
+		return self.profile_name == opts["profile_name"]
 
 	def get_load(self):
 		raise NotImplementedError("isadapter.Node.get_load() not implemented yet")
@@ -66,15 +68,18 @@ class Hypervisor(installsystems.Hypervisor):
 		self.hoststring = hoststring
 		self.run = lambda argv, *args, **kwargs: shell.ssh(hoststring = self.hoststring, argv = argv, *args, **kwargs)
 
+KEY ="""ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDn8KBFY3xQO+UCLTaAv/OETo9W6u0E4Gke+x/nfwYPK014Etr4oFdXyqJggzmK6flDDbokYCoHZuDhtZSE4FVDuMhWjweUg68/xb2rUFAC8nNpEsdcA9v5S9HPxND1nA765JWX1jcrLVjadiFQSgMvk+iyYMxFaSKsVoSZtYL2VBpdCIe2YZwAyF4OCU/plnEnd2YMevkAjUw+ArPw9kcjxQj6mpux5YeQt7NdZnYooa4Ux4OlB4jRfVQPZC1ytjY+A89FzmiPLWww8Hfrus542QXHZhEa5KbzcLyJJ2ImjN8SCsoiFGywqxBB6rESCj8HmjDQNr0c4iO0lQ+2lh17 root@testgrid-test.qap"""
+
 
 class Grid(persistent.Grid):
 
-	def __init__(self, name, hoststring, profile_path , ipstore_host, ipstore_port , dbpath):
+	def __init__(self, name, hoststring, profile_path , ipstore_host, ipstore_port , dbpath, public_key = KEY):
 		super(Grid, self).__init__(name = name, dbpath = dbpath)
 		self.hoststring = hoststring
 		self.hv = Hypervisor(hoststring)
 		self.ipstore = installsystems.IPStore(host = ipstore_host, port = ipstore_port)
 		self.profiles = installsystems.Profiles(path = profile_path)
+		self.public_key = public_key
 
 	def _create_node(self, pkg = None, **opts):
 		image_name = opts["image_name"]
@@ -87,22 +92,24 @@ class Grid(persistent.Grid):
 		else:
 			profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hostname)
 		self.hv.create_domain(
-			profile = profile,
-			on_stdout_line = shell.Stdout, # stdout reserved for result
-			on_stderr_line = shell.Stderr)
+			profile = profile, public_key = self.public_key,
+			on_stdout_line = None, # stdout reserved for result
+			on_stderr_line = None)
 		if profile_name is not "pg":
 			if profile.interfaces:
 				hoststring = self._get_interface(profile.interfaces)
 			else:
 				hoststring = profile.values["domain_name"]
-
 		node = Node(hostname, hoststring, profile.get_argv(), profile_name)
+		os.environ['SSHCONNECTTIMEOUT'] = "60"
+		time.sleep(60) # wait until the node starts properly
+		shell.ssh(hoststring = "root@%s" %  node.hoststring, argv = "touch /etc/apt/apt.conf.d/proxyqap")
+		shell.scp(hoststring = "root@%s" %  node.hoststring, remotepath= "/etc/apt/apt.conf.d/proxyqap", localpath="testgrid/apt.conf")
 		return node
 
 	def _terminate(self, node):
 		kwargs = {"on_stdout_line": shell.Stdout,
 			  "on_stderr_line": shell.Stderr,}
-
 		self.hv.stop_domain(
 			name = node.name,
 			force = True,

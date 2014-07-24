@@ -198,7 +198,7 @@ class Session(object):
 		data = {"session" :{"username":self.user.name, "name": self.name}}
 		data["options"] = opts
 		response = request_post(url, data)
-		verification_error(response)
+		verification_error(response) #FIXME 
 		return Node(self.host, **response)
 
 	def release(self, node):

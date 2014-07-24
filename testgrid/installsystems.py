@@ -381,36 +381,36 @@ class Hypervisor(object):
 
 	# FIXME: check this is not called on an already started domain
 	def _copy_id(self, profile, public_key, *args, **kwargs):
-		for vgpath in self.run("find /dev/vg -name '%s-*'" % profile.domain_name).splitlines():
+		for vgpath in self.run(str("find /dev/vg -name '%s-*'" % profile.domain_name)).splitlines():
 			vgname = os.path.basename(vgpath)
 			syslog.syslog("%s: copy-id: mounting %s" % (profile, vgpath))
 			self.run("kpartx -a %s" % vgpath, *args, **kwargs)
 			# we have two partitions: 1=>GPT, 2=>ext4, we work on 2.
 			dmpath2 = "/dev/mapper/vg-%s*2" % vgname.replace("-", "--")
 			mountpoint = "/tmp/%s" % profile.domain_name
-			self.run("mkdir %s" % mountpoint, *args, **kwargs)
-			self.run("mount %s %s" % (dmpath2, mountpoint), *args, **kwargs)
-			self.run("mkdir -p %s/root/.ssh" % mountpoint, *args, **kwargs)
+			self.run(str("mkdir %s" % mountpoint), *args, **kwargs)
+			self.run(str("mount %s %s" % (dmpath2, mountpoint)), *args, **kwargs)
+			self.run(str("mkdir -p %s/root/.ssh" % mountpoint), *args, **kwargs)
 			syslog.syslog("%s: copy-id: registering public key" % profile)
 			self.run(
-				"echo %s >> %s/root/.ssh/authorized_keys" % (
+				str("echo %s >> %s/root/.ssh/authorized_keys" % (
 					pipes.quote(public_key),
-					mountpoint),
+					mountpoint)),
 				*args,
 				**kwargs)
-			self.run("umount %s" % mountpoint, *args, **kwargs)
-			self.run("rmdir %s" % mountpoint, *args, **kwargs)
-			self.run("kpartx -d %s" % vgpath, *args, **kwargs)
+			self.run(str("umount %s" % mountpoint), *args, **kwargs)
+			self.run(str("rmdir %s" % mountpoint), *args, **kwargs)
+			self.run(str("kpartx -d %s" % vgpath), *args, **kwargs)
 			break
 		else:
 			raise Exception("%s: cannot copy key, no vg found" % profile)
 
 	def delete_volume_group(self, name, *args, **kwargs):
-		for vgpath in self.run("find /dev/vg -name '%s-*'" % name).splitlines():
+		for vgpath in self.run(str("find /dev/vg -name '%s-*'" % name)).splitlines():
 			vgname = os.path.basename(vgpath)
 			dmname = "vg-%s" % vgname.replace("-", "--")
 			dmpath = "/dev/mapper/%s" % dmname
-			for dmpathX in self.run("find /dev/mapper -name '%s*'" % dmname).splitlines():
+			for dmpathX in self.run(str("find /dev/mapper -name '%s*'" % dmname)).splitlines():
 				syslog.syslog("%s: disabling partition %s" % (name, dmpathX))
 				self.run("umount %s" % dmpathX, warn_only = True, *args, **kwargs)
 				self.run("dmsetup remove %s" % os.path.basename(dmpathX), *args, **kwargs)
@@ -438,9 +438,10 @@ class Hypervisor(object):
 				except:
 					syslog.syslog("%s: failed to copy-id" % profile)
 					raise
-			res += self.run("virsh start %s" % profile.domain_name, *args, **kwargs)
+			res += self.run(str("virsh start %s" % profile.domain_name), *args, **kwargs)
 			return res
-		except:
+		except Exception as e:
+			print "EXCEPTION", e
 			for itf in profile.interfaces:
 				try:
 					itf.ipstore.release(parse_interface(itf.value)["address"])

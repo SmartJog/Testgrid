@@ -223,7 +223,7 @@ def ssh(hoststring, argv, *args, **kwargs):
 		"ssh",
 		"-o", "NumberOfPasswordPrompts=%i" % (1 if _sshpass(hoststring) else 0),
 		"-o", "StrictHostKeyChecking=no",
-		"-o", "ConnectTimeout=%s" % (os.getenv("SSHCONNECTTIMEOUT") or 2),
+		"-o", "ConnectTimeout=%s" % (os.getenv("SSHCONNECTTIMEOUT") or 100),
 		"-S", "%s.socket" % hoststring, # use control master if available
 		"%s" % hoststring)
 	if not hoststring in control_master:

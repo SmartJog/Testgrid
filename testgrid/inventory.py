@@ -12,6 +12,7 @@ import testgrid
 import jinja2
 import os
 import stat
+import time
 
 class Inventory(object):
 
@@ -35,12 +36,12 @@ class Inventory(object):
                 for opts in nodes_opts:
                         try:
                                 host =  self.inventory.get_host(opts["name"])
-                                #del opts["name"]
+				opts["name"] += time.strftime("%Y%m%d%H%M%S", time.localtime()) #FIXME temporary solution unique name for isadapter
                                 if not host:
                                         raise Exception("node %s hasn't been found in the inventory file %s" % (opts["name"], self.name))
                                 node = session.allocate_node(**opts)
                                 host.set_variable("ansible_ssh_host", node.get_hoststring())
-                                host.set_variable("ip", node.get_hoststring())
+                                host.set_variable("ip", node.get_hoststring()) # same as ansible_ssh_host motherbrain-deploy requires it
                         except Exception as e:
                                 session.close()
                                 raise Exception("allocate_inventory_nodes %s" % e)
