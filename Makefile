@@ -45,6 +45,9 @@ clean::
 obj:
 	mkdir $@
 
+obj/tgc: 	obj
+			cp testgrid/controller_main.py obj/tgc
+
 test: 	| obj
 ifeq ($(shell which nosetests),)
 	python -m unittest -v testgrid.model testgrid.controller testgrid.database testgrid.persistent testgrid.client testgrid.isadapter testgrid.rest
@@ -55,3 +58,14 @@ endif
 
 loc:
 	find . \( -name '*.py' -o -name '*.sql' \) -a -not \( -name bottle.py -o -name docopt.py \) | xargs wc -l | sort -n
+
+debian: VERSION:=1.0
+debian: obj/tgc
+#		mkdir obj/tgc_$(VERSION)
+		cp -r obj/tgc obj/tgc_$(VERSION)
+		sed -e 's/__VERSION__/$(VERSION)/g' -i obj/tgc_$(VERSION)/DEBIAN/control
+		mkdir -p obj/tgc_$(VERSION)/usr/local/sbin
+		cp obj/tgc obj/tgc_$(VERSION)/usr/local/sbin
+		mkdir -p obj/tgc_$(VERSION)/usr/lib/python2.7
+		cp -r testgrid/ obj/tgc_$(VERSION)/usr/lib/python2.7
+		dpkg-deb --build obj/tgc_$(VERSION)

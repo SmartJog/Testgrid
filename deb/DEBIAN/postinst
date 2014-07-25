@@ -1,0 +1,17 @@
+#!/bin/sh
+
+set -e -x
+
+apt-get install -y ansible
+chown root:root /etc/init.d/tgc
+chown root:root /usr/local/sbin/tgc
+
+#chmod u=rw,g=r,o=r /etc/sysctl.d/tgc.conf
+chmod u=rwx,g=rx,o=rx /etc/init.d/tgc
+chmod u=rwx,g=rx,o=rx /usr/local/sbin/tgc
+
+adduser --system --disabled-login --disabled-password --gecos "" tgc
+
+chown tgc:nogroup /var/run/tgc.pid
+
+service tgc restart
