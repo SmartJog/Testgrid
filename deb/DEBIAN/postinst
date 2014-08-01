@@ -2,13 +2,13 @@
 
 set -e -x
 
-apt-get install -y ansible
+#apt-get install -y ansible
 chown root:root /etc/init.d/tgc
 chown root:root /usr/local/sbin/tgc
 
-#chmod u=rw,g=r,o=r /etc/sysctl.d/tgc.conf
 chmod u=rwx,g=rx,o=rx /etc/init.d/tgc
 chmod u=rwx,g=rx,o=rx /usr/local/sbin/tgc
+chmod u=rwx,g=rx,o=rx /usr/local/sbin/tg
 
 adduser --system --disabled-login --disabled-password --gecos "" tgc
 

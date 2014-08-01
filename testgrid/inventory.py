@@ -36,7 +36,7 @@ class Inventory(object):
                 for opts in nodes_opts:
                         try:
                                 host =  self.inventory.get_host(opts["name"])
-				opts["name"] += time.strftime("%Y%m%d%H%M%S", time.localtime()) #FIXME temporary solution unique name for isadapter
+                                opts["name"] += time.strftime("%Y%m%d%H%M%S", time.localtime()) #FIXME temporary solution unique name for isadapter
                                 if not host:
                                         raise Exception("node %s hasn't been found in the inventory file %s" % (opts["name"], self.name))
                                 node = session.allocate_node(**opts)

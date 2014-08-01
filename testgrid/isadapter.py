@@ -84,9 +84,12 @@ class Grid(persistent.Grid):
 	def _create_node(self, pkg = None, **opts):
 		image_name = opts["image_name"]
 		profile_name = opts["profile_name"]
-		hostname = opts["name"]
+                if "name" in opts:
+                        hostname = opts["name"]
+                else:
+                        hostname = "node-is%s" % time.strftime("%Y%m%d%H%M%S", time.localtime())
 		if profile_name == "pg":
-			hoststring = installsystems.normalized_domain_name(opts["name"])
+			hoststring = installsystems.normalized_domain_name(hostname)
 			hostname = hoststring
 			profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hoststring)
 		else:
@@ -101,8 +104,14 @@ class Grid(persistent.Grid):
 			else:
 				hoststring = profile.values["domain_name"]
 		node = Node(hostname, hoststring, profile.get_argv(), profile_name)
-		os.environ['SSHCONNECTTIMEOUT'] = "60"
-		time.sleep(60) # wait until the node starts properly
+		os.environ['SSHCONNECTTIMEOUT'] = "60" #FIXME
+                while  True:
+                        try:
+                                shell.run("ssh root@%s -o ConnectTimeout=1" % node.hoststring) # FIXME maybe fix a limit
+                                break
+                        except shell.CommandFailure:
+                                print "can't reach %s" % node.hoststring
+                                time.sleep(1)
 		shell.ssh(hoststring = "root@%s" %  node.hoststring, argv = "touch /etc/apt/apt.conf.d/proxyqap")
 		shell.scp(hoststring = "root@%s" %  node.hoststring, remotepath= "/etc/apt/apt.conf.d/proxyqap", localpath="testgrid/apt.conf")
 		return node

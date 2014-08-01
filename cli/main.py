@@ -1,5 +1,5 @@
+#!/usr/bin/env python
 # copyright (c) 2014 smartjog, released under the GPL license.
-#!/bin/python 
 """
 Testgrid command-line utility.
 
@@ -20,6 +20,7 @@ Usage:
   tg [-m INI] [-l|-c HOST] [-g NAME] --close-session NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --list-nodes
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --allocate-node NAME NAME
+  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --allocate-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --release-node NAME
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME (--deploy --deb | --deploy --win) PKG...
   tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --undeploy
@@ -292,7 +293,10 @@ def main():
 				_opts = {}
 				for key, value in parser.conf.items(opts["--allocate-node"]):
 					_opts[key] = value
-				node = session.allocate_node(name = opts["NAME"], **_opts)
+                                if "NAME" in opts:
+                                        node = session.allocate_node(name = opts["NAME"], **_opts)
+                                else:
+                                        node = session.allocate_node(**_opts)
 			elif opts["--release-node"]:
 				node = client.get_node(opts["--release-node"])
 				session.release(node)

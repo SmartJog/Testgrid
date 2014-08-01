@@ -1,0 +1,6 @@
+Package: testgrid
+Version: __VERSION__
+Maintainer: Florent Claerhout <florent.claerhout@arkena.com>
+Architecture: all
+Depends: python (>=2.7.0)
+Description: TestGrid (TG) is a PTE (Programmable Test Environments) provide.

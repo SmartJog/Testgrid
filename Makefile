@@ -46,8 +46,8 @@ obj:
 	mkdir $@
 
 obj/tgc: 	obj
-			cp testgrid/controller_main.py obj/tgc
-
+			cp cli/controller_main.py obj/tgc
+			cp cli/main.py obj/tg
 test: 	| obj
 ifeq ($(shell which nosetests),)
 	python -m unittest -v testgrid.model testgrid.controller testgrid.database testgrid.persistent testgrid.client testgrid.isadapter testgrid.rest
@@ -61,11 +61,12 @@ loc:
 
 debian: VERSION:=1.0
 debian: obj/tgc
-#		mkdir obj/tgc_$(VERSION)
-		cp -r obj/tgc obj/tgc_$(VERSION)
+		cp -r deb obj/tgc_$(VERSION)
 		sed -e 's/__VERSION__/$(VERSION)/g' -i obj/tgc_$(VERSION)/DEBIAN/control
 		mkdir -p obj/tgc_$(VERSION)/usr/local/sbin
 		cp obj/tgc obj/tgc_$(VERSION)/usr/local/sbin
+		cp obj/tg obj/tgc_$(VERSION)/usr/local/sbin
 		mkdir -p obj/tgc_$(VERSION)/usr/lib/python2.7
 		cp -r testgrid/ obj/tgc_$(VERSION)/usr/lib/python2.7
+		chmod 0775 deb/DEBIAN/postinst
 		dpkg-deb --build obj/tgc_$(VERSION)

@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/env python
 """
 Usage:
   my_program --host NAME --port NAME --grid NAME --manifest INI
