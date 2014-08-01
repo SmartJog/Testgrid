@@ -2,7 +2,7 @@
 
 import unittest
 
-from testgrid import model
+import model
 
 class Node(model.Node):
 
@@ -22,6 +22,9 @@ class Node(model.Node):
 	def get_info(self):
 		return "remote node/%s" % self.sysname
 
+	def get_typename(self):
+		return "remote node/%s" % self.sysname
+
 	def has_support(self, sysname = None, **opts):
 		return not opts and (not sysname or sysname == self.sysname)
 
@@ -38,7 +41,7 @@ class Node(model.Node):
 		raise NotImplementedError("remote.Node.get_subnets() not implemented yet")
 
 	def get_hoststring(self):
-		return testgrid.model.Hoststring(self.hoststring)
+		return model.Hoststring(self.hoststring)
 
 	def get_installed_packages(self):
 		raise NotImplementedError("remote.Node.get_installed_packages() not implemented yet")

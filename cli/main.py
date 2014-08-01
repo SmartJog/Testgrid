@@ -4,32 +4,33 @@
 Testgrid command-line utility.
 
 Usage:
-  tg [-m INI] [-l|-c HOST] [-g NAME] --list-nodes
-  tg [-m INI] [-l|-c HOST] [-g NAME] --add-node NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] --remove-node NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] --quarantine-node NAME --reason TEXT
-  tg [-m INI] [-l|-c HOST] [-g NAME] --rehabilitate-node NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --ping
-  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME (--install --deb | --install --win) NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME (--uninstall --deb | --uninstall --win) NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME (--is-installed --deb  | --is-installed --win) NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME (--is-installable --deb | --is-installable --win) NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] [-s NAME] -n NAME --execute [--] ARGV...
-  tg [-m INI] [-l|-c HOST] [-g NAME] --list-sessions
-  tg [-m INI] [-l|-c HOST] [-g NAME] --open-session NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] --close-session NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --list-nodes
-  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --allocate-node NAME NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --allocate-node NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --release-node NAME
-  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME (--deploy --deb | --deploy --win) PKG...
-  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME --undeploy
-  tg [-m INI] [-l|-c HOST] [-g NAME] -s NAME  --inventory PATH	--session-manifest INI
+  tg [-m INI] [-g NAME] --list-nodes
+  tg [-m INI] [-g NAME] --list-nodes
+  tg [-m INI] [-g NAME] --add-node NAME
+  tg [-m INI] [-g NAME] --remove-node NAME
+  tg [-m INI] [-g NAME] --quarantine-node NAME --reason TEXT
+  tg [-m INI] [-g NAME] --rehabilitate-node NAME
+  tg [-m INI] [-g NAME] [-s NAME] -n NAME --ping
+  tg [-m INI] [-g NAME] [-s NAME] -n NAME (--install --deb | --install --win) NAME
+  tg [-m INI] [-g NAME] [-s NAME] -n NAME (--uninstall --deb | --uninstall --win) NAME
+  tg [-m INI] [-g NAME] [-s NAME] -n NAME (--is-installed --deb  | --is-installed --win) NAME
+  tg [-m INI] [-g NAME] [-s NAME] -n NAME (--is-installable --deb | --is-installable --win) NAME
+  tg [-m INI] [-g NAME] [-s NAME] -n NAME --execute [--] ARGV...
+  tg [-m INI] [-g NAME] --list-sessions
+  tg [-m INI] [-g NAME] --open-session NAME
+  tg [-m INI] [-g NAME] --close-session NAME
+  tg [-m INI] [-g NAME] -s NAME --list-nodes
+  tg [-m INI] [-g NAME] -s NAME --allocate-node NAME NAME
+  tg [-m INI] [-g NAME] -s NAME --allocate-node NAME
+  tg [-m INI] [-g NAME] -s NAME --release-node NAME
+  tg [-m INI] [-g NAME] -s NAME (--deploy --deb | --deploy --win) PKG...
+  tg [-m INI] [-g NAME] -s NAME --undeploy
+  tg [-m INI] [-g NAME] -s NAME  --inventory PATH	--session-manifest INI
   tg --version
   tg --help
 
 Options:
-  -m INI, --manifest INI      comma-separated paths or URIs [default: ~/testgrid.ini]
+  -m INI, --manifest INI      comma-separated paths or URIs [default: /etc/testgrid/client.ini]
   -l, --local		      use a local client
   -c HOST, --controller HOST  set controller hoststring [default: qa.lab.fr.lan:8080]
   -g NAME, --grid NAME	      set grid section NAME in the manifest [default: grid]
@@ -242,12 +243,16 @@ def main():
 		# instanciate client #
 		######################
 		opts = testgrid.docopt.docopt(__doc__, version = __version__)
-		if opts["--local"]:
+                parser = testgrid.parser.Parser(ini = opts["--manifest"])
+                if parser.conf.has_section("controller"):
+                        if parser.conf.has_option("controller", "host") and parser.conf.has_option("controller", "port"):
+                                client = testgrid.rest.Client("%s:%s" % (parser.conf.get('controller', 'host'), parser.conf.get('controller', 'port')))
+                        else:
+                                raise Exception("bad manifest")
+		else:
 			client = testgrid.local.Client(
 				name = opts["--grid"],
 				ini = opts["--manifest"])
-		else:
-			client = testgrid.rest.Client(host = opts["--controller"])
 		#########################
 		# handle node-level op. #
 		#########################
