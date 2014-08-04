@@ -105,11 +105,14 @@ class Grid(persistent.Grid):
 				hoststring = profile.values["domain_name"]
 		node = Node(hostname, hoststring, profile.get_argv(), profile_name)
 		os.environ['SSHCONNECTTIMEOUT'] = "60" #FIXME
+                timeout = time.time() + 5*60
                 while  True:
                         try:
                                 shell.run("ssh root@%s -o ConnectTimeout=1" % node.hoststring) # FIXME maybe fix a limit
                                 break
                         except shell.CommandFailure:
+                                if time.time() > timeout:
+                                        raise Exception("can't reach %s for 5 minutes" % node.hoststring)
                                 print "can't reach %s" % node.hoststring
                                 time.sleep(1)
 		shell.ssh(hoststring = "root@%s" %  node.hoststring, argv = "touch /etc/apt/apt.conf.d/proxyqap")
