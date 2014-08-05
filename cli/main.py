@@ -30,7 +30,7 @@ Usage:
   tg --help
 
 Options:
-  -m INI, --manifest INI      comma-separated paths or URIs [default: /etc/testgrid/rest-client.ini]
+  -m INI, --manifest INI      comma-separated paths or URIs [default: /etc/tg/rest-client.ini]
   -l, --local		      use a local client
   -c HOST, --controller HOST  set controller hoststring [default: qa.lab.fr.lan:8080]
   -g NAME, --grid NAME	      set grid section NAME in the manifest [default: grid]
@@ -208,7 +208,7 @@ def list_sessions(client):
 		("--------", "----"),
 	]
 	for session in client.get_sessions():
-		row = [session.username, session.name]
+		row = [session.user.name, session.name]
 		rows.append(row)
 	print testgrid.strfmt.strcolalign(rows)
 

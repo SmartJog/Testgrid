@@ -73,21 +73,24 @@ KEY ="""ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDn8KBFY3xQO+UCLTaAv/OETo9W6u0E4Gke
 
 class Grid(persistent.Grid):
 
-	def __init__(self, name, hoststring, profile_path , ipstore_host, ipstore_port , dbpath, public_key = KEY):
+	def __init__(self, name, hoststring, profile_path , ipstore_host, ipstore_port , dbpath, public_key = None):
 		super(Grid, self).__init__(name = name, dbpath = dbpath)
 		self.hoststring = hoststring
 		self.hv = Hypervisor(hoststring)
 		self.ipstore = installsystems.IPStore(host = ipstore_host, port = ipstore_port)
 		self.profiles = installsystems.Profiles(path = profile_path)
 		self.public_key = public_key
+                if public_key:
+                        with open(os.path.expanduser(public_key), 'r') as content_file:
+                                self.public_key = content_file.read()
 
-	def _create_node(self, pkg = None, **opts):
+	def _build_node(self, pkg = None, **opts):
 		image_name = opts["image_name"]
 		profile_name = opts["profile_name"]
-                if "name" in opts:
-                        hostname = opts["name"]
-                else:
-                        hostname = "node-is%s" % time.strftime("%Y%m%d%H%M%S", time.localtime())
+		if "name" in opts:
+			hostname = opts["name"]
+		else:
+			hostname = "node-is%s" % time.strftime("%Y%m%d%H%M%S", time.localtime())
 		if profile_name == "pg":
 			hoststring = installsystems.normalized_domain_name(hostname)
 			hostname = hoststring
@@ -104,17 +107,21 @@ class Grid(persistent.Grid):
 			else:
 				hoststring = profile.values["domain_name"]
 		node = Node(hostname, hoststring, profile.get_argv(), profile_name)
+		return node
+
+	def _create_node(self, pkg = None, **opts):
+		node = self._build_node(pkg, **opts)
 		os.environ['SSHCONNECTTIMEOUT'] = "60" #FIXME
-                timeout = time.time() + 5*60
-                while  True:
-                        try:
-                                shell.run("ssh root@%s -o ConnectTimeout=1" % node.hoststring) # FIXME maybe fix a limit
-                                break
-                        except shell.CommandFailure:
-                                if time.time() > timeout:
-                                        raise Exception("can't reach %s for 5 minutes" % node.hoststring)
-                                print "can't reach %s" % node.hoststring
-                                time.sleep(1)
+		timeout = time.time() + 5*60
+		while  True:
+			try:
+				shell.run("ssh root@%s -o ConnectTimeout=1" % node.hoststring) # FIXME maybe fix a limit
+				break
+			except shell.CommandFailure:
+				if time.time() > timeout:
+					raise Exception("can't reach %s for 5 minutes" % node.hoststring)
+				print "can't reach %s" % node.hoststring
+				time.sleep(1)
 		shell.ssh(hoststring = "root@%s" %  node.hoststring, argv = "touch /etc/apt/apt.conf.d/proxyqap")
 		shell.scp(hoststring = "root@%s" %  node.hoststring, remotepath= "/etc/apt/apt.conf.d/proxyqap", localpath="testgrid/apt.conf")
 		return node
@@ -160,6 +167,7 @@ class FakeTempGrid(TempGrid):
 	def __init__(self, name, hoststring, dbpath):
 		super(Grid, self).__init__(name = name, dbpath = dbpath)
 		self.hoststring = hoststring
+                self.public_key = None
 		self.hv = installsystems.Hypervisor(run = installsystems.FakeRunner())
 		self.ipstore = installsystems.FakeIPStore(host = "fake", port = 0)
 		self.ipstore.cache["/allocate?reason=hv+%7C+no+details"] = "42.42.42.42"
@@ -179,6 +187,9 @@ class FakeTempGrid(TempGrid):
 			""")
 			f.flush()
 			self.profiles = installsystems.Profiles(path = f.name)
+
+        def _create_node(self, pkg = None, **opts):
+                return  self._build_node(pkg, **opts)
 
 import unittest, time
 class FakeTest(unittest.TestCase):

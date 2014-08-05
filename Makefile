@@ -48,6 +48,7 @@ obj:
 obj/tgc: 	obj
 			cp cli/controller_main.py obj/tgc
 			cp cli/main.py obj/tg
+
 test: 	| obj
 ifeq ($(shell which nosetests),)
 	python -m unittest -v testgrid.model testgrid.controller testgrid.database testgrid.persistent testgrid.client testgrid.isadapter testgrid.rest
@@ -59,14 +60,28 @@ endif
 loc:
 	find . \( -name '*.py' -o -name '*.sql' \) -a -not \( -name bottle.py -o -name docopt.py \) | xargs wc -l | sort -n
 
-debian: VERSION:=1.0
-debian: obj/tgc
-		cp -r deb obj/tgc_$(VERSION)
-		sed -e 's/__VERSION__/$(VERSION)/g' -i obj/tgc_$(VERSION)/DEBIAN/control
-		mkdir -p obj/tgc_$(VERSION)/usr/local/sbin
-		cp obj/tgc obj/tgc_$(VERSION)/usr/local/sbin
-		cp obj/tg obj/tgc_$(VERSION)/usr/local/sbin
-		mkdir -p obj/tgc_$(VERSION)/usr/lib/python2.7
-		cp -r testgrid/ obj/tgc_$(VERSION)/usr/lib/python2.7
-		chmod 0775 deb/DEBIAN/postinst
-		dpkg-deb --build obj/tgc_$(VERSION)
+
+deb: VERSION:=1.0
+deb: clean obj/tgc
+	cp -r deb obj/tgc_$(VERSION)
+	sed -e 's/__VERSION__/$(VERSION)/g' -i obj/tgc_$(VERSION)/DEBIAN/control
+	mkdir -p obj/tgc_$(VERSION)/usr/local/sbin
+	cp obj/tgc obj/tgc_$(VERSION)/usr/local/sbin
+	cp obj/tg obj/tgc_$(VERSION)/usr/local/sbin
+	chmod +x obj/tgc_$(VERSION)/usr/local/sbin/tg
+	chmod +x obj/tgc_$(VERSION)/usr/local/sbin/tgc
+#	chmod 755 obj/tgc_$(VERSION)/etc/init.d/tgc
+	mkdir -p obj/tgc_$(VERSION)/usr/lib/python2.7
+	cp -r testgrid/ obj/tgc_$(VERSION)/usr/lib/python2.7
+	fakeroot dpkg-deb --build obj/tgc_$(VERSION)
+
+deb-rest: VERSION:=1.0
+deb-rest: clean obj/tgc
+	cp -r deb-rest obj/tg_$(VERSION)
+	sed -e 's/__VERSION__/$(VERSION)/g' -i obj/tg_$(VERSION)/DEBIAN/control
+	mkdir -p obj/tg_$(VERSION)/usr/local/sbin
+	cp obj/tg obj/tg_$(VERSION)/usr/local/sbin
+	chmod +x obj/tg obj/tgc_$(VERSION)/usr/local/sbin/tg
+	mkdir -p obj/tg_$(VERSION)/usr/lib/python2.7
+	cp -r testgrid/ obj/tg_$(VERSION)/usr/lib/python2.7
+	fakeroot dpkg-deb --build obj/tg_$(VERSION)

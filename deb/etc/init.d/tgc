@@ -1,5 +1,5 @@
 #!/bin/sh
-
+# /etc/init.d/tgc
 
 PIDFILE=/var/run/tgc.pid
 DAEMON=/usr/local/sbin/tgc

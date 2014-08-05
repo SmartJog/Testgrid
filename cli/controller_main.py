@@ -8,7 +8,7 @@ Options:
   -g NAME, --grid NAME       set grid section NAME in the manifest [default: grid]
   --host NAME                ...
   --port NAME                ...
-  -m INI, --manifest INI     comma-separated list of .ini filepaths or URIs [default: /etc/testgrid/grid.ini]
+  -m INI, --manifest INI     comma-separated list of .ini filepaths or URIs [default: /etc/tgc/grid.ini]
 
 """
 import testgrid
