@@ -10,7 +10,6 @@ Options:
    --list                               return a JSON hash/dictionary of all the groups to be managed
    --host <hostname>                    return either an empty JSON hash/dictionary, or a hash/dictionary of variables to make available to templates and playbooks
 """
-import docopt
 import testgrid
 import sys
 import json
@@ -29,7 +28,7 @@ modules = {{modules}}
 
 if __name__ == "__main__":
     try:
-        args = docopt.docopt(__doc__)
+        args = testgrid.docopt.docopt(__doc__)
         if client_is_local:
             client = testgrid.local.Client(name = grid,
                                            ini = client_arg, modules= modules)

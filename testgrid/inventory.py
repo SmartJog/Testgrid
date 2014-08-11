@@ -39,6 +39,7 @@ class Inventory(object):
                                 opts["name"] += time.strftime("%Y%m%d%H%M%S", time.localtime()) #FIXME temporary solution unique name for isadapter
                                 if not host:
                                         raise Exception("node %s hasn't been found in the inventory file %s" % (opts["name"], self.name))
+                                opts["stdout"] = True
                                 node = session.allocate_node(**opts)
                                 host.set_variable("ansible_ssh_host", node.get_hoststring())
                                 host.set_variable("ip", node.get_hoststring()) # same as ansible_ssh_host motherbrain-deploy requires it

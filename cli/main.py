@@ -244,11 +244,13 @@ def main():
 		######################
 		opts = testgrid.docopt.docopt(__doc__, version = __version__)
                 parser = testgrid.parser.Parser(ini = opts["--manifest"])
+                controller = None
                 if parser.conf.has_section("controller"):
                         if parser.conf.has_option("controller", "host") and parser.conf.has_option("controller", "port"):
                                 client = testgrid.rest.Client("%s:%s" % (parser.conf.get('controller', 'host'), parser.conf.get('controller', 'port')))
+                                controller = "%s:%s" % (parser.conf.get('controller', 'host'), parser.conf.get('controller', 'port'))
                         else:
-                                raise Exception("bad manifest")
+                                raise Exception("bad manifest missing host or port")
 		else:
 			client = testgrid.local.Client(
 				name = opts["--grid"],
@@ -298,10 +300,10 @@ def main():
 				_opts = {}
 				for key, value in parser.conf.items(opts["--allocate-node"]):
 					_opts[key] = value
-                                if "NAME" in opts:
-                                        node = session.allocate_node(name = opts["NAME"], **_opts)
-                                else:
-                                        node = session.allocate_node(**_opts)
+				if "NAME" in opts:
+					node = session.allocate_node(name = opts["NAME"], **_opts)
+				else:
+					node = session.allocate_node(**_opts)
 			elif opts["--release-node"]:
 				node = client.get_node(opts["--release-node"])
 				session.release(node)
@@ -315,17 +317,18 @@ def main():
 					print "package %s installed on node %s" % (p, node)
 			elif opts["--undeploy"]:
 				session.undeploy()
-                        elif opts["--inventory"]:
-				if opts["--local"]:
+			elif opts["--inventory"]:
+				if controller:
 					testgrid.inventory.generate_inventory_script(opts["--inventory"], 
-									 opts["--session"],  
-									 opts["--session-manifest"], 
-									 True, opts["--manifest"], opts["--grid"])
+										     opts["--session"],	 
+										     opts["--session-manifest"], 
+										     False, controller)
 				else:
 					testgrid.inventory.generate_inventory_script(opts["--inventory"], 
-									 opts["--session"],  
-									 opts["--session-manifest"], 
-									 False, opts["--controller"])
+										     opts["--session"],	 
+										     opts["--session-manifest"], 
+										     True, opts["--manifest"], opts["--grid"])
+
 
 		#########################
 		# handle grid-level op. #

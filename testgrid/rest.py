@@ -24,8 +24,11 @@ def request_post(url, data):
 
 def verification_error(response):
 	if "error" in response:
-		cls = testgrid.parser.get_subclass(response["type"], Exception)
-		raise cls(response["error"])
+                try:
+                        cls = testgrid.parser.get_subclass(response["type"], Exception)
+                        raise cls(response["error"])
+                except Exception:
+                        raise  Exception(response["error"]) #FIXME
 
 class Node(testgrid.model.Node):
 
@@ -198,8 +201,7 @@ class Session(object):
 		data = {"session" :{"username":self.user.name, "name": self.name}}
 		data["options"] = opts
 		response = request_post(url, data)
-                print response
-		verification_error(response) #FIXME 
+		verification_error(response)
 		return Node(self.host, **response)
 
 	def release(self, node):

@@ -2,6 +2,14 @@
 
 set -e -x
 
-chmod 755 /etc/init.d/tgc
+
 adduser --system --disabled-login --disabled-password --gecos "" tgc
+
+if [ -f "/home/tgc/.ssh/id_rsa.pub" ];
+then
+   echo "ssh key exist"
+else
+   echo "ssh key generation"
+   sudo -u tgc ssh-keygen -t rsa -f /home/tgc/.ssh/id_rsa -q -N ""
+fi
 service tgc restart

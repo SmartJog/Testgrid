@@ -196,7 +196,7 @@ def run(
 
 def _wrapped_run(executor, argv, *args, **kwargs):
 	"synchronous wrapped command execution"
-	if isinstance(argv, str):
+	if isinstance(argv, str) or isinstance(argv, unicode):
 		argv = " ".join(executor + (pipes.quote(argv),)) # escape $argv for shell
 	elif type(argv) in (list, tuple):
 		argv = executor + tuple(argv)
@@ -232,7 +232,7 @@ def ssh(hoststring, argv, *args, **kwargs):
 	return _wrapped_run(executor, argv, *args, **kwargs)
 
 def scp(hoststring, localpath, remotepath, *args, **kwargs):
-	executor = _sshpass(hoststring) + ("scp",)
+	executor = _sshpass(hoststring) + ("scp", "-o", "StrictHostKeyChecking=no")
 	argv = (localpath, "%s:%s" % (hoststring, remotepath))
 	return _wrapped_run(executor, argv, *args, **kwargs)
 

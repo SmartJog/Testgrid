@@ -57,7 +57,6 @@ class Node(database.StorableNode):
 
 	def terminate(self):pass
 
-
 	def get_installed_packages(self):
 		raise NotImplementedError("isadapter.Node.get_installed_packages() not implemented yet")
 
@@ -68,25 +67,31 @@ class Hypervisor(installsystems.Hypervisor):
 		self.hoststring = hoststring
 		self.run = lambda argv, *args, **kwargs: shell.ssh(hoststring = self.hoststring, argv = argv, *args, **kwargs)
 
-KEY ="""ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDn8KBFY3xQO+UCLTaAv/OETo9W6u0E4Gke+x/nfwYPK014Etr4oFdXyqJggzmK6flDDbokYCoHZuDhtZSE4FVDuMhWjweUg68/xb2rUFAC8nNpEsdcA9v5S9HPxND1nA765JWX1jcrLVjadiFQSgMvk+iyYMxFaSKsVoSZtYL2VBpdCIe2YZwAyF4OCU/plnEnd2YMevkAjUw+ArPw9kcjxQj6mpux5YeQt7NdZnYooa4Ux4OlB4jRfVQPZC1ytjY+A89FzmiPLWww8Hfrus542QXHZhEa5KbzcLyJJ2ImjN8SCsoiFGywqxBB6rESCj8HmjDQNr0c4iO0lQ+2lh17 root@testgrid-test.qap"""
-
 
 class Grid(persistent.Grid):
 
-	def __init__(self, name, hoststring, profile_path , ipstore_host, ipstore_port , dbpath, public_key = None):
+	def __init__(self, name, hoststring, profile_path , ipstore_host, ipstore_port , dbpath, public_key = None, stdout = shell.Stdout, stderr = shell.Stderr):
 		super(Grid, self).__init__(name = name, dbpath = dbpath)
 		self.hoststring = hoststring
 		self.hv = Hypervisor(hoststring)
 		self.ipstore = installsystems.IPStore(host = ipstore_host, port = ipstore_port)
 		self.profiles = installsystems.Profiles(path = profile_path)
+		self.stdout = stdout
+		self.stderr = stderr
 		self.public_key = public_key
-                if public_key:
-                        with open(os.path.expanduser(public_key), 'r') as content_file:
-                                self.public_key = content_file.read()
+		if public_key:
+			with open(os.path.expanduser(public_key), 'r') as content_file:
+				self.public_key = content_file.read()
 
 	def _build_node(self, pkg = None, **opts):
 		image_name = opts["image_name"]
 		profile_name = opts["profile_name"]
+                if "stdout" in opts:
+                        self.stdout = None
+                        self.stderr = None
+                else:
+                        self.stdout = shell.Stdout
+                        self.stderr = shell.Stderr
 		if "name" in opts:
 			hostname = opts["name"]
 		else:
@@ -99,8 +104,8 @@ class Grid(persistent.Grid):
 			profile = self.profiles.get_profile(image_name = image_name, profile_name = profile_name, ipstore = self.ipstore, domain_name = hostname)
 		self.hv.create_domain(
 			profile = profile, public_key = self.public_key,
-			on_stdout_line = None, # stdout reserved for result
-			on_stderr_line = None)
+			on_stdout_line = self.stdout, # stdout reserved for result
+			on_stderr_line = self.stderr)
 		if profile_name is not "pg":
 			if profile.interfaces:
 				hoststring = self._get_interface(profile.interfaces)
@@ -115,15 +120,16 @@ class Grid(persistent.Grid):
 		timeout = time.time() + 5*60
 		while  True:
 			try:
-				shell.run("ssh root@%s -o ConnectTimeout=1" % node.hoststring) # FIXME maybe fix a limit
+				shell.run("ssh root@%s -o ConnectTimeout=1  -o NumberOfPasswordPrompts=0 -o StrictHostKeyChecking=no true" % node.hoststring) # FIXME maybe fix a limit
 				break
 			except shell.CommandFailure:
 				if time.time() > timeout:
-					raise Exception("can't reach %s for 5 minutes" % node.hoststring)
-				print "can't reach %s" % node.hoststring
+					raise Exception("couldn't reach %s" % node.hoststring)
+                                if "stdout"not in opts:
+                                        print "can't reach %s" % node.hoststring
 				time.sleep(1)
 		shell.ssh(hoststring = "root@%s" %  node.hoststring, argv = "touch /etc/apt/apt.conf.d/proxyqap")
-		shell.scp(hoststring = "root@%s" %  node.hoststring, remotepath= "/etc/apt/apt.conf.d/proxyqap", localpath="testgrid/apt.conf")
+		shell.scp(hoststring = "root@%s" %  node.hoststring, remotepath= "/etc/apt/apt.conf.d/proxyqap", localpath="/etc/tgc/apt.conf")
 		return node
 
 	def _terminate(self, node):
@@ -161,57 +167,57 @@ class TempGrid(Grid):
 #########
 # tests #
 #########
-import tempfile
+# import tempfile
 
-class FakeTempGrid(TempGrid):
-	def __init__(self, name, hoststring, dbpath):
-		super(Grid, self).__init__(name = name, dbpath = dbpath)
-		self.hoststring = hoststring
-                self.public_key = None
-		self.hv = installsystems.Hypervisor(run = installsystems.FakeRunner())
-		self.ipstore = installsystems.FakeIPStore(host = "fake", port = 0)
-		self.ipstore.cache["/allocate?reason=hv+%7C+no+details"] = "42.42.42.42"
-		self.ipstore.cache["/release/42.42.42.42"] = "released 42.42.42.42"
-		with tempfile.NamedTemporaryFile() as f:
-			f.write("""
-			{
-				"debian-smartjog": {
-					"tg:basic": {
-						"description": "",
-						"format": [
-							"--hostname", "%(domain_name)s"
-						]
-					}
-				}
-			}
-			""")
-			f.flush()
-			self.profiles = installsystems.Profiles(path = f.name)
+# class FakeTempGrid(TempGrid):
+# 	def __init__(self, name, hoststring, dbpath):
+# 		super(Grid, self).__init__(name = name, dbpath = dbpath)
+# 		self.hoststring = hoststring
+#                 self.public_key = None
+# 		self.hv = installsystems.Hypervisor(run = installsystems.FakeRunner())
+# 		self.ipstore = installsystems.FakeIPStore(host = "fake", port = 0)
+# 		self.ipstore.cache["/allocate?reason=hv+%7C+no+details"] = "42.42.42.42"
+# 		self.ipstore.cache["/release/42.42.42.42"] = "released 42.42.42.42"
+# 		with tempfile.NamedTemporaryFile() as f:
+# 			f.write("""
+# 			{
+# 				"debian-smartjog": {
+# 					"tg:basic": {
+# 						"description": "",
+# 						"format": [
+# 							"--hostname", "%(domain_name)s"
+# 						]
+# 					}
+# 				}
+# 			}
+# 			""")
+# 			f.flush()
+# 			self.profiles = installsystems.Profiles(path = f.name)
 
-        def _create_node(self, pkg = None, **opts):
-                return  self._build_node(pkg, **opts)
+#         def _create_node(self, pkg = None, **opts):
+#                 return  self._build_node(pkg, **opts)
 
-import unittest, time
-class FakeTest(unittest.TestCase):
+# import unittest, time
+# class FakeTest(unittest.TestCase):
 
-	def setUp(self):
-		self.grid = FakeTempGrid(name = "fake_is_test", hoststring = "fakehoststring", dbpath = "/tmp/fake_is.db")
-		self.profile = "tg:basic"
-                self.opts = {"image_name": "debian-smartjog",
-                             "profile_name": self.profile,
-                             "name": "test-isadapter-%s"
-                             % time.strftime("%Y%m%d%H%M%S", time.localtime())}
-                self.grid.ipstore.cache["/tg/allocate?reason=hv+%7C+image_name%3Ddebian-smartjog+domain_name%3D" + self.opts["name"]] = "42.42.42.42"
+# 	def setUp(self):
+# 		self.grid = FakeTempGrid(name = "fake_is_test", hoststring = "fakehoststring", dbpath = "/tmp/fake_is.db")
+# 		self.profile = "tg:basic"
+#                 self.opts = {"image_name": "debian-smartjog",
+#                              "profile_name": self.profile,
+#                              "name": "test-isadapter-%s"
+#                              % time.strftime("%Y%m%d%H%M%S", time.localtime())}
+#                 self.grid.ipstore.cache["/tg/allocate?reason=hv+%7C+image_name%3Ddebian-smartjog+domain_name%3D" + self.opts["name"]] = "42.42.42.42"
 
-	def test(self):
-		user = database.StorableUser("user")
-		session = self.grid.open_session(name = "test", user = user)
-		node = session.allocate_node(**self.opts)
-		del session
-		session = self.grid.open_session(name = "test", user = user) # re-open
-		self.assertIn(node, session)
-		session.release(node)
-		self.assertNotIn(node, session)
+# 	def test(self):
+# 		user = database.StorableUser("user")
+# 		session = self.grid.open_session(name = "test", user = user)
+# 		node = session.allocate_node(**self.opts)
+# 		del session
+# 		session = self.grid.open_session(name = "test", user = user) # re-open
+# 		self.assertIn(node, session)
+# 		session.release(node)
+# 		self.assertNotIn(node, session)
 
 
 

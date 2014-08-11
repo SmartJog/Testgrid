@@ -12,12 +12,13 @@ Options:
 
 """
 import testgrid
+import syslog
 
 
 if __name__ == '__main__':
     try:
         args = testgrid.docopt.docopt(__doc__)
         g = testgrid.parser.parse_grid(args["--grid"], args["--manifest"])
-        testgrid.controller.setup_serveur(host=args["--host"], port=args["--port"], g=g)
+        testgrid.controller.setup_server(host=args["--host"], port=args["--port"], g=g)
     except Exception as e:
-        print e
+        syslog.syslog(syslog.LOG_ERR, e)

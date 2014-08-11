@@ -25,7 +25,7 @@ class AccessManager(testgrid.client.AccessManager):
             return True
         return False
 
-def setup_serveur(host, port, g, am = None):
+def setup_server(host, port, g, am = None):
     global grid
     global accessmgr
     grid = g
