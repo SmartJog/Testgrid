@@ -8,11 +8,13 @@ class UnknownSessionError(Exception):
 
 	def __init__(self, name):
 		super(UnknownSessionError, self).__init__("%s: no such session" % name)
+                self.name = name
 
 class UnknownNodeError(Exception):
 
 	def __init__(self, name):
 		super(UnknownNodeError, self).__init__("%s: no such node" % name)
+                self.name = name
 
 class User(model.User):
 

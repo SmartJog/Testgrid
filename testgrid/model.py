@@ -355,10 +355,10 @@ class Session(object):
 	def undeploy(self):
 		for pkg, node in self.plan:
 			self._release_pair(pkg, node)
-			self.plan.remove((pkg, node))
-			if self.gridref()._is_transient(node):
-				self.gridref().remove_node(node, force = True)
-		#del self.plan[:]
+			# self.plan.remove((pkg, node))
+			# if self.gridref()._is_transient(node):
+			# 	self.gridref().remove_node(node, force = True)
+		del self.plan[:]
 
 	def close(self, force = False):
 		if self.plan and not force:

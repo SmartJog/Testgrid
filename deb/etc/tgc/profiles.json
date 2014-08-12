@@ -8,21 +8,21 @@
 				"--passwd", "arkena",
 				"--kvm",
 				"--memory", "512",
-				"--disks", "rootfs:2048@vg",
+				"--disks", "root:2048@vg",
 				"--cpu", "1"
 			]
 		},
 		"pg": {
 			"description": "playground profile, minimal resources, 1 dhcp interface",
 			"format": [
-				"--interfaces", "dhcp:2006",
-				"--hostname", "%(domain_name)s",
+				"--interfaces", "dhcp:29",
+				"--hostname", "%(normalized_domain_name)s",
 				"--passwd", "arkena",
 				"--kvm",
 				"--memory", "512",
-				"--disks", "rootfs:2048@vg",
-				"--dns", "192.168.11.253",
-				"--ntp", "ntp.fr.lan",
+				"--disks", "root:2048@vg",
+				"--dns", "95.81.173.70",
+				"--ntp", "fr.pool.ntp.org",
 				"--cpu", "1"
 			]
 		},
@@ -34,10 +34,133 @@
 				"--passwd", "arkena",
 				"--kvm",
 				"--memory", "512",
-				"--disks", "rootfs:2048@vg",
+				"--disks", "root:2048@vg",
 				"--cpu", "1"
 			]
 		},
+		"cdn:pub:storage": {
+			"description": "CDN Storage, 1G RAM, 30G Disk, CDN+PUB interfaces",
+			"format": [
+				"--interfaces", "%(address)s", "%(address_1)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "1024",
+				"--disks", "root:30720@vg",
+				"--cpu", "1"
+			]
+		},
+
+		"cw:jsup": {
+			"description": "jinns supervisor, 2 CPU, 1G RAM, 10G disk, 1 CW interface, wheezy",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "1024",
+				"--disks", "root:10240@vg",
+				"--cpu", "2"
+			]
+		},
+
+		"cw:mbredis|tg:mbredis": {
+			"description": "Motherbrain/General, redis controller node profile",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "4096",
+				"--disks", "root:20000@vg",
+				"--cpu", "2"
+			]
+		},
+		"cw:mbworker|tg:mbworker": {
+			"description": "Motherbrain/General, worker node profile",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "4096",
+				"--disks", "root:4096@vg",
+				"--cpu", "8"
+			]
+		},
+		"cw:mbcron|tg:mbcron": {
+			"description": "Motherbrain/General, cron node profile",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "4096",
+				"--disks", "root:4096@vg",
+				"--cpu", "2"
+			]
+		},
+		"cw:mbserver|tg:mbserver": {
+			"description": "Motherbrain/Server, server & proxy node profile",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "1024",
+				"--disks", "root:4096@vg",
+				"--cpu", "1"
+			]
+		},
+		"cw:mbrabbitmq|tg:mbrabbitmq": {
+			"description": "Motherbrain/RabbitMQ, rabbitmq node profile",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "4096",
+				"--disks", "root:4096@vg",
+				"--cpu", "2"
+			]
+		},
+		"cw:mbelastic|tg:mbelastic": {
+			"description": "Motherbrain/Logs, elasticsearch node profile",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "4096",
+				"--disks", "root:20000@vg",
+				"--cpu", "2"
+			]
+		},
+		"cw:mbindexer|tg:mbindexer": {
+			"description": "Motherbrain/Logs, indexer node profile",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "4096",
+				"--disks", "root:4096@vg",
+				"--cpu", "2"
+			]
+		},
+		"cw:mbsentry|tg:mbsentry": {
+			"description": "Motherbrain/Logs, sentry node profile",
+			"format": [
+				"--interfaces", "%(address)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "4096",
+				"--disks", "root:4096@vg",
+				"--cpu", "2"
+			]
+		},
+
 		"ipstore.qap": {
 			"description": "reserved to QA, ipstore.qap profile",
 			"format": [
@@ -46,13 +169,27 @@
 				"--passwd", "arkena",
 				"--kvm",
 				"--memory", "512",
-				"--disks", "rootfs:2048@vg",
+				"--disks", "root:2048@vg",
+				"--cpu", "1"
+			]
+		},
+		"data.qap": {
+			"description": "reserved to QA, data.qap profile",
+			"domain_name": "data.qap",
+			"format": [
+				"--interfaces", "10.46.0.12/16:446",
+				"--hostname", "data",
+				"--domainname", "qap",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "512",
+				"--disks", "root:4096@vg", "data:102400@vg",
 				"--cpu", "1"
 			]
 		}
 	},
 
-	"debian-smartjog:6": {
+	"debian-smartjog:5": {
 		"cw:jstore": {
 			"description": "jinns storage, 2 CPU, 1G RAM, 100G disk, 1 CW interface, squeeze",
 			"format": [
@@ -61,19 +198,7 @@
 				"--passwd", "arkena",
 				"--kvm",
 				"--memory", "1024",
-				"--disks", "rootfs:102400@vg",
-				"--cpu", "2"
-			]
-		},
-		"cw:jsup": {
-			"description": "jinns supervisor, 2 CPU, 1G RAM, 10G disk, 1 CW interface, squeeze",
-			"format": [
-				"--interfaces", "%(address)s",
-				"--hostname", "%(domain_name)s",
-				"--passwd", "arkena",
-				"--kvm",
-				"--memory", "1024",
-				"--disks", "rootfs:10240@vg",
+				"--disks", "root:102400@vg",
 				"--cpu", "2"
 			]
 		}
@@ -81,77 +206,76 @@
 
 	"cdn-itransmux": {
 		"cdn:basic": {
-			"description": "basic profile, 2G RAM, 5G disk, 1 CDN interface",
+			"description": "itransmux basic profile, 512M RAM, 2G disk, 1 CDN interface",
 			"format": [
 				"--interfaces", "%(address)s",
 				"--hostname", "%(domain_name)s",
 				"--passwd", "arkena",
-				"--memory", "2048",
-				"--disks", "5000",
-				"--kvm"
+				"--kvm",
+				"--memory", "512",
+				"--disks", "root:2048"
 			]
 		},
 		"cdn:pub:prodvm": {
-			"description": "prod profile, 2G RAM, 5G disk, CDN+PUB interfaces",
+			"description": "itransmux physical production profile, 2G RAM, 5G disk, CDN+PUB interfaces",
 			"format": [
-				"--internal-gw", "%(gateway_1)",
 				"--interfaces", "%(address)s", "%(address_1)s",
 				"--hostname", "%(domain_name)s",
 				"--passwd", "arkena",
+				"--kvm",
 				"--memory", "2048",
-				"--disks", "5000",
-				"--kvm"
+				"--disks", "root:5000"
 			]
 		}
 	},
 
 	"cdn-iwebdav": {
 		"cdn:basic": {
-			"description": "",
+			"description": "iwebdav basic profile, 2G RAM, 2G disk, 1 CDN interface",
 			"format": [
-				"--internal-gw", "%(gateway)s",
-				"--dns_search", "%(dns_search)s",
-				"--interfaces", "%(address)s",
 				"--hostname", "%(domain_name)s",
-				"--passwd", "arkena",
-				"--memory", "2048",
-				"--disks", "root:20000",
-				"--dns", "%(dns)s",
 				"--kvm",
-				"--cpu", "2"
-			]
-		},
-		"cdn:pub:prodphy": {
-			"description": "",
-			"format": [
-				"--root-part-size", 10000,
-				"--data-part-size", 50000,
-				"--internal-gw", "%(gateway_1)s",
-				"--interfaces", "%(address)s", "%(address_1)",
-				"--hostname", "%(domain_name)s",
-				"--passwd", "arkena",
-				"--disks", "/dev/sda"
+				"--memory", "2048",
+				"--disks", "root:10000",
+				"--interfaces", "%(address)s",
+				"--internal-gw", "%(gateway)s",
+				"--passwd", "arkena"
 			]
 		},
 		"cdn:pub:prodvm": {
-			"description": "",
+			"description": "webdav virtual production profile, 2G RAM instead of 30G",
 			"format": [
-				"--internal-gw", "%(gateway_1)",
-				"--interfaces", "%(address)s", "%(address_1)",
+				"--hostname", "%(domain_name)s",
+				"--kvm",
+				"--memory", "2048",
+				"--disks", "root:10000",
+				"--interfaces", "%(address)s", "%(address_1)s",
+				"--internal-gw", "%(gateway)s",
+				"--passwd", "arkena"
+			]
+		},
+		"cdn:pub:prodphy": {
+			"description": "webdav physical production profile",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--root-part-size", "10000",
+				"--data-part-size", "50000",
+				"--internal-gw", "%(gateway_1)s",
+				"--interfaces", "%(address)s", "%(address_1)s",
 				"--hostname", "%(domain_name)s",
 				"--passwd", "arkena",
-				"--disks", "root:10000",
-				"--kvm"
+				"--disks", "/dev/sda"
 			]
 		}
 	},
 
 	"cdn-ihttpull": {
 		"cdn:pub:prodphy": {
-			"description": "",
+			"description": "ihttpull physical production profile",
 			"format": [
-				"--root-part-size", 50000,
-				"--extend-storage", 1,
+				"--root-part-size", "50000",
+				"--extend-storage", "1",
 				"--internal-gw", "%(gateway_1)s",
 				"--dns-search", "%(dns_search_1)s",
 				"--interfaces", "%(address)s", "%(address_1)s",
@@ -163,17 +287,17 @@
 			]
 		},
 		"cdn:pub:prodvm": {
-			"description": "",
+			"description": "ihttpull virtual production profile",
 			"format": [
 				"--internal-gw", "%(gateway_1)s",
 				"--dns-search", "%(dns_search_1)s",
 				"--interfaces", "%(address)s", "%(address_1)s",
 				"--hostname", "%(domain_name)s",
 				"--passwd", "arkena",
+				"--kvm",
 				"--memory", "2048",
 				"--disks", "root:20000",
 				"--dns", "%(dns_out)s",
-				"--kvm",
 				"--cpu", "2"
 			]
 		}
@@ -199,31 +323,466 @@
 
 	"cdn-ohttmp3": {},
 
+	"cdn-docker": {
+		"cdn:cdn:vm": {
+			"description": "docker profile...",
+			"format": [
+				"--hostname", "%(domain_name)s",
+				"--interfaces", "%(address)s", "%(address_1)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "1024",
+				"--disks", "root:5000",
+				"--cpu", "1"
+			]
+		}
+	},
+
 	"cdn-ohcache": {
 		"cdn:basic": {
-			"description": "",
+			"description": "ohcache (version < 9) basic profile, 512M RAM, 2G disk, 1 CDN interface",
 			"format": [
 				"--internal-gw", "%(gateway)s",
 				"--interfaces", "%(address)s",
 				"--hostname", "%(domain_name)s",
 				"--passwd", "arkena",
-				"--memory", "2000",
-				"--disks", "root:10000",
 				"--kvm",
-				"--cpu", "4"
+				"--memory", "512",
+				"--disks", "root:2048",
+				"--cpu", "1"
 			]
 		},
 		"cdn:pub:prodvm": {
-			"description": "",
+			"description": "ohcache (version < 9) virtual production profile",
 			"format": [
 				"--internal-gw", "%(gateway)s",
 				"--interfaces", "%(address)s", "%(address_1)s",
 				"--hostname", "%(domain_name)s",
 				"--passwd", "arkena",
+				"--kvm",
 				"--memory", "2000",
 				"--disks", "root:10000",
-				"--kvm",
 				"--cpu", "4"
+			]
+		},
+		"cdn:pub:prodvm9+": {
+			"description": "ohcache (version >= 9) physical production profile",
+			"format": [
+				"--disable-ht-check",
+				"--interfaces", "%(address)s", "%(address_1)s",
+				"--hostname", "%(domain_name)s",
+				"--passwd", "arkena",
+				"--kvm",
+				"--memory", "2000",
+				"--disks", "root:10000",
+				"--cpu", "4"
+			]
+		}
+	},
+
+	"hkvm:6": {
+		"cdn1.qap": {
+			"description": "CDN HKVM node 1 profile",
+			"domain_name": "cdn1.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cdn1",
+				"--domainname", "qap",
+				"--interfaces", "10.69.41.1/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.41.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cdn2.qap": {
+			"description": "CDN HKVM node 2 profile",
+			"domain_name": "cdn2.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cdn2",
+				"--domainname", "qap",
+				"--interfaces", "10.69.41.2/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.41.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cdn3.qap": {
+			"description": "CDN HKVM node 3 profile",
+			"domain_name": "cdn3.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cdn3",
+				"--domainname", "qap",
+				"--interfaces", "10.69.41.3/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.41.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cdn4.qap": {
+			"description": "CDN HKVM node 4 profile",
+			"domain_name": "cdn4.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cdn4",
+				"--domainname", "qap",
+				"--interfaces", "10.69.41.4/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.41.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cdn5.qap": {
+			"description": "CDN HKVM node 5 profile",
+			"domain_name": "cdn5.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cdn5",
+				"--domainname", "qap",
+				"--interfaces", "10.69.41.5/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.41.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cdn6.qap": {
+			"description": "CDN HKVM node 6 profile",
+			"domain_name": "cdn6.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cdn6",
+				"--domainname", "qap",
+				"--interfaces", "10.69.41.6/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.41.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cdn7.qap": {
+			"description": "CDN HKVM node 7 profile",
+			"domain_name": "cdn7.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cdn7",
+				"--domainname", "qap",
+				"--interfaces", "10.69.41.7/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.41.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cdn8.qap": {
+			"description": "CDN HKVM node 8 profile",
+			"domain_name": "cdn8.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cdn8",
+				"--domainname", "qap",
+				"--interfaces", "10.69.41.8/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.41.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cdn9.qap": {
+			"description": "CDN HKVM node 9 profile",
+			"domain_name": "cdn9.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cdn9",
+				"--domainname", "qap",
+				"--interfaces", "10.69.41.9/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.41.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cdn10.qap": {
+			"description": "CDN HKVM node 10 profile",
+			"domain_name": "cdn10.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cdn10",
+				"--domainname", "qap",
+				"--interfaces", "10.69.41.10/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.41.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cw1.qap": {
+			"description": ""
+		},
+		"cw2.qap": {
+			"description": ""
+		},
+		"cw3.qap": {
+			"description": ""
+		},
+		"cw4.qap": {
+			"description": ""
+		},
+		"cw5.qap": {
+			"description": ""
+		},
+		"cw6.qap": {
+			"description": ""
+		},
+		"cw7.qap": {
+			"description": ""
+		},
+		"tg1.qap": {
+			"description": ""
+		},
+		"tg2.qap": {
+			"description": ""
+		},
+		"tg3.qap": {
+			"description": ""
+		},
+		"main.qap": {
+			"description": ""
+		},
+		"ott1.qap": {
+			"description": "OTT HKVM node 1 profile"
+		},
+		"srv1.qap": {
+			"description": "QA Services HKVM node 1 profile",
+			"domain_name": "srv1.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "srv1",
+				"--domainname", "qap",
+				"--interfaces", "10.69.46.1/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.46.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cus1.qap": {
+			"description": "Custom Development HKVM node 1 profile",
+			"domain_name": "cus1.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cus1",
+				"--domainname", "qap",
+				"--interfaces", "10.69.48.1/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.48.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cus2.qap": {
+			"description": "Custom Development HKVM node 2 profile",
+			"domain_name": "cus2.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cus2",
+				"--domainname", "qap",
+				"--interfaces", "10.69.48.2/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.48.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cus3.qap": {
+			"description": "Custom Development HKVM node 3 profile",
+			"domain_name": "cus3.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cus3",
+				"--domainname", "qap",
+				"--interfaces", "10.69.48.3/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.48.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cus4.qap": {
+			"description": "Custom Development HKVM node 4 profile",
+			"domain_name": "cus4.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cus4",
+				"--domainname", "qap",
+				"--interfaces", "10.69.48.4/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.48.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
+			]
+		},
+		"cus5.qap": {
+			"description": "Custom Development HKVM node 5 profile",
+			"domain_name": "cus5.qap",
+			"copy_id": false,
+			"post_install": "reboot",
+			"format": [
+				"--hostname", "cus5",
+				"--domainname", "qap",
+				"--interfaces", "10.69.48.5/16@10.69.0.1",
+				"--vlan-adm", "669",
+				"--eth-prod", "eth0",
+				"--bonding-adm", "eth2", "eth3",
+				"--disks", "/dev/sda", "/dev/sdb",
+				"--vg-name", "vg",
+				"--passwd", "arkena",
+				"--is-repository", "installsystems.arkena.net",
+				"--cc-server", "10.15.255.42",
+				"--smtp", "smtp.core.tvr.wan",
+				"--ntp", "10.48.0.2",
+				"--dns", "10.10.255.3",
+				"--ldap", "wantvr"
 			]
 		}
 	}

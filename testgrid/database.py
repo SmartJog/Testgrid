@@ -824,6 +824,7 @@ class StorableUser(Storable, model.User):
 
 class StorableSession(Storable, model.Session):
 
+
 	def marshall(self):
 		return "%s" % {
 			"gridref": None, # filled-in by get_sessions() and open_session()

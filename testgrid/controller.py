@@ -1,7 +1,7 @@
 import bottle
 import sys
 import testgrid
-
+import inspect
 
 grid = None
 accessmgr = None
@@ -39,6 +39,16 @@ def setup_client(username):
     return client
 
 
+def raise_exception(e):
+    response = {"error": {}}
+    response["error"]["type"] = type(e).__name__
+    args, _varargs, _kwargs, defaults = inspect.getargspec(type(e).__init__)
+    response["error"]["arg"] = {}
+    for arg in args:
+        if arg != "self":
+            response["error"]["arg"][arg] = getattr(e, arg)
+    return response
+
 @app.route("/get_node")
 def get_node():
     client = setup_client(bottle.request.GET.get("username"))
@@ -47,7 +57,7 @@ def get_node():
         node = client.get_node(name)
         return {"name": node.name ,"typename": node.get_info(), "hoststring": node.hoststring}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 
 @app.route("/get_nodes")
@@ -60,7 +70,7 @@ def get_nodes():
             result["nodes"].append({"name": node.name, "typename": node.get_info(), "hoststring": node.hoststring})
         return result
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.route("/is_available")
 def is_available():
@@ -70,7 +80,7 @@ def is_available():
         node = client.get_node(name)
         return ({"result": client.is_available(node)})
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.route("/is_allocated")
 def is_allocated():
@@ -80,7 +90,7 @@ def is_allocated():
         node = client.get_node(name)
         return ({"result": client.is_allocated(node)})
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.route("/is_quarantined")
 def is_quarantined():
@@ -90,7 +100,7 @@ def is_quarantined():
         node = client.get_node(name)
         return ({"result": client.is_quarantined(node)})
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 
 @app.route("/is_transient")
@@ -101,7 +111,7 @@ def is_transient():
         node = client.get_node(name)
         return ({"result": client.is_transient(node)})
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post("/deploy")
 def deploy():
@@ -122,18 +132,18 @@ def deploy():
             result[node.name] = {"pkg":{"name": pkg.name, "version": pkg.version}, "args": {"typename": node.get_typename(), "hoststring": node.hoststring}}
         return result
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post("/undeploy")
 def undeploy():
     try:
         data = bottle.request.json
         client = setup_client(data["session"]["username"])
-        session = client.open_session(data["session"]["name"])
+        session = client.get_session(data["session"]["name"])
         session.undeploy()
         return {}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post("/open_session")
 def open_session():
@@ -143,7 +153,7 @@ def open_session():
         session = client.open_session(data["session"]["name"])
         return {"session" :{"username": session.user.name, "name": session.name}}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post("/allocate_node")
 def allocate_node():
@@ -154,7 +164,7 @@ def allocate_node():
         node = session.allocate_node(**data["options"])
         return {"name": node.name,"typename": node.get_info(), "hoststring": node.hoststring}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post("/release_node")
 def release_node():
@@ -166,7 +176,7 @@ def release_node():
         session.release(node)
         return {}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.route('/get_node_session')
 def get_node_session():
@@ -179,7 +189,7 @@ def get_node_session():
             return {"session": {"username": session.user.name, "name": session.name}}
         return {}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post('/close_session')
 def close_session():
@@ -190,7 +200,7 @@ def close_session():
         session.close()
         return {}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.route('/get_sessions')
 def get_sessions():
@@ -201,7 +211,7 @@ def get_sessions():
             sessions["sessions"].append({"username": session.user.name, "name": session.name})
         return sessions
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.route('/get_session')
 def get_session():
@@ -214,7 +224,7 @@ def get_session():
             result[node.name] = {"typename": node.get_info(), "hoststring": node.hoststring}
         return result
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post('/add_node')
 def add_node():
@@ -224,7 +234,7 @@ def add_node():
         client.add_node(**data["node_opt"])
         return {}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.route('/remove_node')
 def remove_node():
@@ -234,7 +244,7 @@ def remove_node():
         client.remove_node(name)
         return {}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post('/quarantine_node')
 def quarantine_node():
@@ -244,7 +254,7 @@ def quarantine_node():
         client.quarantine_node(data["name"], data["reason"])
         return {}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post('/rehabilitate_node')
 def rehabilitate_node():
@@ -254,7 +264,7 @@ def rehabilitate_node():
         client.rehabilitate_node(data["name"])
         return {}
     except Exception as e:
-         return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+         return raise_exception(e)
 
 @app.route('/get_nodes_session')
 def get_nodes_session():
@@ -269,7 +279,7 @@ def get_nodes_session():
         result["nodes"]  = nodes
         return result
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.route('/session_contains')
 def session_contains():
@@ -283,8 +293,7 @@ def session_contains():
                 return {"result": True}
         return {"result": False}
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
-
+        return raise_exception(e)
 # Node level
 # FIXME object can't acces to username
 @app.post('/install')
@@ -298,7 +307,7 @@ def install():
                 return {"code": code, "stdout": stdout, "stderr": stderr}
         raise Exception("node %s doesn't exist" % data["node"]["name"])
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post('/uninstall')
 def uninstall():
@@ -311,7 +320,7 @@ def uninstall():
                 return {"code": code, "stdout": stdout, "stderr": stderr}
         raise Exception("node %s doesn't exist" % data["node"]["name"])
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post('/is_installed')
 def is_installed():
@@ -323,7 +332,7 @@ def is_installed():
                 return {"result": node.is_installed(cls(name = data["package"]["name"], version = data["package"]["version"]))}
         raise Exception("node %s doesn't exist" % data["node"]["name"])
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post('/is_installable')
 def is_installable():
@@ -335,7 +344,7 @@ def is_installable():
                 return {"result":node.is_installable(cls(name = data["package"]["name"], version = data["package"]["version"]))}
         raise Exception("node %s doesn't exist")
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 @app.post('/has_support')
 def has_support():
@@ -346,7 +355,7 @@ def has_support():
                 return {"result": node.has_support(**data["opts"])}
         raise Exception("node %s doesn't exist" % data["node"]["name"])
     except Exception as e:
-        return ({"error": "%s" % e, "type": "%s" % type(e).__name__})
+        return raise_exception(e)
 
 
 import unittest
@@ -363,7 +372,7 @@ class Server(multiprocessing.Process):
             self.grid = grid
 
         def run(self):
-            setup_serveur(self.host , self.port, self.grid)
+            setup_server(self.host , self.port, self.grid)
 
 class SelfTest(unittest.TestCase):
 
