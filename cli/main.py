@@ -25,7 +25,7 @@ Usage:
   tg [-m INI] [-g NAME] -s NAME --release-node NAME
   tg [-m INI] [-g NAME] -s NAME (--deploy --deb | --deploy --win) PKG...
   tg [-m INI] [-g NAME] -s NAME --undeploy
-  tg [-m INI] [-g NAME] -s NAME  --inventory PATH	--session-manifest INI
+  tg [-m INI] [-g NAME] -s NAME  --inventory PATH	--session-manifest INI --playbook_path PATH
   tg --version
   tg --help
 
@@ -58,6 +58,7 @@ Options:
   --version		      show version
   --inventory PATH	      ansible inventory file
   --session-manifest INI      session node description
+  --playbook_path PATH        ...
 
 Examples:
 # first, get back the official grid manifest:
@@ -318,16 +319,22 @@ def main():
 			elif opts["--undeploy"]:
 				session.undeploy()
 			elif opts["--inventory"]:
-				if controller:
-					testgrid.inventory.generate_inventory_script(opts["--inventory"], 
-										     opts["--session"],	 
-										     opts["--session-manifest"], 
-										     False, controller)
-				else:
-					testgrid.inventory.generate_inventory_script(opts["--inventory"], 
-										     opts["--session"],	 
-										     opts["--session-manifest"], 
-										     True, opts["--manifest"], opts["--grid"])
+				        nodes_opts = testgrid.parser.parse_session(opts["--session"], opts["--session-manifest"])
+					session = client.open_session(opts["--session"])
+					inventory_obj = testgrid.inventory.Inventory(opts["--inventory"])
+					inventory_obj.update_inventory(session, nodes_opts)
+					playbook = testgrid.anspkg.Playbook(opts["--playbook_path"], inventory_obj.inventory)
+					print playbook.run()
+				# if controller:
+				# 	testgrid.inventory.generate_inventory_script(opts["--inventory"], 
+				# 						     opts["--session"],	 
+				# 						     opts["--session-manifest"], 
+				# 						     False, controller)
+				# else:
+				# 	testgrid.inventory.generate_inventory_script(opts["--inventory"], 
+				# 						     opts["--session"],	 
+				# 						     opts["--session-manifest"], 
+				# 						     True, opts["--manifest"], opts["--grid"])
 
 
 		#########################
