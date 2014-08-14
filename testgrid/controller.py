@@ -196,7 +196,7 @@ def close_session():
     try:
         data = bottle.request.json
         client = setup_client(data["session"]["username"])
-        session = client.open_session(data["session"]["name"])
+        session = client.get_session(data["session"]["name"])
         session.close()
         return {}
     except Exception as e:

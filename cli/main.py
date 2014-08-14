@@ -348,8 +348,8 @@ def main():
 				list_sessions(client)
 			elif opts["--open-session"]:
 				session = client.open_session(opts["--open-session"])
-			elif opts["--terminate-session"]:
-				client.terminate_session(opts["--terminate-session"])
+			elif opts["--close-session"]:
+				client.close_session(opts["--terminate-session"])
 			else:
 				raise NotImplementedError()
 		return 0
