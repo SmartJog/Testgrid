@@ -1,4 +1,4 @@
-# copyright (c) 2013-2014 smartjog, released under the GPL license.
+#copyright (c) 2014 arkena, released under the GPL license.
 
 """
 inventory-generator tool that will use testgrid to provide an inventory file to  ansible

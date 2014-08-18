@@ -244,14 +244,14 @@ def main():
 		# instanciate client #
 		######################
 		opts = testgrid.docopt.docopt(__doc__, version = __version__)
-                parser = testgrid.parser.Parser(ini = opts["--manifest"])
-                controller = None
-                if parser.conf.has_section("controller"):
-                        if parser.conf.has_option("controller", "host") and parser.conf.has_option("controller", "port"):
-                                client = testgrid.rest.Client("%s:%s" % (parser.conf.get('controller', 'host'), parser.conf.get('controller', 'port')))
-                                controller = "%s:%s" % (parser.conf.get('controller', 'host'), parser.conf.get('controller', 'port'))
-                        else:
-                                raise Exception("bad manifest missing host or port")
+		parser = testgrid.parser.Parser(ini = opts["--manifest"])
+		controller = None
+		if parser.conf.has_section("controller"):
+			if parser.conf.has_option("controller", "host") and parser.conf.has_option("controller", "port"):
+				client = testgrid.rest.Client("%s:%s" % (parser.conf.get('controller', 'host'), parser.conf.get('controller', 'port')))
+				controller = "%s:%s" % (parser.conf.get('controller', 'host'), parser.conf.get('controller', 'port'))
+			else:
+				raise Exception("bad manifest missing host or port")
 		else:
 			client = testgrid.local.Client(
 				name = opts["--grid"],
@@ -301,8 +301,9 @@ def main():
 				_opts = {}
 				for key, value in parser.conf.items(opts["--allocate-node"]):
 					_opts[key] = value
-				if "NAME" in opts:
-					node = session.allocate_node(name = opts["NAME"], **_opts)
+				if opts["NAME"]:
+                                        _opts["name"] = opts["NAME"]
+					node = session.allocate_node(**_opts)
 				else:
 					node = session.allocate_node(**_opts)
 			elif opts["--release-node"]:
@@ -319,22 +320,22 @@ def main():
 			elif opts["--undeploy"]:
 				session.undeploy()
 			elif opts["--inventory"]:
-				        nodes_opts = testgrid.parser.parse_session(opts["--session"], opts["--session-manifest"])
+					nodes_opts = testgrid.parser.parse_session(opts["--session"], opts["--session-manifest"])
 					session = client.open_session(opts["--session"])
 					inventory_obj = testgrid.inventory.Inventory(opts["--inventory"])
 					inventory_obj.update_inventory(session, nodes_opts)
 					playbook = testgrid.anspkg.Playbook(opts["--playbook_path"], inventory_obj.inventory)
 					print playbook.run()
 				# if controller:
-				# 	testgrid.inventory.generate_inventory_script(opts["--inventory"], 
-				# 						     opts["--session"],	 
-				# 						     opts["--session-manifest"], 
-				# 						     False, controller)
+				#	testgrid.inventory.generate_inventory_script(opts["--inventory"], 
+				#						     opts["--session"],	 
+				#						     opts["--session-manifest"], 
+				#						     False, controller)
 				# else:
-				# 	testgrid.inventory.generate_inventory_script(opts["--inventory"], 
-				# 						     opts["--session"],	 
-				# 						     opts["--session-manifest"], 
-				# 						     True, opts["--manifest"], opts["--grid"])
+				#	testgrid.inventory.generate_inventory_script(opts["--inventory"], 
+				#						     opts["--session"],	 
+				#						     opts["--session-manifest"], 
+				#						     True, opts["--manifest"], opts["--grid"])
 
 
 		#########################

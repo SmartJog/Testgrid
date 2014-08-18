@@ -1,4 +1,4 @@
-# copyright (c) 2014 smartjog, released under the GPL license.
+#copyright (c) 2014 arkena, released under the GPL license.
 
 # IMPORTANT:
 # check the testbox key is set as deploy key of the aksetup repository.
