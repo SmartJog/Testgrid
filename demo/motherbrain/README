@@ -1,18 +1,19 @@
 mother brain deployment procedur using testgrid:
 
-- motherbrain.ini: sample tesgrid manifest , create all the VM required (9 for motherbrain) using IS on playground .
-ssh-copy-id -i on all the host, replace all the hostring in motherbrain.ini.
-
 -install motherbrain package
 sudo apt-get install motherbrain-deploy
 
 - session.ini: description all the machine required in ordr to deply mother brain, each section shuld match the inventory file
 
-tg -m demo/motherbrain/motherbrain.ini -l -s mother-brain --inventory  prod-hosts --session-manifest  demo/motherbrain/session.ini
+tg -s mother-brain --inventory  prod-hosts --session-manifest  demo/motherbrain/session.ini
 
 mother-brain.py will be generated
 
-ansible-playbook -i mother-brain.py  /usr/share/motherbrain-deploy/site.yml  -e mb_version=1.13.450c-1
+ansible-playbook -i mother-brain.py  /usr/share/motherbrain-deploy/site.yml
+
+run motherbrain-deply using testgrid:
+
+tg -s test --ans-playbook motherbrain
 
 more information regarding motherbrain:
 https://confluence.arkena.net/display/SJTP/Ansible+commands

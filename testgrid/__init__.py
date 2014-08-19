@@ -26,6 +26,7 @@ import client # model, parser
 import database # model, parser
 
 import persistent # model, database
+import anspkg
 
 #import vgadapter # model, persistent, vagrant
 #import isadapter # model, persistent, installsystems

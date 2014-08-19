@@ -25,7 +25,8 @@ Usage:
   tg [-m INI] [-g NAME] -s NAME --release-node NAME
   tg [-m INI] [-g NAME] -s NAME (--deploy --deb | --deploy --win) PKG...
   tg [-m INI] [-g NAME] -s NAME --undeploy
-  tg [-m INI] [-g NAME] -s NAME  --inventory PATH	--session-manifest INI --playbook_path PATH
+  tg [-m INI] [-g NAME] -s NAME  --ans-playbook NAME
+  tg [-m INI] [-g NAME] -s NAME  --inventory PATH --session-manifest INI
   tg --version
   tg --help
 
@@ -57,8 +58,8 @@ Options:
   -h, --help		      show help
   --version		      show version
   --inventory PATH	      ansible inventory file
-  --session-manifest INI      session node description
-  --playbook_path PATH        ...
+  --ans-playbook NAME         run ansible pplaybook
+  --session-manifest INI      ...
 
 Examples:
 # first, get back the official grid manifest:
@@ -80,35 +81,6 @@ Example, dynamic inventory for ansible:
   generated mb.py
   $ ansible-playbook -i mb.py ...
 """
-
-# Example, simple debian package deployment:
-# =======
-#   --add-node NAME	      add node parsed from manifest
-#   --remove-node NAME	      ...
-#   --quarantine-node NAME      place a node in quarantine
-#   --reason TEXT		      ...
-#   --rehabilitate-node NAME    rehabilitate a quarantined node
-#   --ping		      ...
-#   --install NAME	      ...
-#   --type NAME		      specify an object type
-#   --uninstall NAME	      ...
-#   --is-installed NAME	      ...
-#   --is-installable NAME	      ...
-#   -e, --execute		      ...
-#   --list-sessions	      ...
-#   --open-session NAME	      ...
-#   --close-session NAME	      ...
-#   --allocate-node NAME	      ...
-#   --release-node NAME	      ...
-#   --deploy PKG		      ...
-#   --deb PKG...		      ...
-#   --undeploy		      ...
-#   -m INI, --manifest INI      comma-separated list of .ini filepaths or URIs [default: ~/grid.ini]
-#   -l, --local		      use a local client
-#   -c HOST, --controller HOST  set REST controller hoststring [default: qa.lab.fr.lan:8080]
-#   -h, --help		      show help
-#   --version		      show version
-
 
 __version__ = "0.1~20140506-1"
 
@@ -319,23 +291,21 @@ def main():
 					print "package %s installed on node %s" % (p, node)
 			elif opts["--undeploy"]:
 				session.undeploy()
-			elif opts["--inventory"]:
-					nodes_opts = testgrid.parser.parse_session(opts["--session"], opts["--session-manifest"])
+			elif opts["--ans-playbook"]:
 					session = client.open_session(opts["--session"])
-					inventory_obj = testgrid.inventory.Inventory(opts["--inventory"])
-					inventory_obj.update_inventory(session, nodes_opts)
-					playbook = testgrid.anspkg.Playbook(opts["--playbook_path"], inventory_obj.inventory)
+					playbook = testgrid.anspkg.Playbook(opts["--ans-playbook"], session)
 					print playbook.run()
-				# if controller:
-				#	testgrid.inventory.generate_inventory_script(opts["--inventory"], 
-				#						     opts["--session"],	 
-				#						     opts["--session-manifest"], 
-				#						     False, controller)
-				# else:
-				#	testgrid.inventory.generate_inventory_script(opts["--inventory"], 
-				#						     opts["--session"],	 
-				#						     opts["--session-manifest"], 
-				#						     True, opts["--manifest"], opts["--grid"])
+                        elif opts["--inventory"]:
+				if controller:
+					testgrid.inventory.generate_inventory_script(opts["--inventory"], 
+										     opts["--session"],	 
+										     opts["--session-manifest"], 
+										     False, controller)
+				else:
+					testgrid.inventory.generate_inventory_script(opts["--inventory"], 
+										     opts["--session"],	 
+										     opts["--session-manifest"], 
+										     True, opts["--manifest"], opts["--grid"])
 
 
 		#########################

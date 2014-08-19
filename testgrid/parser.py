@@ -171,12 +171,15 @@ class Parser(object):
 		return self._mkobj(cls, **kwargs)
 
 	def _parse_session(self, section):
+		opt = {}
+		nodes_opt = []
 		for key, value in self.conf.items(section):
 			if key.endswith("nodes"):
-				nodes_opt = []
 				for s in value.split():
 					nodes_opt.append(self.cache[s] if s in self.cache else self._parse(s, self._parse_node_dictionary))
-				return nodes_opt
+			else:
+				opt[key] = value
+		return nodes_opt, opt
 
 	def _parse(self, section, hdl):
 		if not self.conf.has_section(section):
@@ -218,13 +221,13 @@ def parse_session(name, ini, *modules):
 	return Parser(ini, *modules).parse_session(name)
 
 def create_node_object(**opts):
-        if "type" in opts:
-                cls = get_subclass(normalized(opts["type"]), model.Node)
-                del opts["type"]
-                node = Parser._mkobj(cls, **opts)
-                return node
-        else:
-                raise Exception("missing type")
+	if "type" in opts:
+		cls = get_subclass(normalized(opts["type"]), model.Node)
+		del opts["type"]
+		node = Parser._mkobj(cls, **opts)
+		return node
+	else:
+		raise Exception("missing type")
 
 ##############
 # unit tests #
