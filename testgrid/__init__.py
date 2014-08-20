@@ -27,7 +27,7 @@ import database # model, parser
 
 import persistent # model, database
 import anspkg
-
+import shell
 #import vgadapter # model, persistent, vagrant
 #import isadapter # model, persistent, installsystems
 

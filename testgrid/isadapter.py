@@ -3,7 +3,6 @@
 "installsystems.Hypervisor adapter for testgrid"
 
 from testgrid import database, persistent, installsystems, model, shell
-import paramiko
 import time
 import os
 
