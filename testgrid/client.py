@@ -8,13 +8,13 @@ class UnknownSessionError(Exception):
 
 	def __init__(self, name):
 		super(UnknownSessionError, self).__init__("%s: no such session" % name)
-                self.name = name
+		self.name = name
 
 class UnknownNodeError(Exception):
 
 	def __init__(self, name):
 		super(UnknownNodeError, self).__init__("%s: no such node" % name)
-                self.name = name
+		self.name = name
 
 class User(model.User):
 
@@ -111,11 +111,11 @@ class Client(object):
 
 	def is_quarantined(self, node):
 		"return True if the node is quarantined"
- 		return self.grid.is_quarantined(node)
+		return self.grid.is_quarantined(node)
 
 	def is_transient(self, node):
 		"return True if the node is quarantined"
- 		return self.grid._is_transient(node)
+		return self.grid._is_transient(node)
 
 	@restricted
 	def quarantine_node(self, name, reason):
@@ -215,14 +215,14 @@ class SelfTest(unittest.TestCase):
 	def test_get_nodes(self):
 		admin_client, clients, sessions, nodes = self.mkenv(10, 10)
 		# admin get all nodes:
-                self.assertEqual(
-                        list(admin_client.get_nodes()),
-                        nodes)
-                # user get its nodes:
-                for client in clients:
-                        self.assertEqual(
-                                list(n for n in client.get_nodes()),
-                                list(n for n in sessions[clients.index(client)]))
+		self.assertEqual(
+			list(admin_client.get_nodes()),
+			nodes)
+		# user get its nodes:
+		for client in clients:
+			self.assertEqual(
+				list(n for n in client.get_nodes()),
+				list(n for n in sessions[clients.index(client)]))
 
 	def test_get_node(self):
 		_, clients, sessions, nodes = self.mkenv(10, 10)
@@ -238,8 +238,8 @@ class SelfTest(unittest.TestCase):
 	def test_get_sessions(self):
 		admin_client, clients, sessions, nodes = self.mkenv(10, 10)
 		# admin get all sessions:
-                self.assertEqual(list(admin_client.get_sessions()),
-                                 sessions)
+		self.assertEqual(list(admin_client.get_sessions()),
+				 sessions)
 		# user get its sessions:
 		for client in clients:
 			expected, = client.get_sessions()

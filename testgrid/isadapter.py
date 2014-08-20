@@ -85,12 +85,12 @@ class Grid(persistent.Grid):
 	def _build_node(self, pkg = None, **opts):
 		image_name = opts["image_name"]
 		profile_name = opts["profile_name"]
-                if "stdout" in opts:
-                        self.stdout = None
-                        self.stderr = None
-                else:
-                        self.stdout = shell.Stdout
-                        self.stderr = shell.Stderr
+		if "stdout" in opts:
+			self.stdout = None
+			self.stderr = None
+		else:
+			self.stdout = shell.Stdout
+			self.stderr = shell.Stderr
 		if "name" in opts:
 			hostname = opts["name"]
 		else:
@@ -124,8 +124,8 @@ class Grid(persistent.Grid):
 			except shell.CommandFailure:
 				if time.time() > timeout:
 					raise Exception("couldn't reach %s" % node.hoststring)
-                                if "stdout"not in opts:
-                                        print "can't reach %s" % node.hoststring
+				if "stdout"not in opts:
+					print "can't reach %s" % node.hoststring
 				time.sleep(1)
 		shell.ssh(hoststring = "root@%s" %  node.hoststring, argv = "touch /etc/apt/apt.conf.d/proxyqap")
 		shell.scp(hoststring = "root@%s" %  node.hoststring, remotepath= "/etc/apt/apt.conf.d/proxyqap", localpath="/etc/tgc/apt.conf")
@@ -168,55 +168,55 @@ class TempGrid(Grid):
 #########
 # import tempfile
 
-# class FakeTempGrid(TempGrid):
-# 	def __init__(self, name, hoststring, dbpath):
-# 		super(Grid, self).__init__(name = name, dbpath = dbpath)
-# 		self.hoststring = hoststring
-#                 self.public_key = None
-# 		self.hv = installsystems.Hypervisor(run = installsystems.FakeRunner())
-# 		self.ipstore = installsystems.FakeIPStore(host = "fake", port = 0)
-# 		self.ipstore.cache["/allocate?reason=hv+%7C+no+details"] = "42.42.42.42"
-# 		self.ipstore.cache["/release/42.42.42.42"] = "released 42.42.42.42"
-# 		with tempfile.NamedTemporaryFile() as f:
-# 			f.write("""
-# 			{
-# 				"debian-smartjog": {
-# 					"tg:basic": {
-# 						"description": "",
-# 						"format": [
-# 							"--hostname", "%(domain_name)s"
-# 						]
-# 					}
-# 				}
-# 			}
-# 			""")
-# 			f.flush()
-# 			self.profiles = installsystems.Profiles(path = f.name)
+class FakeTempGrid(TempGrid):
+	def __init__(self, name, hoststring, dbpath):
+		super(Grid, self).__init__(name = name, dbpath = dbpath)
+		self.hoststring = hoststring
+		self.public_key = None
+		self.hv = installsystems.Hypervisor(run = installsystems.FakeRunner())
+		self.ipstore = installsystems.FakeIPStore(host = "fake", port = 0)
+		self.ipstore.cache["/allocate?reason=hv+%7C+no+details"] = "42.42.42.42"
+		self.ipstore.cache["/release/42.42.42.42"] = "released 42.42.42.42"
+		with tempfile.NamedTemporaryFile() as f:
+			f.write("""
+			{
+				"debian-smartjog": {
+					"tg:basic": {
+						"description": "",
+						"format": [
+							"--hostname", "%(domain_name)s"
+						]
+					}
+				}
+			}
+			""")
+			f.flush()
+			self.profiles = installsystems.Profiles(path = f.name)
 
-#         def _create_node(self, pkg = None, **opts):
-#                 return  self._build_node(pkg, **opts)
+	def _create_node(self, pkg = None, **opts):
+		return	self._build_node(pkg, **opts)
 
-# import unittest, time
-# class FakeTest(unittest.TestCase):
+import unittest, time
+class FakeTest(unittest.TestCase):
 
-# 	def setUp(self):
-# 		self.grid = FakeTempGrid(name = "fake_is_test", hoststring = "fakehoststring", dbpath = "/tmp/fake_is.db")
-# 		self.profile = "tg:basic"
-#                 self.opts = {"image_name": "debian-smartjog",
-#                              "profile_name": self.profile,
-#                              "name": "test-isadapter-%s"
-#                              % time.strftime("%Y%m%d%H%M%S", time.localtime())}
-#                 self.grid.ipstore.cache["/tg/allocate?reason=hv+%7C+image_name%3Ddebian-smartjog+domain_name%3D" + self.opts["name"]] = "42.42.42.42"
+	def setUp(self):
+		self.grid = FakeTempGrid(name = "fake_is_test", hoststring = "fakehoststring", dbpath = "/tmp/fake_is.db")
+		self.profile = "tg:basic"
+		self.opts = {"image_name": "debian-smartjog",
+			     "profile_name": self.profile,
+			     "name": "test-isadapter-%s"
+			     % time.strftime("%Y%m%d%H%M%S", time.localtime())}
+		self.grid.ipstore.cache["/tg/allocate?reason=hv+%7C+image_name%3Ddebian-smartjog+domain_name%3D" + self.opts["name"]] = "42.42.42.42"
 
-# 	def test(self):
-# 		user = database.StorableUser("user")
-# 		session = self.grid.open_session(name = "test", user = user)
-# 		node = session.allocate_node(**self.opts)
-# 		del session
-# 		session = self.grid.open_session(name = "test", user = user) # re-open
-# 		self.assertIn(node, session)
-# 		session.release(node)
-# 		self.assertNotIn(node, session)
+	def test(self):
+		user = database.StorableUser("user")
+		session = self.grid.open_session(name = "test", user = user)
+		node = session.allocate_node(**self.opts)
+		del session
+		session = self.grid.open_session(name = "test", user = user) # re-open
+		self.assertIn(node, session)
+		session.release(node)
+		self.assertNotIn(node, session)
 
 
 

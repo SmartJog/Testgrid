@@ -51,9 +51,9 @@ obj/tgc: 	obj
 
 test: 	| obj
 ifeq ($(shell which nosetests),)
-	python -m unittest -v testgrid.model testgrid.controller testgrid.database testgrid.persistent testgrid.client testgrid.isadapter testgrid.rest
+	python -m unittest -v testgrid.model testgrid.controller testgrid.database testgrid.persistent testgrid.client testgrid.rest
 else
-	nosetests --with-xunit --xunit-file=obj/nosetests.xml -v testgrid.model testgrid.controller testgrid.database testgrid.persistent testgrid.client testgrid.isadapter testgrid.rest
+	nosetests --with-xunit --xunit-file=obj/nosetests.xml -v testgrid.model testgrid.controller testgrid.database testgrid.persistent testgrid.client testgrid.rest
 
 endif
 
