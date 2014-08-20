@@ -12,4 +12,9 @@ else
    echo "ssh key generation"
    sudo -u tgc ssh-keygen -t rsa -f /home/tgc/.ssh/id_rsa -q -N ""
 fi
+
+echo "ssh-copy-id to tg1 , tg2, tg3"
+sudo -u tgc ssh-copy-id root@10.44.192.5
+sudo -u tgc ssh-copy-id root@10.44.192.3
+sudo -u tgc ssh-copy-id root@10.44.192.4
 service tgc restart
