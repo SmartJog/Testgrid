@@ -14,6 +14,7 @@ class Playbook():
                  runner_callbacks = callbacks.PlaybookRunnerCallbacks(callbacks.AggregateStats(),
                                                                       verbose=utils.VERBOSITY), 
                  stats = callbacks.AggregateStats()):
+        #!!!!! DEBUG utils.VERBOSITY = 4
         parser = testgrid.parser.Parser(ini= "/etc/tg/web-server.ini")
         if parser.conf.has_section("tg-web-server"):
             self.host = parser.conf.get('tg-web-server', 'host')
